@@ -648,10 +648,10 @@ body:has(#consorteEditDock.active) #launchEditorAnywhere{display:none}
  <input type="email" id="cloud-email" placeholder="Correo electrónico" autocomplete="email" aria-label="Correo">
  <input type="password" id="cloud-password" placeholder="Contraseña" autocomplete="current-password" aria-label="Contraseña">
  <button id="cloud-login" type="button">Entrar</button><button id="cloud-signup" type="button">Crear cuenta</button>
- <button id="cloud-sync" type="button" style="display:none">Subir documentos anteriores</button>
+ 
  <button id="cloud-logout" type="button" style="display:none">Salir</button>
  </div>
- <p class="cloud-note">Usa el mismo correo y contraseña en cada dispositivo. La primera vez, pulsa «Subir documentos anteriores» para copiar tus archivos guardados localmente.</p>
+ <p class="cloud-note">Usa el mismo correo y contraseña en cada dispositivo. Los archivos locales se subirán automáticamente al iniciar sesión y al recuperar conexión.</p>
 </section>
 <script id="consorte-cloud-sync">
 (()=>{
@@ -665,10 +665,13 @@ const panel=$c('consorte-cloud-panel');
 const status=t=>{$c('cloud-status').textContent=t;};
 let session=null, busy=false, syncing=false;
 const localPut=putRecord, localDelete=delRecord;
+const markKey=()=>session?.user?.id?'consorte_synced_'+session.user.id:null;
+function marked(){try{return new Set(JSON.parse(localStorage.getItem(markKey())||'[]'))}catch{return new Set()}}
+function mark(id){if(!markKey())return;const xs=marked();xs.add(id);localStorage.setItem(markKey(),JSON.stringify([...xs]))}
 let suppress=false;
 function loadSession(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null')}catch{return null}}
 function saveSession(value){session=value;try{if(value)localStorage.setItem(STORAGE_KEY,JSON.stringify(value));else localStorage.removeItem(STORAGE_KEY)}catch{}; showSession()}
-function showSession(){const on=!!session?.access_token;$c('cloud-login').style.display=on?'none':'';$c('cloud-signup').style.display=on?'none':'';$c('cloud-email').style.display=on?'none':'';$c('cloud-password').style.display=on?'none':'';$c('cloud-sync').style.display=on?'':'none';$c('cloud-logout').style.display=on?'':'none';if(on)status('Conectado: '+(session.user?.email||'cuenta activa'))}
+function showSession(){const on=!!session?.access_token;$c('cloud-login').style.display=on?'none':'';$c('cloud-signup').style.display=on?'none':'';$c('cloud-email').style.display=on?'none':'';$c('cloud-password').style.display=on?'none':'';$c('cloud-logout').style.display=on?'':'none';if(on)status('Conectado: '+(session.user?.email||'cuenta activa'))}
 async function authFetch(path,payload){const res=await fetch(SUPABASE_URL+'/auth/v1/'+path,{method:'POST',headers:{'apikey':PUB_KEY,'Content-Type':'application/json'},body:JSON.stringify(payload)});const data=await res.json().catch(()=>({}));if(!res.ok)throw Error(data.msg||data.error_description||data.message||data.error||('Error '+res.status));return data;}
 async function validateSession(){if(!session)return false;if((session.expires_at||0)>Math.floor(Date.now()/1000)+90)return true;if(!session.refresh_token){saveSession(null);return false;}try{const v=await authFetch('token?grant_type=refresh_token',{refresh_token:session.refresh_token});saveSession(v);return true}catch(e){saveSession(null);status('La sesión expiró: entra nuevamente.');return false}}
 async function api(path,options={}){if(!await validateSession())throw Error('Inicia sesión para sincronizar');const hdr={'apikey':PUB_KEY,'Authorization':'Bearer '+session.access_token,...(options.headers||{})};const res=await fetch(SUPABASE_URL+path,{...options,headers:hdr});if(!res.ok){const body=await res.text();throw Error('Nube '+res.status+': '+body.slice(0,200))}return res}
@@ -679,6 +682,7 @@ const meta={id:r.id,parent:r.parent??null,type:r.type,kind:r.kind||'',name:r.nam
 let object_path=null;
 if(r.type==='file'&&r.blob){object_path=pathFor(r);await api('/storage/v1/object/'+BUCKET+'/'+object_path,{method:'POST',headers:{'Content-Type':mimeFor(r),'x-upsert':'true'},body:r.blob});}
 await api('/rest/v1/consorte_sync_items?on_conflict=owner_id,id',{method:'POST',headers:{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({id:r.id,owner_id:session.user.id,metadata:meta,object_path,updated_at:new Date().toISOString()})});
+mark(r.id);
 }
 putRecord=async function(r){await localPut(r);if(session){try{await cloudSave(r);status('Documento guardado y sincronizado: '+r.name)}catch(e){status('Guardado local. No subido a la nube: '+e.message)}}};
 delRecord=async function(id){await localDelete(id);if(session){try{await api('/rest/v1/consorte_sync_items?id=eq.'+encodeURIComponent(id),{method:'DELETE'});}catch(e){status('Eliminado localmente; fallo en nube: '+e.message)}}};
@@ -690,21 +694,27 @@ if(row.object_path){const res=await api('/storage/v1/object/'+BUCKET+'/'+row.obj
 suppress=true;try{await localPut(item)}finally{suppress=false}count++;}
 if(count){await refresh();status(count+' documento(s) nuevo(s) recibidos de la nube.');}
 }catch(e){status('No se pudo recibir documentos: '+e.message)}finally{syncing=false}}
-async function pushExisting(){if(!session||busy)return;busy=true;const button=$c('cloud-sync');button.disabled=true;try{
-const all=await allRecords();let done=0,failed=[];
-for(const r of all){try{await cloudSave(r);done++;status('Subiendo documentos: '+done+' de '+all.length)}catch(e){failed.push(r.name+': '+e.message)}}
-status(failed.length?'Se subieron '+done+' documentos. Fallaron '+failed.length+'. Ej.: '+failed[0]:'¡'+done+' documentos guardados en la nube!');
-await pull();
-}catch(e){status('Error al subir: '+e.message)}finally{busy=false;button.disabled=false}}
+async function pushExisting(){if(!session||busy||!db||!navigator.onLine)return;busy=true;try{
+ const local=await allRecords(),doneIds=marked();
+ const response=await api('/rest/v1/consorte_sync_items?select=id',{headers:{Accept:'application/json'}});
+ const remote=new Set((await response.json()).map(x=>x.id));let saved=0,failed=0;
+ for(const item of local){
+  if(remote.has(item.id)){mark(item.id);continue;}
+  if(doneIds.has(item.id))continue;
+  try{await cloudSave(item);saved++;status('Subiendo automáticamente: '+saved+' archivo(s)')}
+  catch(e){failed++;status('Pendientes de subir: '+failed+'. '+e.message)}
+ }
+ if(saved&&!failed)status('Documentos sincronizados automáticamente: '+saved);
+}catch(e){status('Sincronización pendiente: '+e.message)}finally{busy=false}}
 async function login(signup){const email=$c('cloud-email').value.trim(),password=$c('cloud-password').value;if(!email||!password){status('Escribe tu correo y contraseña.');return}
-try{status('Conectando…');const v=await authFetch(signup?'signup':'token?grant_type=password',{email,password});if(!v.access_token){status('Revisa tu correo para confirmar la cuenta, luego pulsa Entrar.');return}saveSession(v);await pull()}catch(e){status('No se pudo iniciar sesión: '+e.message)}}
+try{status('Conectando…');const v=await authFetch(signup?'signup':'token?grant_type=password',{email,password});if(!v.access_token){status('Revisa tu correo para confirmar la cuenta, luego pulsa Entrar.');return}saveSession(v);await pull();await pushExisting()}catch(e){status('No se pudo iniciar sesión: '+e.message)}}
 $c('cloud-login').onclick=()=>login(false);
 $c('cloud-signup').onclick=()=>login(true);
-$c('cloud-sync').onclick=pushExisting;
+
 $c('cloud-logout').onclick=()=>{saveSession(null);status('Sesión cerrada. Archivos locales conservados.')};
 saveSession(loadSession());
-setTimeout(()=>{if(session)pull()},1500);
-setInterval(()=>{if(session)pull()},25000);
-window.addEventListener('online',()=>{if(session)pull()});
+setTimeout(async()=>{if(session){await pull();await pushExisting()}},1500);
+setInterval(async()=>{if(session){await pull();await pushExisting()}},25000);
+window.addEventListener('online',async()=>{if(session){await pull();await pushExisting()}});
 })();
 </script></body></html>
