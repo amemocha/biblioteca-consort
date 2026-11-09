@@ -165,4 +165,4 @@ function update(){
 function loop(){update();if(!player.paused)animation=requestAnimationFrame(loop)}player.onplay=()=>{cancelAnimationFrame(animation);loop()};player.onpause=()=>cancelAnimationFrame(animation);player.onseeked=update;$('meter').onchange=()=>{if($('meter').value)$('meterReading').textContent='Compás '+$('meter').value+' · seleccionado manualmente';update()};
 $('setStart').onclick=()=>{if(!tempo){alert('Analiza primero el audio.');return}offset=player.currentTime;update();setStatus('Inicio de compás 1 fijado en '+offset.toFixed(1)+' segundos.')};
 $('speed').oninput=()=>{player.playbackRate=Number($('speed').value)/100;$('speedText').textContent=$('speed').value+'%'};
-</script><script src="./consorte-sync-inteligente.js?v=20261109b"></script></body></html>
+</script><script src="./consorte-sync-inteligente.js?v=20261109c"></script></body></html>
