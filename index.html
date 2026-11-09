@@ -153,6 +153,9 @@ function allRecords(){return new Promise((resolve,reject)=>{let r=tx().getAll();
 function putRecord(v){return new Promise((resolve,reject)=>{let r=tx('readwrite').put(v);r.onsuccess=()=>resolve();r.onerror=()=>reject(r.error)})}
 function delRecord(id){return new Promise((resolve,reject)=>{let r=tx('readwrite').delete(id);r.onsuccess=()=>resolve();r.onerror=()=>reject(r.error)})}
 function rec(id){return state.records.find(r=>r.id===id)}
+window.consorteFindRecord=rec;
+window.consorteAllLibraryRecords=()=>state.records;
+window.consorteStudyRecord=r=>openLinkedPiece(r);
 async function refresh(){state.records=await allRecords();rebuildFilters();renderLibrary()}
 const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now()+'_'+Math.random();
 function getKind(f){if(f.type?.startsWith('audio/')||/\.(mp3|wav|ogg|m4a|aac)$/i.test(f.name))return 'audio';if(f.type?.startsWith('image/')||/\.(png|jpg|jpeg|webp)$/i.test(f.name))return 'image';if(/\.pdf$/i.test(f.name)||f.type==='application/pdf')return 'pdf';return 'other'}
@@ -1281,10 +1284,18 @@ function render(){
  const filter=$('agenda-filter').value;events=events.filter(e=>filter==='all'||(filter==='day'?e.date===selected:e.date>=today));
  if(!events.length)root.append(node('p','No hay actividades para este filtro.','small'));
  for(const e of events){const el=node('div',null,'agenda-entry');el.append(node('strong',e.date+' '+(e.time||'')+' · '+e.type+' · '+e.name));if(e.place)el.append(node('p','Lugar: '+e.place));if(e.detail)el.append(node('p',e.detail));itemActions(e,true,el);root.append(el)}
- const notes=$('agenda-notes');notes.replaceChildren();const q=$('agenda-note-search').value.trim().toLocaleLowerCase('es');let rows=data.notes.filter(n=>(n.title+' '+n.category+' '+n.body).toLocaleLowerCase('es').includes(q));
- const sort=$('agenda-note-sort').value;rows.sort((a,b)=>sort==='title'?a.title.localeCompare(b.title):sort==='old'?a.created-b.created:b.created-a.created);
- if(!rows.length)notes.append(node('p','No hay notas para mostrar.','small'));
- for(const n of rows){const el=node('div',null,'agenda-entry');el.append(node('strong',n.title+' · '+n.category),node('p',n.body));itemActions(n,false,el);notes.append(el)}
+ const notes=$('agenda-notes');notes.replaceChildren();
+ const q=$('agenda-note-search').value.trim().toLocaleLowerCase('es');
+ const sort=$('agenda-note-sort').value;
+ const plain=n=>String(n.html||n.body||'').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ');
+ let rows=data.notes.filter(n=>(String(n.title||'')+' '+plain(n)).toLocaleLowerCase('es').includes(q));
+ rows.sort((a,b)=>sort==='title'?String(a.title||'').localeCompare(String(b.title||'')):sort==='old'?(a.created||0)-(b.created||0):(b.created||0)-(a.created||0));
+ if(!rows.length)notes.append(node('p','Todavía no hay notas. Pulsa «Nueva nota» para empezar.','small'));
+ for(const n of rows){const card=node('div',null,'consorte-note-card');card.tabIndex=0;card.setAttribute('role','button');card.append(node('strong',n.title||'Sin título'));
+ const preview=node('div',plain(n).slice(0,250),'consorte-note-preview');card.append(preview);
+ card.onclick=()=>window.consorteOpenNote?.(n.id);card.onkeydown=e=>{if(e.key==='Enter')card.click()};
+ notes.append(card)}
+
 }
 $('agenda-prev').onclick=()=>{if(calendarView==='month')month.setMonth(month.getMonth()-1);else{const d=new Date(selected+'T12:00:00');d.setDate(d.getDate()-(calendarView==='week'?7:1));selected=dayString(d);month=new Date(d.getFullYear(),d.getMonth(),1);$('agenda-date').value=selected}render()};
 $('agenda-next').onclick=()=>{if(calendarView==='month')month.setMonth(month.getMonth()+1);else{const d=new Date(selected+'T12:00:00');d.setDate(d.getDate()+(calendarView==='week'?7:1));selected=dayString(d);month=new Date(d.getFullYear(),d.getMonth(),1);$('agenda-date').value=selected}render()};
@@ -1310,11 +1321,115 @@ $('agenda-event-form').onsubmit=e=>{e.preventDefault();const item={id:editEvent|
  const i=data.events.findIndex(e=>e.id===item.id);if(i>=0)data.events[i]=item;else data.events.push(item);
  selected=item.date;month=new Date(item.date+'T12:00:00');closeEventDialog();save()};
 $('agenda-event-cancel').onclick=closeEventDialog;
-$('agenda-note-form').onsubmit=e=>{e.preventDefault();const old=data.notes.find(n=>n.id===editNote);const item={id:editNote||('n'+Date.now()+Math.random()),created:old?.created||Date.now(),title:$('agenda-note-title').value.trim(),category:$('agenda-note-category').value,body:$('agenda-note-body').value.trim()};if(!item.title||!item.body)return;
- const i=data.notes.findIndex(n=>n.id===item.id);if(i>=0)data.notes[i]=item;else data.notes.push(item);editNote=null;$('agenda-note-form').reset();$('agenda-note-cancel').hidden=true;save()};
-$('agenda-note-cancel').onclick=()=>{editNote=null;$('agenda-note-form').reset();$('agenda-note-cancel').hidden=true};
 $('agenda-export').onclick=()=>{const blob=new Blob([JSON.stringify({...data,exported:new Date().toISOString()},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=node('a');a.href=url;a.download='Biblioteca_Consorte_Agenda.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),30000)};
 $('agenda-import').onchange=async e=>{const file=e.target.files?.[0];if(!file)return;try{const parsed=JSON.parse(await file.text());if(!Array.isArray(parsed.events)||!Array.isArray(parsed.notes))throw Error('Formato incorrecto');if(!confirm('¿Importar este respaldo y reemplazar los datos de la agenda en este dispositivo?'))return;data={events:parsed.events,notes:parsed.notes};save()}catch(err){alert('No se pudo importar: '+err.message)}e.target.value=''};
+window.consorteAgendaData=data;
+window.consorteAgendaSave=save;
+window.consorteAgendaRender=render;
+
 render();
+})();
+</script><script id="consorte-rich-notes-script">
+(()=>{
+'use strict';
+const $=id=>document.getElementById(id),data=window.consorteAgendaData,save=window.consorteAgendaSave;
+if(!data||!save)return;
+const editor=$('agenda-note-editor'),title=$('agenda-note-title'),dlg=$('consorte-note-dialog');
+let editing=null,linked=[],currentDrawing=null,penDown=false,lastPosition=null;
+const freshId=()=>('note-'+Date.now()+'-'+Math.random().toString(36).slice(2));
+function escapeHtml(v){return String(v||'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
+function cleanHtml(html){
+ const doc=new DOMParser().parseFromString('<div>'+html+'</div>','text/html');
+ const allowed=new Set(['DIV','P','BR','B','STRONG','I','EM','U','S','UL','OL','LI','BLOCKQUOTE','IMG','SPAN','H1','H2','H3']);
+ for(const el of [...doc.body.querySelectorAll('*')].reverse()){
+   if(el.tagName==='IMG'){
+      const src=el.getAttribute('src')||'';
+      if(!/^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(src))el.remove();
+      else{for(const attr of [...el.attributes])if(attr.name!=='src')el.removeAttribute(attr.name)}
+      continue;
+   }
+   if(!allowed.has(el.tagName)){el.replaceWith(...el.childNodes);continue}
+   for(const attr of [...el.attributes])el.removeAttribute(attr.name);
+ }
+ return doc.body.firstElementChild?.innerHTML||'';
+}
+function showLinks(){
+ const root=$('note-song-links');root.replaceChildren();
+ for(const id of linked){
+ const rec=(window.consorteFindRecord&&window.consorteFindRecord(id))||null;
+ const box=document.createElement('span');box.className='note-song-link';
+ const open=document.createElement('button');open.type='button';open.textContent=rec?.name||'Archivo no disponible';open.title='Abrir en Estudio';open.onclick=()=>{dlg.close();if(rec&&window.consorteStudyRecord)window.consorteStudyRecord(rec)};
+ const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.title='Quitar vínculo';remove.onclick=()=>{linked=linked.filter(x=>x!==id);showLinks()};
+ box.append(open,remove);root.append(box);
+ }
+}
+function openNote(id=null){
+ const n=data.notes.find(x=>x.id===id)||null;
+ editing=n?.id||null;title.value=n?.title||'';
+ editor.innerHTML=cleanHtml(n?.html||escapeHtml(n?.body||'').replace(/\n/g,'<br>'));
+ linked=Array.isArray(n?.songIds)?[...n.songIds]:[];showLinks();
+ dlg.showModal();setTimeout(()=>title.focus(),30);
+}
+window.consorteOpenNote=openNote;
+$('agenda-note-new').onclick=()=>openNote();
+function closeNote(){dlg.close();editing=null}
+$('consorte-note-close').onclick=closeNote;
+function persistNote(){
+ const name=title.value.trim(),html=cleanHtml(editor.innerHTML),body=editor.innerText||'';
+ if(!name&&!body.trim()&&!editor.querySelector('img')&&!linked.length){closeNote();return}
+ const old=data.notes.find(n=>n.id===editing),note={
+ id:editing||freshId(),created:old?.created||Date.now(),updated:Date.now(),
+ title:name||'Sin título',body,html,songIds:[...linked],category:old?.category||'General'
+ };
+ const i=data.notes.findIndex(n=>n.id===note.id);if(i>=0)data.notes[i]=note;else data.notes.push(note);
+ save();closeNote();
+}
+$('agenda-note-save').onclick=persistNote;
+dlg.addEventListener('cancel',()=>{editing=null});
+dlg.addEventListener('close',()=>{editing=null});
+for(const b of document.querySelectorAll('[data-note-cmd]'))b.onclick=()=>{editor.focus();document.execCommand(b.dataset.noteCmd,false,null)};
+$('note-checklist').onclick=()=>{editor.focus();document.execCommand('insertHTML',false,'<p>☐ Pendiente</p>')};
+function addImage(src){editor.focus();const img=document.createElement('img');img.src=src;img.alt='Imagen de nota';editor.append(img,document.createElement('p'));editor.scrollTop=editor.scrollHeight}
+$('note-add-photo').onclick=()=>$('note-photo-file').click();
+$('note-photo-file').onchange=async e=>{
+ for(const file of [...e.target.files].slice(0,8)){
+  if(!file.type.startsWith('image/'))continue;
+  try{
+    const image=await createImageBitmap(file);
+    const canvas=document.createElement('canvas'),scale=Math.min(1,1100/image.width,1100/image.height);
+    canvas.width=Math.max(1,Math.round(image.width*scale));canvas.height=Math.max(1,Math.round(image.height*scale));
+    canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);
+    addImage(canvas.toDataURL('image/jpeg',.68));image.close();
+  }catch(err){alert('No se pudo agregar imagen: '+err.message)}
+ }
+ e.target.value='';
+};
+$('note-add-song').onclick=()=>{$('note-song-dialog').showModal();refreshSongs();$('note-song-search').focus()};
+$('note-song-close').onclick=()=>$('note-song-dialog').close();
+$('note-song-search').oninput=refreshSongs;
+function refreshSongs(){
+ const list=$('note-song-results');list.replaceChildren();
+ const q=$('note-song-search').value.toLocaleLowerCase('es');
+ const records=window.consorteAllLibraryRecords?.()||[];
+ const filtered=records.filter(r=>r.type==='file'&&(r.name||'').toLocaleLowerCase('es').includes(q)).slice(0,100);
+ if(!filtered.length){list.textContent='No se encontraron canciones en esta biblioteca.';return}
+ for(const r of filtered){
+ const b=document.createElement('button');b.type='button';b.textContent=(linked.includes(r.id)?'✓ ':'+ ')+r.name;
+ b.onclick=()=>{if(!linked.includes(r.id))linked.push(r.id);else linked=linked.filter(id=>id!==r.id);showLinks();refreshSongs()};
+ list.append(b);
+ }
+}
+const canvas=$('note-drawing-canvas'),ctx=canvas.getContext('2d');ctx.lineCap='round';ctx.lineJoin='round';
+function resetDrawing(){ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height)}
+resetDrawing();
+$('note-draw').onclick=()=>{$('note-drawing-dialog').showModal()};
+$('note-draw-close').onclick=()=>$('note-drawing-dialog').close();
+$('note-ink-clear').onclick=resetDrawing;
+$('note-ink-erase').onclick=()=>{$('note-ink-color').value='#ffffff'};
+const pos=e=>{const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)*canvas.width/r.width,y:(e.clientY-r.top)*canvas.height/r.height}};
+canvas.onpointerdown=e=>{penDown=true;canvas.setPointerCapture(e.pointerId);lastPosition=pos(e)};
+canvas.onpointermove=e=>{if(!penDown)return;const p=pos(e);ctx.beginPath();ctx.strokeStyle=$('note-ink-color').value;ctx.lineWidth=+$('note-ink-width').value;ctx.moveTo(lastPosition.x,lastPosition.y);ctx.lineTo(p.x,p.y);ctx.stroke();lastPosition=p};
+canvas.onpointerup=canvas.onpointercancel=()=>{penDown=false};
+$('note-drawing-insert').onclick=()=>{addImage(canvas.toDataURL('image/jpeg',.75));$('note-drawing-dialog').close();resetDrawing()};
 })();
 </script></body></html>
