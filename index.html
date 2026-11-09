@@ -1258,10 +1258,9 @@ function render(){
 }
 $('agenda-prev').onclick=()=>{if(calendarView==='month')month.setMonth(month.getMonth()-1);else{const d=new Date(selected+'T12:00:00');d.setDate(d.getDate()-(calendarView==='week'?7:1));selected=dayString(d);month=new Date(d.getFullYear(),d.getMonth(),1);$('agenda-date').value=selected}render()};
 $('agenda-next').onclick=()=>{if(calendarView==='month')month.setMonth(month.getMonth()+1);else{const d=new Date(selected+'T12:00:00');d.setDate(d.getDate()+(calendarView==='week'?7:1));selected=dayString(d);month=new Date(d.getFullYear(),d.getMonth(),1);$('agenda-date').value=selected}render()};
-$('agenda-today').onclick=()=>{month=new Date();month.setDate(1);selected=today;$('agenda-date').value=today;
+$('agenda-today').onclick=()=>{month=new Date();month.setDate(1);selected=today;$('agenda-date').value=today;render()};
 $('agenda-view').onchange=e=>{calendarView=e.target.value;render()};
 $('agenda-new-event').onclick=()=>{$('agenda-date').value=selected;$('agenda-event-form').scrollIntoView({behavior:'smooth',block:'center'});$('agenda-name').focus()};
-$('agenda-date').value=today;render()};
 $('agenda-date').value=today;
 $('agenda-filter').onchange=render;$('agenda-note-sort').onchange=render;$('agenda-note-search').oninput=render;
 $('agenda-event-form').onsubmit=e=>{e.preventDefault();const item={id:editEvent||('e'+Date.now()+Math.random()),date:$('agenda-date').value,type:$('agenda-type').value,time:$('agenda-time').value,name:$('agenda-name').value.trim(),place:$('agenda-place').value.trim(),detail:$('agenda-detail').value.trim()};if(!item.date||!item.name)return;
