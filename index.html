@@ -208,6 +208,27 @@ $('organizeSongs').onclick=async()=>{
 };
 $('backToLibraryHome').onclick=()=>{state.folder=null;$('search').value='';renderLibrary();};
 $('backToParentFolder').onclick=()=>{state.folder=rec(state.folder)?.parent||null;renderLibrary();};
+// Conteo de archivos por carpeta, incluyendo sus subcarpetas.
+function countFolderFiles(folderId, records=state.records){
+ const children=new Map();
+ for(const item of records){
+   const parent=item.parent??null;
+   if(!children.has(parent))children.set(parent,[]);
+   children.get(parent).push(item);
+ }
+ let count=0;
+ const visited=new Set([folderId]),stack=[folderId];
+ while(stack.length){
+   const id=stack.pop();
+   for(const item of children.get(id)||[]){
+     if(item.type==='file')count++;
+     else if(item.type==='folder'&&!visited.has(item.id)){
+       visited.add(item.id);stack.push(item.id);
+     }
+   }
+ }
+ return count;
+}
 function renderLibrary(){
  let term=$('search').value.toLowerCase().trim(),
  instr=$('instrumentFilter').value,kind=$('typeFilter').value,
@@ -241,7 +262,7 @@ function renderLibrary(){
    if(kind&&!(kind==='audio'&&r.kind==='audio'||kind==='score'&&['pdf','image','other'].includes(r.kind)))return false;
    return true;
  });
- records.sort((a,b)=>bySong?(String(a.song||'Sin canción').localeCompare(String(b.song||'Sin canción'),'es')||a.name.localeCompare(b.name,'es')):(a.type!==b.type?a.type==='folder'?-1:1:a.name.localeCompare(b.name,'es')));$('folderNavigation').hidden=!state.folder;$('folderLocation').textContent=state.folder?'Estás dentro de: '+(rec(state.folder)?.name||'Carpeta'):'Estás en: Inicio de Biblioteca';let crumb=$('breadcrumbs');crumb.replaceChildren();let path=[],id=state.folder,guard=0;while(id&&guard++<100){let r=rec(id);if(!r)break;path.unshift(r);id=r.parent};[null,...path].forEach((r,i)=>{crumb.append(createButton(i===0?'⌂ Inicio':' '+r.name,()=>{state.folder=r?.id||null;renderLibrary()},'crumb'))});const list=$('items');list.replaceChildren();$('emptyLibrary').style.display=records.length?'none':'block';let previousSong=null;for(const r of records){if(bySong){const g=r.song||'Sin canción';if(g!==previousSong){let title=document.createElement('h3');title.className='song-group-title';title.textContent=' '+g;list.append(title);previousSong=g;}}let item=document.createElement('div');item.className='item'+(r.type==='folder'?' folder-item':'');let top=document.createElement('div');top.className='itemtop';let art=document.createElement('img');art.className='art';art.alt='';if(r.cover)art.dataset.custom='1';art.src=iconFor(r)||ORIGINAL_B;if(r.type==='folder'&&!r.cover){let symbol=document.createElement('div');symbol.className='folder-circle';symbol.textContent='';top.append(symbol)}else top.append(art);let text=document.createElement('div');text.style.minWidth='0';let n=document.createElement('div');n.className='itemname';n.textContent=r.name;let sub=document.createElement('div');sub.className='small';sub.textContent=r.type==='folder'?'Carpeta':[(r.song?' '+r.song:''),r.instrument||'',r.category||'',r.kind].filter(Boolean).join(' · '); text.append(n,sub);top.append(text);top.onclick=()=>openRecord(r);item.append(top);let actions=document.createElement('div');actions.className='itemactions';
+ records.sort((a,b)=>bySong?(String(a.song||'Sin canción').localeCompare(String(b.song||'Sin canción'),'es')||a.name.localeCompare(b.name,'es')):(a.type!==b.type?a.type==='folder'?-1:1:a.name.localeCompare(b.name,'es')));$('folderNavigation').hidden=!state.folder;$('folderLocation').textContent=state.folder?'Estás dentro de: '+(rec(state.folder)?.name||'Carpeta'):'Estás en: Inicio de Biblioteca';let crumb=$('breadcrumbs');crumb.replaceChildren();let path=[],id=state.folder,guard=0;while(id&&guard++<100){let r=rec(id);if(!r)break;path.unshift(r);id=r.parent};[null,...path].forEach((r,i)=>{crumb.append(createButton(i===0?'⌂ Inicio':' '+r.name,()=>{state.folder=r?.id||null;renderLibrary()},'crumb'))});const list=$('items');list.replaceChildren();$('emptyLibrary').style.display=records.length?'none':'block';let previousSong=null;for(const r of records){if(bySong){const g=r.song||'Sin canción';if(g!==previousSong){let title=document.createElement('h3');title.className='song-group-title';title.textContent=' '+g;list.append(title);previousSong=g;}}let item=document.createElement('div');item.className='item'+(r.type==='folder'?' folder-item':'');let top=document.createElement('div');top.className='itemtop';let art=document.createElement('img');art.className='art';art.alt='';if(r.cover)art.dataset.custom='1';art.src=iconFor(r)||ORIGINAL_B;if(r.type==='folder'&&!r.cover){let symbol=document.createElement('div');symbol.className='folder-circle';symbol.textContent='';top.append(symbol)}else top.append(art);let text=document.createElement('div');text.style.minWidth='0';let n=document.createElement('div');n.className='itemname';n.textContent=r.name;let sub=document.createElement('div');sub.className='small';sub.textContent=r.type==='folder'?(()=>{const total=countFolderFiles(r.id);return total+' '+(total===1?'archivo':'archivos')+' (incluye subcarpetas)'})():[(r.song?' '+r.song:''),r.instrument||'',r.category||'',r.kind].filter(Boolean).join(' · '); text.append(n,sub);top.append(text);top.onclick=()=>openRecord(r);item.append(top);let actions=document.createElement('div');actions.className='itemactions';
  if(r.type==='file')actions.append(createButton('♫ Estudiar',()=>openRecord(r),'primary'));
  const menu=document.createElement('details');menu.className='library-more-menu';
  const summary=document.createElement('summary');summary.textContent='⋯';summary.title='Más opciones';summary.setAttribute('aria-label','Más opciones de '+r.name);menu.append(summary);
