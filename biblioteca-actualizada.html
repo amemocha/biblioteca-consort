@@ -526,9 +526,17 @@ $x('consorteZipFile').onchange=async event=>{
    return match?({1:'Soprano',2:'Alto',3:'Tenor',4:'Bajo',5:'Contrabajo'}[match[1]]):'';
   }
   function songOf(parts,filename){
-   // Prefer the original Drive song folder when available.
-   let directories=parts.slice(0,-1).filter(x=>{const v=normalize(x);return v&&!/^(?:partituras?|audios?|partituras? y audios?(?: consort(?:e)?)?|consort(?:e)?|tablaturas?|guitarras?|archivos?|musica|musical|documentos?|descargas?|drive|soprano|alto|tenor|bajo|contrabajo|general|guitarra\s*[1-5]|voz\s*[1-5])$/i.test(v)&&!/^partituras? y audios?\b/i.test(v);});
-   if(directories.length)return directories[directories.length-1].replace(/\s*[-_]?\s*(?:audios?|partituras?|tablaturas?)\s*$/i,'').trim()||'Sin clasificar';
+   // Tomar la PRIMERA carpeta de canción del ZIP original.
+   // Ignorar solamente carpetas contenedoras y de formato o voz,
+   // sin crear carpetas separadas para audio, PDF o partitura.
+   const generic=/^(?:partituras?|audios?|tablaturas?|pdfs?|mp3s?|wav|archivos?|documentos?|descargas?|drive|consort(?:e)?|musica|musical|guitarras?|voces?|soprano|alto|tenor|bajo|contrabajo|general|guitarra\s*[1-5]|voz\s*[1-5])$/i;
+   const dirs=parts.slice(0,-1).map(x=>x.trim()).filter(Boolean);
+   const meaningful=dirs.filter(x=>{
+     const v=normalize(x);
+     return v&&!generic.test(v)&&!/^partituras?\s+y\s+audios?(?:\s+consort(?:e)?)?/i.test(v);
+   });
+   if(meaningful.length)return meaningful[0];
+   // Solo para ZIPs sin carpetas: deducir canción del nombre de archivo.
    let name=filename.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ');
    name=name.replace(/\b(?:contrabajo|soprano|tenor|alto|bajo|general|guitarra\s*[1-5]|voz\s*[1-5]|audio|partitura|tablatura|score|tab)\b/gi,' ');
    name=name.replace(/\s+/g,' ').trim();
