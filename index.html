@@ -442,7 +442,7 @@ $x('consorteZipFile').onchange=async event=>{
   }
   function songOf(parts,filename){
    // Prefer the original Drive song folder when available.
-   let directories=parts.slice(0,-1).filter(x=>!/^(partituras? y audios?|consort(?:e)?|audios?|partituras?|tablaturas?|guitarras?|archivos?)$/i.test(normalize(x)));
+   let directories=parts.slice(0,-1).filter(x=>{const v=normalize(x);return v&&!/^(?:partituras?|audios?|partituras? y audios?(?: consort(?:e)?)?|consort(?:e)?|tablaturas?|guitarras?|archivos?|musica|musical|documentos?|descargas?|drive)$/i.test(v)&&!/^partituras? y audios?\b/i.test(v);});
    if(directories.length)return directories[directories.length-1].trim();
    let name=filename.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ');
    name=name.replace(/\b(?:contrabajo|soprano|tenor|alto|bajo|general|guitarra\s*[1-5]|voz\s*[1-5]|audio|partitura|tablatura|score|tab)\b/gi,' ');
