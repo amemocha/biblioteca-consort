@@ -213,9 +213,26 @@ function renderLibrary(){
  instr=$('instrumentFilter').value,kind=$('typeFilter').value,
  song=$('songFilter').value,category=$('categoryFilter').value,
  bySong=$('groupBySong').checked;
- // La vista de una carpeta siempre muestra únicamente sus contenidos directos.
+ // Mostrar juntos los archivos de subcarpetas duplicadas con el mismo nombre,
+ // sin borrar, mover ni alterar los registros almacenados.
+ const visibleParents=new Set([state.folder??null]);
+ const normName=name=>String(name||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').trim().toLocaleLowerCase('es');
+ if(state.folder){
+   const selected=rec(state.folder);
+   const sameName=normName(selected?.name);
+   let changed=true,loops=0;
+   while(changed&&loops++<100){
+     changed=false;
+     for(const folder of state.records){
+       if(folder.type==='folder'&&visibleParents.has(folder.parent??null)&&normName(folder.name)===sameName&&!visibleParents.has(folder.id)){
+         visibleParents.add(folder.id);changed=true;
+       }
+     }
+   }
+ }
  let records=state.records.filter(r=>{
-   if((r.parent??null)!==(state.folder??null))return false;
+   if(!visibleParents.has(r.parent??null))return false;
+   if(r.type==='folder'&&visibleParents.has(r.id))return false;
    if(r.type==='folder')return !term||r.name.toLowerCase().includes(term);
    if(song&&r.song!==song)return false;
    if(category&&r.category!==category)return false;
