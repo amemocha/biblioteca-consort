@@ -270,8 +270,50 @@ async function takeFileOutOfFolder(r){
  }catch(e){alert('No se pudo sacar el archivo de la carpeta: '+e.message)}
 }
 async function removeRecord(r){if(!confirm('¿Eliminar «'+r.name+'»? Los archivos no se podrán recuperar sin respaldo.'))return;let ids=new Set([r.id]);if(r.type==='folder'){let changed=true;while(changed){changed=false;for(const child of state.records){if(ids.has(child.parent)&&!ids.has(child.id)){ids.add(child.id);changed=true}}}}for(const id of ids)await delRecord(id);if(ids.has(state.folder))state.folder=null;await refresh()}
-function fillLinkSelector(id,current,accept){let el=$(id);el.replaceChildren(new Option('— Sin vincular —',''));for(const x of state.records.filter(r=>r.type==='file'&&accept(r)))el.add(new Option(x.name,x.id));el.value=current||'';}
-function editRecord(r){state.editing=r;$('editorTitle').textContent='Editar '+(r.type==='folder'?'carpeta':'pieza');$('editName').value=r.name;$('editInstrument').value=r.instrument||'';$('editCover').value='';$('linksEditor').hidden=r.type==='folder';$('songCategoryPanel').hidden=r.type==='folder';$('editSong').value=r.song||'';categorySelect(r.category);fillLinkSelector('editScore',r.scoreId,r0=>['pdf','image'].includes(r0.kind));fillLinkSelector('editTab',r.tabId,r0=>['pdf','image','other'].includes(r0.kind));fillLinkSelector('editAudio',r.audioId,r0=>r0.kind==='audio');$('editor').showModal()}
+// Ordenar documentos vinculables por guitarra/voz: primero la de la pieza.
+const LINK_VOICES=['Soprano','Alto','Tenor','Bajo','Contrabajo','General'];
+function normalizedVoice(s){return String(s||'').trim().toLocaleLowerCase('es');}
+function linkVoice(r){const explicit=LINK_VOICES.find(v=>normalizedVoice(v)===normalizedVoice(r.instrument));if(explicit)return explicit;return inferInstrument(r.name||'')||'Sin clasificar';}
+function fillLinkSelector(id,current,accept){
+ const el=$(id),voice=$('editInstrument').value||'Sin clasificar';
+ const all=state.records.filter(x=>x.type==='file'&&accept(x)).sort((a,b)=>a.name.localeCompare(b.name,'es'));
+ el.replaceChildren(new Option('— Sin vincular —',''));
+ const addGroup=(title,items)=>{
+   if(!items.length)return;
+   const group=document.createElement('optgroup');group.label=title;
+   for(const x of items){const o=new Option(x.name,x.id);group.append(o)}
+   el.append(group);
+ };
+ const same=all.filter(x=>normalizedVoice(linkVoice(x))===normalizedVoice(voice));
+ const other=all.filter(x=>normalizedVoice(linkVoice(x))!==normalizedVoice(voice));
+ addGroup('★ Misma guitarra: '+voice,same);
+ const groups=[...LINK_VOICES.filter(v=>normalizedVoice(v)!==normalizedVoice(voice)),'Sin clasificar'];
+ for(const v of groups){const files=other.filter(x=>normalizedVoice(linkVoice(x))===normalizedVoice(v));addGroup('Otras guitarras · '+v,files)}
+ if(current&&all.some(x=>x.id===current))el.value=current;else el.value='';
+}
+function refreshLinkSelections(){
+ const values={editScore:$('editScore').value,editTab:$('editTab').value,editAudio:$('editAudio').value};
+ fillLinkSelector('editScore',values.editScore,x=>['pdf','image'].includes(x.kind));
+ fillLinkSelector('editTab',values.editTab,x=>['pdf','image','other'].includes(x.kind));
+ fillLinkSelector('editAudio',values.editAudio,x=>x.kind==='audio');
+}
+$('editInstrument').addEventListener('change',refreshLinkSelections);
+function editRecord(r){
+ state.editing=r;
+ $('editorTitle').textContent='Editar '+(r.type==='folder'?'carpeta':'pieza');
+ $('editName').value=r.name;
+ $('editInstrument').value=r.instrument||'';
+ $('editCover').value='';
+ $('linksEditor').hidden=r.type==='folder';
+ $('songCategoryPanel').hidden=r.type==='folder';
+ $('editSong').value=r.song||'';
+ categorySelect(r.category);
+ // Llenar los tres selectores respetando las vinculaciones ya guardadas.
+ fillLinkSelector('editScore',r.scoreId,x=>['pdf','image'].includes(x.kind));
+ fillLinkSelector('editTab',r.tabId,x=>['pdf','image','other'].includes(x.kind));
+ fillLinkSelector('editAudio',r.audioId,x=>x.kind==='audio');
+ $('editor').showModal();
+}
 $('editCancel').onclick=()=>$('editor').close();$('editSave').onclick=async()=>{let r={...state.editing,name:safeName($('editName').value.trim()),instrument:$('editInstrument').value};if(!r.name)return alert('Indica un nombre');if(r.type==='file'){r.song=$('editSong').value.trim().slice(0,120);r.category=$('editCategory').value;r.scoreId=$('editScore').value||null;r.tabId=$('editTab').value||null;r.audioId=$('editAudio').value||null;}let f=$('editCover').files[0];if(f){if(f.size>1500000)return alert('La portada debe pesar menos de 1,5 MB');r.cover=await fileAsData(f)}await putRecord(r);$('editor').close();await refresh()};
 function selectRecordDialog(records,title){return new Promise(resolve=>{let dlg=document.createElement('dialog');let heading=document.createElement('h2');heading.textContent=title;dlg.append(heading);for(const item of records){let b=createButton(item.name,()=>{dlg.close();dlg.remove();resolve(item)});b.style.cssText='display:block;width:100%;margin:6px 0;text-align:left';dlg.append(b)}dlg.append(createButton('Cancelar',()=>{dlg.close();dlg.remove();resolve(null)}));dlg.oncancel=()=>{dlg.remove();resolve(null)};document.body.append(dlg);dlg.showModal()})}
 async function openLinkedPiece(r){nav('study');const score=rec(r.scoreId)||(r.kind==='pdf'||r.kind==='image'?r:null);const audio=rec(r.audioId)||(r.kind==='audio'?r:null);if(score)await chooseScore(score);if(audio)await chooseAudio(audio);state.piece=r;updateTabButton()}
