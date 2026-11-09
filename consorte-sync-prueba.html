@@ -1,20 +1,83 @@
 <!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Consorte Sync · Prueba automática</title><style>
-*{box-sizing:border-box}body{margin:0;background:#f5f3ef;color:#302923;font:15px system-ui,sans-serif}header{padding:22px 4vw;background:#fff;border-bottom:1px solid #ddd}h1{margin:0;font-size:26px}header p,.muted{color:#777;font-size:13px}main{max-width:1250px;margin:auto;padding:20px;display:grid;grid-template-columns:1.6fr 1fr;gap:15px}.panel{background:white;border:1px solid #ddd9d4;border-radius:16px;padding:18px;margin-bottom:15px}.panel h2{margin:0 0 14px;font-size:18px}input[type=file],select{display:block;width:100%;margin:7px 0 15px;padding:9px;border:1px solid #ccc;border-radius:8px}label{font-size:13px;font-weight:600}button{border:1px solid #c2c9c9;background:#fff;border-radius:9px;padding:10px 13px;cursor:pointer;font-weight:600;margin:3px}button.primary{background:#276072;color:#fff;border-color:#276072}button:disabled{opacity:.45}audio{width:100%;margin:10px 0}.score{height:65vh;min-height:300px;overflow:auto;background:#e8e5df;border-radius:10px;padding:15px;text-align:center}.paper{position:relative;background:white;display:inline-block;max-width:100%;box-shadow:0 3px 14px #0002}.paper canvas,.paper img{max-width:100%;height:auto;display:block}.line{position:absolute;left:0;right:0;height:7px;background:#d7a13d80;box-shadow:0 0 0 2px #fff9;pointer-events:none}.stats{display:flex;gap:8px}.stat{flex:1;background:#f0f3f3;padding:14px 6px;text-align:center;border-radius:10px}.stat b{font-size:23px;display:block}.note{background:#fff7e7;border-left:4px solid #d39c32;padding:13px;font-size:13px;line-height:1.6}.control{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.control select,.control input{width:auto;margin:0}.status{min-height:40px;font-weight:600;color:#276072;font-size:13px}.beat{height:10px;background:#e4e4e4;flex:1;border-radius:3px}.beat.on{background:#c99431}#beats{display:flex;gap:5px;margin:12px 0}@media(max-width:750px){main{display:block}.score{height:55vh}}</style></head><body>
+*{box-sizing:border-box}body{margin:0;background:#f5f3ef;color:#302923;font:15px system-ui,sans-serif}header{padding:22px 4vw;background:#fff;border-bottom:1px solid #ddd}h1{margin:0;font-size:26px}header p,.muted{color:#777;font-size:13px}main{max-width:1250px;margin:auto;padding:20px;display:grid;grid-template-columns:1.6fr 1fr;gap:15px}.panel{background:white;border:1px solid #ddd9d4;border-radius:16px;padding:18px;margin-bottom:15px}.panel h2{margin:0 0 14px;font-size:18px}input[type=file],select{display:block;width:100%;margin:7px 0 15px;padding:9px;border:1px solid #ccc;border-radius:8px}label{font-size:13px;font-weight:600}button{border:1px solid #c2c9c9;background:#fff;border-radius:9px;padding:10px 13px;cursor:pointer;font-weight:600;margin:3px}button.primary{background:#276072;color:#fff;border-color:#276072}button:disabled{opacity:.45}audio{width:100%;margin:10px 0}.score{height:65vh;min-height:300px;overflow:auto;background:#e8e5df;border-radius:10px;padding:15px;text-align:center}.paper{position:relative;background:white;display:inline-block;max-width:100%;box-shadow:0 3px 14px #0002}.paper canvas,.paper img{max-width:100%;height:auto;display:block}.line{position:absolute;border:3px solid #ce8c14;background:#efbd4350;box-shadow:0 0 0 1px #fff8 inset;border-radius:5px;pointer-events:none;transition:left .14s linear,top .14s linear}.stats{display:flex;gap:8px}.stat{flex:1;background:#f0f3f3;padding:14px 6px;text-align:center;border-radius:10px}.stat b{font-size:23px;display:block}.note{background:#fff7e7;border-left:4px solid #d39c32;padding:13px;font-size:13px;line-height:1.6}.control{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.control select,.control input{width:auto;margin:0}.status{min-height:40px;font-weight:600;color:#276072;font-size:13px}.beat{height:10px;background:#e4e4e4;flex:1;border-radius:3px}.beat.on{background:#c99431}#beats{display:flex;gap:5px;margin:12px 0}@media(max-width:750px){main{display:block}.score{height:55vh}}</style></head><body>
 <header><h1>Consorte Sync</h1><p>Prueba separada · análisis automático del ritmo y seguimiento estimado de compases</p></header>
 <main><section class="panel"><h2>Partitura</h2><label>Subir partitura (PDF o imagen)<input id="scoreFile" type="file" accept=".pdf,application/pdf,image/*"></label><div class="control"><button id="prevPage">◀ Página</button><span id="pages">0 / 0</span><button id="nextPage">Página ▶</button></div><div class="score" id="score"><p class="muted">Aquí aparecerá tu partitura.</p></div><p class="note"><b>Importante:</b> el programa detecta automáticamente pulsos del audio, pero no lee las notas escritas en un PDF. Por eso la posición resaltada sobre la partitura es una aproximación, no una sincronización exacta nota por nota.</p></section>
-<aside><section class="panel"><h2>Audio</h2><label>Subir audio (MP3, WAV, M4A…) <input id="audioFile" type="file" accept="audio/*,.mp3,.wav,.m4a,.ogg"></label><button class="primary" id="analyze" disabled>Analizar ritmo automáticamente</button><p class="status" id="status">Selecciona un audio.</p><audio id="player" controls></audio><div class="stats"><div class="stat"><b id="bpm">—</b><small>BPM estimado</small></div><div class="stat"><b id="bar">—</b><small>Compás</small></div><div class="stat"><b id="confidence">—</b><small>Confianza</small></div></div><div id="beats"></div><label>Tipo de compás<select id="meter"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option></select></label><label>Compases estimados por página<input id="barsPage" type="number" min="1" max="150" value="24" style="width:80px;margin-left:10px"></label><p><button id="setStart">Fijar aquí inicio del compás 1</button></p><p class="muted">Si hay silencio antes de la música, reproduce hasta el primer compás y pulsa este botón para alinear el inicio.</p><label>Velocidad <span id="speedText">100%</span><input type="range" id="speed" min="50" max="150" value="100" step="5" style="width:100%"></label></section></aside></main>
+<aside><section class="panel"><h2>Audio</h2><label>Subir audio (MP3, WAV, M4A…) <input id="audioFile" type="file" accept="audio/*,.mp3,.wav,.m4a,.ogg"></label><button class="primary" id="analyze" disabled>Analizar ritmo automáticamente</button><p class="status" id="status">Selecciona un audio.</p><audio id="player" controls></audio><div class="stats"><div class="stat"><b id="bpm">—</b><small>BPM estimado</small></div><div class="stat"><b id="bar">—</b><small>Compás</small></div><div class="stat"><b id="confidence">—</b><small>Confianza</small></div></div><div id="beats"></div><label>Tipo de compás<select id="meter"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option></select></label><label>Compases estimados por página<input id="barsPage" type="number" min="1" max="150" value="24" style="width:80px;margin-left:10px"></label><p class="muted">El recuadro detecta las líneas del pentagrama e indica un compás aproximado. Ajusta los compases por página si el movimiento no coincide.</p><p><button id="setStart">Fijar aquí inicio del compás 1</button></p><p class="muted">Si hay silencio antes de la música, reproduce hasta el primer compás y pulsa este botón para alinear el inicio.</p><label>Velocidad <span id="speedText">100%</span><input type="range" id="speed" min="50" max="150" value="100" step="5" style="width:100%"></label></section></aside></main>
 <script>
 'use strict';
-const $=id=>document.getElementById(id);let doc=null,imgUrl=null,audioUrl=null,page=1,count=0,tempo=null,offset=0,animation=0;const player=$('player');
+const $=id=>document.getElementById(id);let doc=null,imgUrl=null,audioUrl=null,page=1,count=0,tempo=null,offset=0,animation=0,systems=[];const player=$('player');
 const setStatus=s=>$('status').textContent=s;
 async function pdfLibrary(){if(window.pdfjsLib)return pdfjsLib;return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';s.onload=()=>{pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';resolve(pdfjsLib)};s.onerror=()=>reject(Error('No se pudo cargar el visor PDF. Comprueba tu conexión.'));document.head.append(s)})}
-async function render(){const target=$('score');target.replaceChildren();if(!count)return;page=Math.max(1,Math.min(count,page));$('pages').textContent=page+' / '+count;const paper=document.createElement('div');paper.className='paper';target.append(paper);if(doc){const p=await doc.getPage(page);const viewport=p.getViewport({scale:1.25});const c=document.createElement('canvas');c.width=viewport.width;c.height=viewport.height;paper.append(c);await p.render({canvasContext:c.getContext('2d'),viewport}).promise}else{let image=new Image();image.src=imgUrl;image.alt='Partitura';paper.append(image)}let line=document.createElement('div');line.id='cursor';line.className='line';paper.append(line);update()}
+function detectStaffSystems(canvas){
+ const ctx=canvas.getContext('2d',{willReadFrequently:true});
+ const w=canvas.width,h=canvas.height;
+ const pixels=ctx.getImageData(0,0,w,h).data;
+ const left=Math.floor(w*.1),right=Math.floor(w*.9),stride=Math.max(1,Math.floor((right-left)/350));
+ const threshold=.48,rows=[];
+ for(let y=1;y<h-1;y++){
+  let dark=0,samples=0;
+  for(let x=left;x<right;x+=stride){
+   const idx=(y*w+x)*4;
+   if(pixels[idx]<145&&pixels[idx+1]<145&&pixels[idx+2]<145)dark++;
+   samples++;
+  }
+  if(dark/samples>threshold)rows.push(y);
+ }
+ // A printed staff has five similarly spaced horizontal lines.
+ const thin=[];
+ for(const y of rows)if(!thin.length||y-thin[thin.length-1]>2)thin.push(y);
+ const groups=[];
+ for(let i=0;i+4<thin.length;i++){
+  const p=thin.slice(i,i+5),diff=[p[1]-p[0],p[2]-p[1],p[3]-p[2],p[4]-p[3]];
+  const avg=diff.reduce((a,b)=>a+b,0)/4;
+  if(avg<5||avg>30||diff.some(v=>Math.abs(v-avg)>Math.max(2,avg*.22)))continue;
+  if(groups.some(g=>Math.abs(g.center-(p[0]+p[4])/2)<avg*5))continue;
+  groups.push({top:Math.max(0,p[0]-avg*2.2)/h,height:Math.min(h-p[0]+avg*2.2,avg*8.2)/h,center:(p[0]+p[4])/2});
+  i+=4;
+ }
+ return groups.sort((a,b)=>a.top-b.top);
+}
+async function render(){
+ const target=$('score');target.replaceChildren();systems=[];
+ if(!count)return;
+ page=Math.max(1,Math.min(count,page));$('pages').textContent=page+' / '+count;
+ const paper=document.createElement('div');paper.className='paper';target.append(paper);
+ let c=document.createElement('canvas');
+ if(doc){
+  const p=await doc.getPage(page),viewport=p.getViewport({scale:1.25});
+  c.width=Math.ceil(viewport.width);c.height=Math.ceil(viewport.height);
+  paper.append(c);await p.render({canvasContext:c.getContext('2d'),viewport}).promise;
+ }else{
+  const image=new Image();image.src=imgUrl;await image.decode();
+  c.width=image.naturalWidth;c.height=image.naturalHeight;
+  paper.append(c);c.getContext('2d').drawImage(image,0,0);
+ }
+ try{systems=detectStaffSystems(c)}catch(e){console.warn('No se pudieron localizar pentagramas',e)}
+ if(!systems.length){
+  systems=Array.from({length:6},(_,i)=>({top:(.07+i*.145),height:.10}));
+ }
+ const rect=document.createElement('div');rect.id='cursor';rect.className='line';paper.append(rect);update();
+}
 $('scoreFile').onchange=async e=>{const f=e.target.files?.[0];if(!f)return;if(imgUrl)URL.revokeObjectURL(imgUrl);imgUrl=URL.createObjectURL(f);doc=null;try{if(f.type==='application/pdf'||/\.pdf$/i.test(f.name)){doc=await(await pdfLibrary()).getDocument({data:await f.arrayBuffer()}).promise;count=doc.numPages}else count=1;page=1;await render()}catch(err){setStatus('Error al abrir partitura: '+err.message)}};
 $('prevPage').onclick=()=>{page--;render()};$('nextPage').onclick=()=>{page++;render()};
 $('audioFile').onchange=e=>{const f=e.target.files?.[0];if(!f)return;if(audioUrl)URL.revokeObjectURL(audioUrl);audioUrl=URL.createObjectURL(f);player.src=audioUrl;player.load();$('analyze').disabled=false;tempo=null;setStatus('Audio cargado. Pulsa Analizar ritmo.')};
 function detect(b){const sr=b.sampleRate,step=Math.max(128,Math.round(sr/100));const a=b.getChannelData(0),n=Math.floor(a.length/step),rms=new Float32Array(n);for(let i=0;i<n;i++){let sum=0;for(let j=i*step;j<(i+1)*step;j++)sum+=a[j]*a[j];rms[i]=Math.sqrt(sum/step)}const flux=new Float32Array(n);for(let i=1;i<n;i++)flux[i]=Math.max(0,rms[i]-rms[i-1]);let best=90,bestScore=-1,mean=0;for(let bpm=55;bpm<=190;bpm++){const lag=Math.round(60/bpm*sr/step);let sum=0;for(let i=lag;i<n;i++)sum+=flux[i]*flux[i-lag];mean+=sum;if(sum>bestScore){bestScore=sum;best=bpm}}mean/=136;const confidence=Math.max(5,Math.min(95,Math.round((bestScore/(mean||1)-1)*15)));const samples=Math.min(n,Math.round(15*sr/step)),period=Math.round(60/best*sr/step);let strength=-1,phase=0;for(let o=0;o<period;o++){let v=0;for(let i=o;i<samples;i+=period)v+=flux[i];if(v>strength){strength=v;phase=o}}return {bpm:best,confidence,offset:phase*step/sr}}
 $('analyze').onclick=async()=>{const f=$('audioFile').files?.[0];if(!f)return;const button=$('analyze');button.disabled=true;setStatus('Analizando el audio en tu dispositivo…');try{await new Promise(r=>setTimeout(r,40));const ctx=new(window.AudioContext||window.webkitAudioContext)();const buf=await ctx.decodeAudioData(await f.arrayBuffer());const d=detect(buf);await ctx.close();tempo=d.bpm;offset=d.offset;$('bpm').textContent=tempo;$('confidence').textContent=d.confidence+'%';setStatus('Análisis completado. Reproduce el audio para seguir los compases (aproximado).');update()}catch(err){setStatus('Error: '+err.message)}finally{button.disabled=false}};
-function update(){if(!tempo)return;const beatsPer=Number($('meter').value),beat=Math.max(0,Math.floor((player.currentTime-offset)*tempo/60));const bar=Math.floor(beat/beatsPer)+1,beatIndex=beat%beatsPer;$('bar').textContent=bar;$('beats').replaceChildren(...Array.from({length:beatsPer},(_,i)=>{let x=document.createElement('div');x.className='beat'+(beatIndex===i?' on':'');return x}));const per=Math.max(1,Number($('barsPage').value)||24),wanted=Math.floor((bar-1)/per)+1;if(count&&wanted<=count&&wanted!==page){page=wanted;render();return}const line=$('cursor');if(line)line.style.top=(5+90*((bar-1)%per+.5)/per)+'%'}
+function update(){if(!tempo)return;const beatsPer=Number($('meter').value),beat=Math.max(0,Math.floor((player.currentTime-offset)*tempo/60));const bar=Math.floor(beat/beatsPer)+1,beatIndex=beat%beatsPer;$('bar').textContent=bar;$('beats').replaceChildren(...Array.from({length:beatsPer},(_,i)=>{let x=document.createElement('div');x.className='beat'+(beatIndex===i?' on':'');return x}));const per=Math.max(1,Number($('barsPage').value)||24),wanted=Math.floor((bar-1)/per)+1;if(count&&wanted<=count&&wanted!==page){page=wanted;render();return}const rect=$('cursor');
+ if(rect){
+  const systemCount=systems.length||1;
+  const index=(bar-1)%per;
+  const systemIndex=Math.min(systemCount-1,Math.floor(index*systemCount/per));
+  const start=Math.ceil(systemIndex*per/systemCount);
+  const end=Math.ceil((systemIndex+1)*per/systemCount);
+  const inRow=Math.max(0,index-start);
+  const rowBars=Math.max(1,end-start);
+  const area=systems[systemIndex]||{top:.1,height:.1};
+  rect.style.left=(10+80*inRow/rowBars)+'%';
+  rect.style.width=(80/rowBars)+'%';
+  rect.style.top=(area.top*100)+'%';
+  rect.style.height=(area.height*100)+'%';
+ }}
 function loop(){update();if(!player.paused)animation=requestAnimationFrame(loop)}player.onplay=()=>{cancelAnimationFrame(animation);loop()};player.onpause=()=>cancelAnimationFrame(animation);player.onseeked=update;$('meter').onchange=update;$('barsPage').onchange=update;
 $('setStart').onclick=()=>{if(!tempo){alert('Analiza primero el audio.');return}offset=player.currentTime;update();setStatus('Inicio de compás 1 fijado en '+offset.toFixed(1)+' segundos.')};
 $('speed').oninput=()=>{player.playbackRate=Number($('speed').value)/100;$('speedText').textContent=$('speed').value+'%'};
