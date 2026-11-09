@@ -343,7 +343,7 @@ function renderLibrary(){
   checkbox.onchange=()=>{if(checkbox.checked)selectedFolderIds.add(r.id);else selectedFolderIds.delete(r.id);updateFolderSelectButtons()};
   picker.append(checkbox,document.createTextNode('Seleccionar carpeta'));item.append(picker);
  }let top=document.createElement('div');top.className='itemtop';let art=document.createElement('img');art.className='art';art.alt='';if(r.cover)art.dataset.custom='1';art.src=iconFor(r)||ORIGINAL_B;if(r.type==='folder'&&!r.cover){let symbol=document.createElement('div');symbol.className='folder-circle';symbol.textContent='';top.append(symbol)}else top.append(art);let text=document.createElement('div');text.style.minWidth='0';let n=document.createElement('div');n.className='itemname';n.textContent=r.name;let sub=document.createElement('div');sub.className='small';sub.textContent=r.type==='folder'?(()=>{const total=countFolderFiles(r.id);return total+' '+(total===1?'archivo':'archivos')+' (incluye subcarpetas)'})():[(r.song?' '+r.song:''),r.instrument||'',r.category||'',r.kind].filter(Boolean).join(' · '); text.append(n,sub);top.append(text);top.onclick=()=>{if(folderSelectMode&&r.type==='folder'){if(selectedFolderIds.has(r.id))selectedFolderIds.delete(r.id);else selectedFolderIds.add(r.id);renderLibrary();return}openRecord(r)};item.append(top);let actions=document.createElement('div');actions.className='itemactions';
- if(r.type==='file')actions.append(createButton('♫ Estudiar',()=>openRecord(r),'primary'));
+ if(r.type==='file')actions.append(createButton('♫ Estudiar',async()=>{try{await openLinkedPiece(r)}catch(error){console.error('No se pudo abrir Estudio',error);nav('study');alert('No se pudo cargar el archivo: '+(error?.message||error))}},'primary'));
  const menu=document.createElement('details');menu.className='library-more-menu';
  const summary=document.createElement('summary');summary.textContent='⋯';summary.title='Más opciones';summary.setAttribute('aria-label','Más opciones de '+r.name);menu.append(summary);
  const options=document.createElement('div');options.className='library-more-options';
@@ -359,7 +359,7 @@ function renderLibrary(){
  menu.append(options);actions.append(menu);
  item.append(actions);list.append(item)}}
 $('search').oninput=renderLibrary;$('instrumentFilter').onchange=renderLibrary;$('typeFilter').onchange=renderLibrary;
-async function openRecord(r){if(r.type==='folder'){state.folder=r.id;$('search').value='';$('instrumentFilter').value='';$('typeFilter').value='';$('songFilter').value='';$('categoryFilter').value='';renderLibrary();return}if(r.scoreId||r.audioId||r.tabId){await openLinkedPiece(r)}else if(r.kind==='audio'){state.piece=r;await chooseAudio(r);updateTabButton();nav('study')}else if(['pdf','image'].includes(r.kind)){await openLinkedPiece(r)}else downloadRecord(r)}
+async function openRecord(r){if(r.type==='folder'){state.folder=r.id;$('search').value='';$('instrumentFilter').value='';$('typeFilter').value='';$('songFilter').value='';$('categoryFilter').value='';renderLibrary();return}if(r.scoreId||r.audioId||r.tabId){await openLinkedPiece(r)}else if(r.kind==='audio'||['pdf','image','other'].includes(r.kind)){await openLinkedPiece(r)}else downloadRecord(r)}
 function downloadBlob(blob,name){let url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)}
 function downloadRecord(r){if(r.type==='folder'){alert('Para descargar carpetas, utiliza «Respaldo» → Exportar biblioteca ZIP.');return}downloadBlob(r.blob,r.name)}
 async function takeFileOutOfFolder(r){
@@ -417,9 +417,40 @@ function editRecord(r){
 }
 $('editCancel').onclick=()=>$('editor').close();$('editSave').onclick=async()=>{let r={...state.editing,name:safeName($('editName').value.trim()),instrument:$('editInstrument').value};if(!r.name)return alert('Indica un nombre');if(r.type==='file'){r.song=$('editSong').value.trim().slice(0,120);r.category=$('editCategory').value;r.scoreId=$('editScore').value||null;r.tabId=$('editTab').value||null;r.audioId=$('editAudio').value||null;}let f=$('editCover').files[0];if(f){if(f.size>1500000)return alert('La portada debe pesar menos de 1,5 MB');r.cover=await fileAsData(f)}await putRecord(r);$('editor').close();await refresh()};
 function selectRecordDialog(records,title){return new Promise(resolve=>{let dlg=document.createElement('dialog');let heading=document.createElement('h2');heading.textContent=title;dlg.append(heading);for(const item of records){let b=createButton(item.name,()=>{dlg.close();dlg.remove();resolve(item)});b.style.cssText='display:block;width:100%;margin:6px 0;text-align:left';dlg.append(b)}dlg.append(createButton('Cancelar',()=>{dlg.close();dlg.remove();resolve(null)}));dlg.oncancel=()=>{dlg.remove();resolve(null)};document.body.append(dlg);dlg.showModal()})}
-async function openLinkedPiece(r){nav('study');const candidates=state.records.filter(x=>x.type==='file'&&x.song&&r.song&&x.song.trim().toLocaleLowerCase('es')===r.song.trim().toLocaleLowerCase('es'));const score=rec(r.scoreId)||(r.kind==='pdf'||r.kind==='image'?r:null)||candidates.find(x=>['pdf','image'].includes(x.kind));const audio=rec(r.audioId)||(r.kind==='audio'?r:null)||candidates.find(x=>x.kind==='audio');const tablature=rec(r.tabId)||candidates.find(x=>x.id!==score?.id&&x.kind!=='audio'&&/tablatura|\\btab\\b/i.test(x.name));state.piece={...r,scoreId:score?.id||null,audioId:audio?.id||null,tabId:tablature?.id||null};if(score)await chooseScore(score);if(audio)await chooseAudio(audio);else{$('player').removeAttribute('src');$('player').load();$('audioName').textContent='Sin audio asociado'}updateTabButton()}
+// Abre Estudio desde la propia tarjeta sin solicitar de nuevo los documentos.
+async function openLinkedPiece(r){
+ nav('study');
+ if(!r||r.type!=='file')return;
+ const valid=x=>x&&x.type==='file'&&x.blob instanceof Blob;
+ const normalize=x=>String(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLocaleLowerCase('es');
+ const fileStem=x=>normalize(x).replace(/\.(pdf|png|jpe?g|webp|mp3|wav|m4a|aac|ogg|xml|musicxml)$/,'').replace(/\b(soprano|alto|tenor|bajo|contrabajo|partitura|tablatura|audio|guitarra|voz|score|tab)\b/g,'').replace(/[_\-]+/g,' ').replace(/\s+/g,' ').trim();
+ const sameSong=x=>r.song&&x.song&&normalize(r.song)===normalize(x.song);
+ const sameName=x=>fileStem(r.name)&&fileStem(r.name)===fileStem(x.name);
+ const sameFolder=x=>(x.parent??null)===(r.parent??null);
+ const own=state.records.filter(x=>x.type==='file'&&x.id!==r.id&&valid(x));
+ const related=own.filter(x=>sameSong(x)||(sameFolder(x)&&sameName(x)));
+ const voice=x=>normalize(x.instrument||inferInstrument(x.name));
+ related.sort((a,b)=>Number(voice(b)===voice(r))-Number(voice(a)===voice(r)));
+ const first=predicate=>related.find(predicate);
+ let score=valid(rec(r.scoreId))?rec(r.scoreId):null;
+ let audio=valid(rec(r.audioId))?rec(r.audioId):null;
+ let tablature=valid(rec(r.tabId))?rec(r.tabId):null;
+ if(!score&&['pdf','image'].includes(r.kind)&&valid(r))score=r;
+ if(!audio&&r.kind==='audio'&&valid(r))audio=r;
+ if(!score)score=first(x=>['pdf','image'].includes(x.kind)&&!/tablatura|\btab\b/i.test(x.name))||null;
+ if(!audio)audio=first(x=>x.kind==='audio')||null;
+ if(!tablature)tablature=first(x=>['pdf','image','other'].includes(x.kind)&&/tablatura|\btab\b/i.test(x.name))||null;
+ state.piece={...r,scoreId:score?.id||null,audioId:audio?.id||null,tabId:tablature?.id||null};
+ // Reiniciar el documento anterior cuando falta una asociación.
+ if(!score){resetScore();state.score=null;state.scoreUrl=null;$('scoreName').textContent='Sin partitura asociada';$('scoreview').append(document.createTextNode('No hay partitura asociada a esta canción. Puedes vincularla con ⋯ → Editar.'));$('pageLabel').textContent='0 / 0'}
+ else{try{await chooseScore(score)}catch(error){console.error('Error mostrando partitura',error);$('pdfNotice').hidden=false;$('pdfNotice').textContent='No se pudo mostrar la partitura: '+error.message}}
+ if(!audio){if(state.audioUrl)URL.revokeObjectURL(state.audioUrl);state.audioUrl=null;state.audio=null;$('player').pause();$('player').removeAttribute('src');$('player').load();$('audioName').textContent='Sin audio asociado'}
+ else{try{await chooseAudio(audio)}catch(error){console.error('Error mostrando audio',error);$('audioName').textContent='No se pudo cargar el audio'}}
+ updateTabButton();
+}
+
 let tabObjectUrl=null;
-function updateTabButton(){let tab=state.piece&&rec(state.piece.tabId);$('tabName').textContent=tab?tab.name:'Sin tablatura asociada — toca para elegir';}
+function updateTabButton(){let tab=state.piece&&rec(state.piece.tabId);$('tabName').textContent=tab?tab.name:'Sin tablatura asociada';$('showTab').hidden=!tab;$('showTab').style.display=tab?'':'none';}
 async function showLinkedTab(r){if(tabObjectUrl)URL.revokeObjectURL(tabObjectUrl);tabObjectUrl=URL.createObjectURL(r.blob);let display=$('tabDisplay');display.replaceChildren();if(r.kind==='image'){let img=document.createElement('img');img.src=tabObjectUrl;display.append(img)}else if(r.kind==='pdf'){let frame=document.createElement('iframe');frame.src=tabObjectUrl;frame.title='Tablatura';display.append(frame)}else{let link=document.createElement('a');link.href=tabObjectUrl;link.download=r.name;link.textContent='Descargar tablatura '+r.name;display.append(link)}$('tabView').hidden=false;$('scoreview').hidden=true;state.currentTab=r;}
 $('showTab').onclick=async()=>{let r=state.piece&&rec(state.piece.tabId);if(!r){let choices=state.records.filter(x=>x.type==='file'&&['pdf','image','other'].includes(x.kind));if(!choices.length){alert('Sube primero tu archivo de tablatura a la biblioteca.');return}r=await selectRecordDialog(choices,'Seleccionar tablatura');if(!r)return;if(state.piece?.type==='file'){state.piece.tabId=r.id;await putRecord(state.piece);await refresh()}}await showLinkedTab(r);updateTabButton()};
 $('tabBack').onclick=()=>{$('tabView').hidden=true;$('scoreview').hidden=false};$('tabOpen').onclick=()=>{if(tabObjectUrl)window.open(tabObjectUrl,'_blank')};
