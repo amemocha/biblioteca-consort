@@ -185,7 +185,17 @@
     const beat=durationOfMeter()||4;
     let q=0,bars=[];
     if(xmlMeasures.length){
-      bars=xmlMeasures.map((m,i)=>({q:m.q,length:m.length,notes:m.events.map((ev,j)=>({q:m.q+ev.q,position:j/Math.max(1,m.events.length),type:ev.type})),barIndex:i,page:1}));
+      const visual=[...opticalByPage.values()].sort((a,b)=>a.page-b.page).flatMap(p=>p.measures.map(m=>({...m,page:p.page})));
+      bars=xmlMeasures.map((m,i)=>{
+        const shape=visual[i]||{},seen=shape.notes||[];
+        return {...shape,q:m.q,length:m.length,barIndex:i,page:shape.page||1,
+          notes:m.events.map((ev,j)=>{
+            const fraction=Math.max(0,Math.min(.99,ev.q/Math.max(.01,m.length)));
+            const observed=seen.length?seen[Math.min(seen.length-1,Math.round(j*seen.length/Math.max(1,m.events.length)))]:null;
+            return {q:m.q+ev.q,type:ev.type,x:observed?.x??((shape.left||0)+(shape.width||0)*fraction)}
+          })
+        }
+      });
       return bars;
     }
     for(let p=1;p<=count;p++){
@@ -204,8 +214,12 @@
     const idealEvents=bars.flatMap((bar,i)=>[{q:bar.q,kind:'bar',bar:i},...bar.notes.map((n,j)=>({q:n.q,kind:'note',bar:i,index:j}))]).sort((a,b)=>a.q-b.q);
     const signal=onsets.map(x=>x.strength).sort((a,b)=>a-b);
     const median=signal[Math.floor(signal.length*.5)]||1;
-    let previous=initialOffset-.04,shift=0,matches=[],anchors=[];
+    let previous=initialOffset-.04,shift=0,matches=[],anchors=[],priorQ=null,priorTime=null;
     for(const ev of idealEvents){
+      if(priorQ!==null&&Math.abs(ev.q-priorQ)<.001){
+        matches.push({time:priorTime,...ev});
+        continue;
+      }
       const ideal=initialOffset+ev.q*secondsPerQuarter;
       const prediction=ideal+shift;
       const spread=Math.min(.48,Math.max(.12,secondsPerQuarter*.65));
@@ -224,6 +238,7 @@
         matches.push({time:best.time,...ev});
         previous=best.time;
       }else matches.push({time:Math.max(previous+.01,prediction),...ev});
+      priorQ=ev.q;priorTime=matches.at(-1).time;
     }
     for(let i=0;i<bars.length;i++){
       const match=matches.find(x=>x.kind==='bar'&&x.bar===i);
@@ -268,6 +283,7 @@
       }
       const bars=makeEvents();
       if(!bars.length)throw Error('No se encontraron barras de compás en la partitura. Usa una imagen más nítida o MusicXML.');
+      if(xmlMeasures.length&&bars.some(b=>b.width===undefined))$('syncDetail').textContent='Aviso: MusicXML y PDF tienen distinto número de compases; revisa que sean de la misma edición.';
       const result=matchTimeline(bars,audioOnsets,tempo,offset);
       timeAnchors=result.anchors;scoreEvents=result.events;alignmentReady=true;
       $('syncDetail').textContent=xmlMeasures.length?'MusicXML: tiempos de notas leídos; ajustes aproximados por ataques del audio.':'PDF: figuras estimadas por imagen; tiempos ajustados mediante ataques detectados. La identificación de figuras es limitada.';
