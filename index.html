@@ -216,7 +216,7 @@ function renderLibrary(){
  // Mostrar juntos los archivos de subcarpetas duplicadas con el mismo nombre,
  // sin borrar, mover ni alterar los registros almacenados.
  const visibleParents=new Set([state.folder??null]);
- const normName=name=>String(name||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').trim().toLocaleLowerCase('es');
+ const normName=name=>String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLocaleLowerCase('es');
  if(state.folder){
    const selected=rec(state.folder);
    const sameName=normName(selected?.name);
