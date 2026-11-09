@@ -92,10 +92,10 @@ body:has(#consorteEditDock.active) #resizeHandle{z-index:11999!important;bottom:
 <div class="agenda-days" id="agenda-days" aria-label="Calendario de actividades"></div>
 <div class="agenda-legend"><span><i class="agenda-dot ensayo"></i> Ensayo</span><span><i class="agenda-dot presentacion"></i> Presentación</span><span><i class="agenda-dot reunion"></i> Reunión</span><span><i class="agenda-dot recordatorio"></i> Recordatorio</span><span><i class="agenda-dot otro"></i> Otro</span></div>
 </div>
-<div class="agenda-cols"><div class="card"><h2>Agregar actividad</h2><form id="agenda-event-form" class="agenda-form">
+<dialog id="agenda-event-dialog" aria-labelledby="agenda-event-heading"><div class="agenda-dialog-head"><h2 id="agenda-event-heading">Crear evento</h2><button id="agenda-dialog-close" type="button" aria-label="Cerrar ventana">×</button></div><form id="agenda-event-form" class="agenda-form">
 <label>Fecha<input type="date" id="agenda-date" required></label><label>Tipo<select id="agenda-type"><option>Ensayo</option><option>Presentación</option><option>Reunión</option><option>Recordatorio</option><option>Otro</option></select></label><label>Hora<input type="time" id="agenda-time"></label>
 <label>Nombre<input id="agenda-name" placeholder="Concierto de Navidad" required maxlength="150"></label><label>Lugar<input id="agenda-place" placeholder="Lugar (opcional)" maxlength="200"></label><label>Obras, partituras y detalles<textarea id="agenda-detail" rows="4" placeholder="Partituras que vamos a tocar, indicaciones del profesor…"></textarea></label>
-<div class="flex"><button class="primary" type="submit">Guardar actividad</button><button id="agenda-event-cancel" type="button" hidden>Cancelar edición</button></div></form></div></div>
+<div class="flex"><button class="primary" type="submit">Guardar evento</button><button id="agenda-event-cancel" type="button">Cancelar</button></div></form></dialog>
 <div class="card"><div class="flex" style="justify-content:space-between"><h2>Actividades</h2><select id="agenda-filter"><option value="upcoming">Próximas</option><option value="all">Todas</option><option value="day">Día seleccionado</option></select></div><div id="agenda-events" class="agenda-list"></div></div>
 <div class="card"><h2>Cuaderno de notas</h2><p class="small">Por ejemplo: cuántos arreglos de Navidad hizo el profesor, repertorios, pendientes o indicaciones.</p>
 <form id="agenda-note-form" class="agenda-form"><label>Título<input id="agenda-note-title" placeholder="Arreglos de Navidad" required maxlength="150"></label><label>Categoría<select id="agenda-note-category"><option>Repertorio</option><option>Arreglos</option><option>Organización</option><option>Pendientes</option><option>Otra</option></select></label><label>Contenido<textarea id="agenda-note-body" required rows="4"></textarea></label><div class="flex"><button class="primary" type="submit">Guardar nota</button><button id="agenda-note-cancel" type="button" hidden>Cancelar edición</button></div></form>
@@ -1198,6 +1198,12 @@ updateConsorteUndoButton();
 .agenda-calendar-card{width:100%}
 .agenda-event-pill.recordatorio,.agenda-dot.recordatorio{background:#b77900}
 @media(max-width:600px){.agenda-days{min-height:350px;grid-auto-rows:minmax(70px,auto)}.agenda-day{min-height:70px}}
+
+#agenda-event-dialog{width:min(94vw,550px);max-height:88dvh;overflow-y:auto;border-radius:18px;border:1px solid var(--border);padding:20px 23px;background:var(--paper)}
+#agenda-event-dialog::backdrop{background:#17212b88;backdrop-filter:blur(2px)}
+.agenda-dialog-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:15px}
+.agenda-dialog-head h2{margin:0}.agenda-dialog-head button{font-size:24px;border:0;background:transparent;padding:1px 9px}
+.agenda-day{cursor:pointer}.agenda-day:hover{background:#eaf2fc}
 </style><script id="agenda-script">
 (()=>{
 'use strict';
@@ -1236,13 +1242,13 @@ function calendar(){
       btn.append(pill);
    }
    if(events.length>3&&mode!=='day')btn.append(node('span','+'+(events.length-3)+' más','agenda-more'));
-   btn.onclick=()=>{selected=date;$('agenda-date').value=date;$('agenda-filter').value='day';if(calendarView==='month'&&dateObj.getMonth()!==base.getMonth())month=new Date(dateObj.getFullYear(),dateObj.getMonth(),1);render()};
+   btn.onclick=()=>{selected=date;$('agenda-date').value=date;$('agenda-filter').value='day';if(calendarView==='month'&&dateObj.getMonth()!==base.getMonth())month=new Date(dateObj.getFullYear(),dateObj.getMonth(),1);render();openEventDialog(date)};
    root.append(btn);
  }
 }
 function itemActions(item,isEvent,root){
  const actions=node('div',null,'agenda-entry-actions'),edit=node('button','Editar'),del=node('button','Eliminar');edit.type=del.type='button';
- edit.onclick=()=>{if(isEvent){editEvent=item.id;selected=item.date;month=new Date(item.date+'T12:00:00');$('agenda-date').value=item.date;$('agenda-type').value=item.type;$('agenda-time').value=item.time||'';$('agenda-name').value=item.name;$('agenda-place').value=item.place||'';$('agenda-detail').value=item.detail||'';$('agenda-event-cancel').hidden=false;$('agenda-event-form').scrollIntoView({behavior:'smooth'});}
+ edit.onclick=()=>{if(isEvent){editEvent=item.id;selected=item.date;month=new Date(item.date+'T12:00:00');$('agenda-date').value=item.date;$('agenda-type').value=item.type;$('agenda-time').value=item.time||'';$('agenda-name').value=item.name;$('agenda-place').value=item.place||'';$('agenda-detail').value=item.detail||'';$('agenda-event-cancel').hidden=false;openEventDialog(item.date,item);}
  else {editNote=item.id;$('agenda-note-title').value=item.title;$('agenda-note-category').value=item.category;$('agenda-note-body').value=item.body;$('agenda-note-cancel').hidden=false;$('agenda-note-form').scrollIntoView({behavior:'smooth'})}render()};
  del.onclick=()=>{if(!confirm('¿Eliminar este elemento?'))return;const arr=isEvent?data.events:data.notes;const i=arr.findIndex(x=>x.id===item.id);if(i>=0)arr.splice(i,1);save()};actions.append(edit,del);root.append(actions);
 }
@@ -1260,13 +1266,26 @@ $('agenda-prev').onclick=()=>{if(calendarView==='month')month.setMonth(month.get
 $('agenda-next').onclick=()=>{if(calendarView==='month')month.setMonth(month.getMonth()+1);else{const d=new Date(selected+'T12:00:00');d.setDate(d.getDate()+(calendarView==='week'?7:1));selected=dayString(d);month=new Date(d.getFullYear(),d.getMonth(),1);$('agenda-date').value=selected}render()};
 $('agenda-today').onclick=()=>{month=new Date();month.setDate(1);selected=today;$('agenda-date').value=today;render()};
 $('agenda-view').onchange=e=>{calendarView=e.target.value;render()};
-$('agenda-new-event').onclick=()=>{$('agenda-date').value=selected;$('agenda-event-form').scrollIntoView({behavior:'smooth',block:'center'});$('agenda-name').focus()};
+function openEventDialog(date,item=null){
+ const dlg=$('agenda-event-dialog');
+ if(!item){editEvent=null;$('agenda-event-form').reset();$('agenda-event-heading').textContent='Crear evento';}
+ else{$('agenda-event-heading').textContent='Editar evento';}
+ $('agenda-date').value=date||selected;
+ if(!dlg.open)dlg.showModal();
+ setTimeout(()=>$('agenda-name').focus(),0);
+}
+function closeEventDialog(){
+ $('agenda-event-dialog').close();editEvent=null;$('agenda-event-heading').textContent='Crear evento';
+ $('agenda-event-form').reset();$('agenda-date').value=selected;
+}
+$('agenda-dialog-close').onclick=closeEventDialog;
+$('agenda-new-event').onclick=()=>openEventDialog(selected);
 $('agenda-date').value=today;
 $('agenda-filter').onchange=render;$('agenda-note-sort').onchange=render;$('agenda-note-search').oninput=render;
 $('agenda-event-form').onsubmit=e=>{e.preventDefault();const item={id:editEvent||('e'+Date.now()+Math.random()),date:$('agenda-date').value,type:$('agenda-type').value,time:$('agenda-time').value,name:$('agenda-name').value.trim(),place:$('agenda-place').value.trim(),detail:$('agenda-detail').value.trim()};if(!item.date||!item.name)return;
  const i=data.events.findIndex(e=>e.id===item.id);if(i>=0)data.events[i]=item;else data.events.push(item);
- selected=item.date;month=new Date(item.date+'T12:00:00');$('agenda-event-form').reset();$('agenda-date').value=selected;editEvent=null;$('agenda-event-cancel').hidden=true;save()};
-$('agenda-event-cancel').onclick=()=>{editEvent=null;$('agenda-event-form').reset();$('agenda-date').value=selected;$('agenda-event-cancel').hidden=true};
+ selected=item.date;month=new Date(item.date+'T12:00:00');closeEventDialog();save()};
+$('agenda-event-cancel').onclick=closeEventDialog;
 $('agenda-note-form').onsubmit=e=>{e.preventDefault();const old=data.notes.find(n=>n.id===editNote);const item={id:editNote||('n'+Date.now()+Math.random()),created:old?.created||Date.now(),title:$('agenda-note-title').value.trim(),category:$('agenda-note-category').value,body:$('agenda-note-body').value.trim()};if(!item.title||!item.body)return;
  const i=data.notes.findIndex(n=>n.id===item.id);if(i>=0)data.notes[i]=item;else data.notes.push(item);editNote=null;$('agenda-note-form').reset();$('agenda-note-cancel').hidden=true;save()};
 $('agenda-note-cancel').onclick=()=>{editNote=null;$('agenda-note-form').reset();$('agenda-note-cancel').hidden=true};
