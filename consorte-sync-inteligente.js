@@ -68,7 +68,7 @@
       if(meter&&[...$('meter').options].some(o=>o.value===meter))setMeter(meter,'leído desde MusicXML');
       $('syncDetail').textContent='MusicXML leído: '+xmlMeasures.length+' compases y '+xmlMeasures.reduce((a,x)=>a+x.events.length,0)+' ataques musicales.';
       invalidate();
-      if(analyzedFile)await analyzeBetter();
+      if(audioOnsets.length)await analyzeBetter();
     }catch(error){xmlMeasures=[];$('syncDetail').textContent=error.message}
   };
   function scanNotes(canvas,syss){
@@ -268,6 +268,8 @@
       try{buffer=await ctx.decodeAudioData(await file.arrayBuffer())}finally{await ctx.close()}
       const old=detect(buffer);tempo=old.bpm;offset=old.offset;
       audioOnsets=onsetAnalysis(buffer);
+      if(!audioOnsets.length)throw Error("No se pudieron identificar ataques musicales suficientemente claros en esta grabación.");
+      analyzedFile=file;
       $('bpm').textContent=tempo;
       $('confidence').textContent=old.confidence+'%';
       if(!count){setStatus('Analicé '+audioOnsets.length+' ataques. Carga una partitura para vincularlos.');return}
@@ -335,7 +337,15 @@
   $('scoreFile').addEventListener('change',()=>{invalidate();if(analyzedFile)analyzedFile=null},true);
   $('audioFile').addEventListener('change',()=>{invalidate();analyzedFile=null},true);
   $('meter').addEventListener('change',()=>{invalidate();setStatus('Compás cambiado. Pulsa Analizar audio y sincronizar.')});
-  $('setStart').addEventListener('click',()=>{if(audioOnsets.length&&count){alignmentReady=false;analyzeBetter()}});
+  $('setStart').addEventListener('click',()=>{
+    if(!audioOnsets.length||!count||!tempo||!$('meter').value)return;
+    try{
+      const result=matchTimeline(makeEvents(),audioOnsets,tempo,offset);
+      timeAnchors=result.anchors;scoreEvents=result.events;alignmentReady=true;
+      setStatus('Inicio ajustado en '+offset.toFixed(2)+' s. Seguimiento actualizado.');
+      update();
+    }catch(e){setStatus('No se pudo ajustar el inicio: '+e.message)}
+  });
   $('syncNudgeBack').onclick=()=>{offset-=.25;if(alignmentReady){for(const a of timeAnchors)a.time-=.25}update()};
   $('syncNudgeFwd').onclick=()=>{offset+=.25;if(alignmentReady){for(const a of timeAnchors)a.time+=.25}update()};
 })();
