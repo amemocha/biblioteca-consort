@@ -100,7 +100,7 @@ body:has(#consorteEditDock.active) #resizeHandle{z-index:11999!important;bottom:
 <p class="small">Arrastra la imagen para moverla por la pantalla (también puedes hacerlo con el dedo). Toca dos veces para eliminarla.</p>
 <div class="flex"><button id="removeDecorations">Eliminar imágenes añadidas</button><button class="primary" id="closeVisualEditor">Guardar y cerrar editor</button></div>
 </div></div></div></section>
-<section class="page" id="backup"><h1>Respaldo y datos</h1><div class="card"><h2>Protege tu repertorio</h2><p>Esta versión guarda los archivos en el navegador del dispositivo con IndexedDB. No están en Google Drive ni se sincronizan automáticamente. Si borras los datos del navegador puedes perder la biblioteca.</p><button class="primary" id="export">↓ Exportar biblioteca (ZIP)</button><p class="small">El ZIP incluirá los archivos y sus carpetas organizadas. Requiere internet para cargar el generador ZIP.</p><button id="importFolder">Subir carpeta del computador</button><button id="restoreBackup">↥ Restaurar respaldo ZIP</button><input id="backupFile" class="hidden" type="file" accept=".zip,application/zip"><input type="file" id="folderInput" class="hidden" webkitdirectory directory multiple></div></section>
+<section class="page" id="backup"><h1>Respaldo y datos</h1><div class="card"><h2>Protege tu repertorio</h2><p>Esta versión guarda los archivos en el navegador del dispositivo con IndexedDB. No están en Google Drive ni se sincronizan automáticamente. Si borras los datos del navegador puedes perder la biblioteca.</p><button class="primary" id="export">↓ Exportar biblioteca (ZIP)</button><p class="small">El ZIP incluirá los archivos y sus carpetas organizadas. Requiere internet para cargar el generador ZIP.</p><button id="importFolder">Subir carpeta del computador</button><button id="restoreBackup">↥ Restaurar respaldo ZIP</button><button class="primary" id="importConsorteZip" type="button">Importar ZIP de partituras y audios (organizar por canción)</button><input type="file" id="consorteZipFile" class="hidden" accept=".zip,application/zip"><p id="consorteZipStatus" class="small" role="status"></p><input id="backupFile" class="hidden" type="file" accept=".zip,application/zip"><input type="file" id="folderInput" class="hidden" webkitdirectory directory multiple></div></section>
 </div></main></div><nav class="bottomnav"><button data-page="library" class="active">▦<br>Biblioteca</button><button data-page="study">♫<br>Estudio</button><button data-page="custom"><br>Diseño</button><button data-page="backup">⇩<br>Respaldo</button></nav>
 <div id="consorteEditDock" aria-label="Editor de diseño global">
 <div class="dockNav" role="navigation" aria-label="Cambiar sección mientras editas">
@@ -416,6 +416,69 @@ $x('export').onclick=async()=>{
   downloadBlob(await zip.generateAsync({type:'blob',compression:'DEFLATE'}),'Biblioteca_Consorte_Respaldo.zip');
  }catch(e){alert('Error al crear respaldo: '+e.message)}
 };
+
+const zipStatus=msg=>{$x('consorteZipStatus').textContent=msg;};
+$x('importConsorteZip').onclick=()=>$x('consorteZipFile').click();
+$x('consorteZipFile').onchange=async event=>{
+ const file=event.target.files?.[0];event.target.value='';if(!file)return;
+ const button=$x('importConsorteZip');button.disabled=true;
+ try{
+  zipStatus('Leyendo el ZIP: '+file.name);
+  const archive=await (await getZip()).loadAsync(file);
+  const list=Object.values(archive.files).filter(x=>!x.dir&&!x.name.startsWith('__MACOSX/')&&!/(^|\/)\.DS_Store$/i.test(x.name)&&!/(^|\/)consorte_manifest\.json$/i.test(x.name));
+  if(list.length>12000)throw Error('El ZIP tiene demasiados archivos (máximo 12.000).');
+  const allowed=/\.(pdf|png|jpe?g|webp|mp3|wav|ogg|m4a|aac|musicxml|xml|txt)$/i;
+  const entries=list.filter(x=>allowed.test(x.name));
+  if(!entries.length)throw Error('No se encontraron partituras ni audios compatibles.');
+  if(!confirm('Se encontraron '+entries.length+' archivos. ¿Organizarlos por canción y guitarra sin borrar los existentes?'))return;
+  const normalize=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  const voices=['Contrabajo','Soprano','Tenor','Alto','Bajo','General'];
+  function voiceOf(name){
+   const p=normalize(name);
+   const found=voices.find(v=>new RegExp('(?:^| )'+normalize(v)+'(?: |$)').test(p));
+   if(found)return found;
+   const match=p.match(/(?:^| )(?:guitarra|gtr|voz)\s*([1-5])(?: |$)/);
+   return match?({1:'Soprano',2:'Alto',3:'Tenor',4:'Bajo',5:'Contrabajo'}[match[1]]):'';
+  }
+  function songOf(parts,filename){
+   // Prefer the original Drive song folder when available.
+   let directories=parts.slice(0,-1).filter(x=>!/^(partituras? y audios?|consort(?:e)?|audios?|partituras?|tablaturas?|guitarras?|archivos?)$/i.test(normalize(x)));
+   if(directories.length)return directories[directories.length-1].trim();
+   let name=filename.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ');
+   name=name.replace(/\b(?:contrabajo|soprano|tenor|alto|bajo|general|guitarra\s*[1-5]|voz\s*[1-5]|audio|partitura|tablatura|score|tab)\b/gi,' ');
+   name=name.replace(/\s+/g,' ').trim();
+   return name||'Sin clasificar';
+  }
+  let existing=await allRecords();
+  const folderMap=new Map(existing.filter(r=>r.type==='folder'&&(r.parent??null)===null).map(r=>[normalize(r.name),r]));
+  // Duplicates are identified within the target song folder using name and file size.
+  let added=0,skipped=0,errors=[];
+  for(let i=0;i<entries.length;i++){
+   const zfile=entries[i],parts=zfile.name.split('/').filter(Boolean),name=parts.at(-1);
+   const song=songOf(parts,name),key=normalize(song);
+   try{
+    let folder=folderMap.get(key);
+    if(!folder){
+     folder={id:uid(),parent:null,type:'folder',name:safeName(song),created:Date.now()};
+     await putRecord(folder);existing.push(folder);folderMap.set(key,folder);
+    }
+    const bytes=zfile._data?.uncompressedSize||0;
+    const duplicate=existing.some(r=>r.type==='file'&&r.parent===folder.id&&normalize(r.name)===normalize(name)&&(!bytes||!r.blob||r.blob.size===bytes));
+    if(duplicate){skipped++;continue}
+    const blob=new Blob([await zfile.async('arraybuffer')]);
+    const kind=getKind({name,type:blob.type});
+    const entry={id:uid(),parent:folder.id,type:'file',kind,name:safeName(name),instrument:voiceOf(name)||voiceOf(parts.join(' ')),song,blob,created:Date.now()};
+    await putRecord(entry);existing.push(entry);added++;
+   }catch(err){errors.push(name+': '+err.message)}
+   if(i%8===0)zipStatus('Procesando '+(i+1)+' de '+entries.length+' · agregados '+added+' · omitidos '+skipped);
+  }
+  await refresh();
+  zipStatus('Importación terminada: '+added+' archivos añadidos, '+skipped+' duplicados omitidos, '+errors.length+' errores.');
+  alert('Importación terminada. Añadidos: '+added+'; duplicados omitidos: '+skipped+'; errores: '+errors.length+(errors.length?'\n'+errors.slice(0,5).join('\n'):''));
+ }catch(e){zipStatus('Error al importar: '+e.message);alert('No se pudo importar el ZIP: '+e.message)}
+ finally{button.disabled=false}
+};
+
 $x('restoreBackup').onclick=()=>$x('backupFile').click();
 $x('backupFile').onchange=async e=>{
  const file=e.target.files[0];e.target.value='';if(!file)return;
