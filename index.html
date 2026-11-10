@@ -81,7 +81,7 @@ body:has(#consorteEditDock.active) #resizeHandle{z-index:11999!important;bottom:
 #items[data-view="compact"] .itemactions button{padding:4px 6px;font-size:11px}
 @media(max-width:550px){.view-switch button{padding:8px}.view-switch span{font-size:11px}#items[data-view="list"] .item,#items[data-view="compact"] .item{grid-template-columns:minmax(0,1fr)}#items[data-view="list"] .itemactions,#items[data-view="compact"] .itemactions{justify-content:flex-start}}
 </style></head><body><div class="app"><aside class="sidebar"><div class="logos"><img id="logA"><img id="logB"></div><button class="nav active" data-page="library">▦ Biblioteca</button><button class="nav" data-page="study">♫ Partitura + audio</button><button class="nav" data-page="custom"> Personalizar</button><button class="nav" data-page="calendar">▣ Calendario</button><button class="nav" data-page="planner">✎ Notas</button><button class="nav" data-page="backup">⇩ Respaldo</button><a class="nav" href="./tablaturas.html" style="text-decoration:none;display:block">♬ Convertir a tablatura</a><div class="sidefoot">Fundación Consorte · Orquesta Juvenil de Guitarras<br>Almacenamiento local en este navegador</div></aside><main class="main"><header class="top"><strong>Biblioteca Consorte · Orquesta Juvenil de Guitarras</strong><img id="headerLogo" alt="Logo Orquesta"></header><div class="content">
-<section class="page active" id="library"><h1>Tu biblioteca musical</h1><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 16px"><button id="printLibraryScore" type="button" style="background:#fff;color:#202020;border:2px solid #333;font-size:16px;font-weight:800;padding:13px 20px;box-shadow:0 2px 8px #0002">🖨 IMPRIMIR PARTITURA</button><span class="small">Selecciona cualquier partitura PDF o imagen para imprimirla completa.</span></div><p class="sub">Organiza canciones, carpetas, partituras y audios. Toca un archivo para abrirlo.</p><div class="card"><div class="flex"><input class="fill" id="search" placeholder="Buscar canción o archivo…" aria-label="Buscar"><select id="instrumentFilter" aria-label="Filtrar guitarra"><option value="">Todas las guitarras</option><option>Soprano</option><option>Alto</option><option>Tenor</option><option>Bajo</option><option>Contrabajo</option><option>General</option></select><select id="typeFilter"><option value="">Todos los archivos</option><option value="audio">Audios</option><option value="score">Partituras</option></select><select id="songFilter" aria-label="Filtrar por canción"><option value="">Todas las canciones</option></select><select id="categoryFilter" aria-label="Filtrar por categoría"><option value="">Todas las categorías</option></select><label class="small" style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="groupBySong"> Agrupar por canción</label></div><div id="folderLocation" role="status" style="font-weight:700;margin:8px 0"></div><div class="flex" id="folderNavigation" hidden style="gap:10px;margin:12px 0;flex-wrap:wrap"><button class="primary" id="backToLibraryHome" type="button" style="background:#8b522e;color:white;font-weight:750;font-size:15px;padding:12px 18px">← Volver al inicio</button><button id="backToParentFolder" type="button" style="font-size:14px;padding:11px 16px">↑ Carpeta anterior</button></div><div class="tree" id="breadcrumbs"></div><div class="flex"><button id="undoLastLibraryAction" disabled type="button">↶ Deshacer última acción</button><button id="selectLibraryFolders" type="button">☑ Seleccionar carpetas</button><button id="selectAllLibraryFolders" type="button" hidden>☑ Seleccionar todas</button><button id="clearSelectedLibraryFolders" type="button" hidden>Deseleccionar todas</button><button id="deleteSelectedFolders" type="button" class="danger" hidden>Eliminar seleccionadas (0)</button><button id="cancelFolderSelection" type="button" hidden>Cancelar selección</button><button class="primary" id="newFolder">＋ Nueva carpeta</button><button class="primary" id="organizeSongs" type="button" style="background:#8b522e;color:#fff;font-weight:750">↪ Organizar canciones en carpetas</button><button id="pickFiles">↑ Elegir archivos</button><span class="small">PDF, imágenes, MP3, WAV, MusicXML</span></div><div class="drop" id="drop"> Arrastra archivos aquí o toca para seleccionarlos</div><input class="hidden" type="file" multiple id="fileInput" accept=".pdf,.mp3,.wav,.ogg,.m4a,.aac,.musicxml,.xml,.png,.jpg,.jpeg,.webp,audio/*,image/*,application/pdf"><p id="uploadStatus" class="status" role="status"></p></div><div class="library-view-toolbar" aria-label="Forma de mostrar los archivos">
+<section class="page active" id="library"><h1>Tu biblioteca musical</h1><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 16px"><button id="printLibraryScore" type="button" style="background:#fff;color:#202020;border:2px solid #333;font-size:16px;font-weight:800;padding:13px 20px;box-shadow:0 2px 8px #0002">🖨 IMPRIMIR PARTITURA</button><span class="small">Selecciona cualquier partitura PDF o imagen para imprimirla completa.</span></div><p class="sub">Organiza canciones, carpetas, partituras y audios. Toca un archivo para abrirlo.</p><div class="card"><div class="flex"><input class="fill" id="search" placeholder="Buscar canción o archivo…" aria-label="Buscar"><select id="instrumentFilter" aria-label="Filtrar guitarra"><option value="">Todas las guitarras</option><option>Soprano</option><option>Alto</option><option>Tenor</option><option>Bajo</option><option>Contrabajo</option><option>General</option></select><select id="typeFilter"><option value="">Todos los archivos</option><option value="audio">Audios</option><option value="score">Partituras</option></select><select id="songFilter" aria-label="Filtrar por canción"><option value="">Todas las canciones</option></select><select id="categoryFilter" aria-label="Filtrar por categoría"><option value="">Todas las categorías</option></select><label class="small" style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="groupBySong"> Agrupar por canción</label></div><div id="folderLocation" role="status" style="font-weight:700;margin:8px 0"></div><div class="flex" id="folderNavigation" hidden style="gap:10px;margin:12px 0;flex-wrap:wrap"><button class="primary" id="backToLibraryHome" type="button" style="background:#8b522e;color:white;font-weight:750;font-size:15px;padding:12px 18px">← Volver al inicio</button><button id="backToParentFolder" type="button" style="font-size:14px;padding:11px 16px">↑ Carpeta anterior</button></div><div class="tree" id="breadcrumbs"></div><div class="flex"><button id="undoLastLibraryAction" disabled type="button">↶ Deshacer última acción</button><button id="selectLibraryFolders" type="button">☑ Seleccionar archivos y carpetas</button><button id="selectAllLibraryFolders" type="button" hidden>☑ Seleccionar todos los visibles</button><button id="clearSelectedLibraryFolders" type="button" hidden>Deseleccionar todas</button><button id="deleteSelectedFolders" type="button" class="danger" hidden>Eliminar seleccionados (0)</button><button id="cancelFolderSelection" type="button" hidden>Cancelar selección</button><button class="primary" id="newFolder">＋ Nueva carpeta</button><button class="primary" id="organizeSongs" type="button" style="background:#8b522e;color:#fff;font-weight:750">↪ Organizar canciones en carpetas</button><button id="pickFiles">↑ Elegir archivos</button><span class="small">PDF, imágenes, MP3, WAV, MusicXML</span></div><div class="drop" id="drop"> Arrastra archivos aquí o toca para seleccionarlos</div><input class="hidden" type="file" multiple id="fileInput" accept=".pdf,.mp3,.wav,.ogg,.m4a,.aac,.musicxml,.xml,.png,.jpg,.jpeg,.webp,audio/*,image/*,application/pdf"><p id="uploadStatus" class="status" role="status"></p></div><div class="library-view-toolbar" aria-label="Forma de mostrar los archivos">
  <span class="view-label">Ver archivos como:</span>
  <div class="view-switch" role="group" aria-label="Vista de biblioteca">
   <button type="button" data-library-view="grid" aria-pressed="true" title="Cuadrícula con portadas">▦ <span>Cuadrícula</span></button>
@@ -173,7 +173,7 @@ function getKind(f){if(f.type?.startsWith('audio/')||/\.(mp3|wav|ogg|m4a|aac)$/i
 function inferInstrument(name){const x=name.toLowerCase();return ['Contrabajo','Soprano','Tenor','Alto','Bajo'].find(n=>x.includes(n.toLowerCase()))||''}
 async function upload(files,parent=state.folder){if(!files.length)return;notify('Guardando '+files.length+' archivo(s)…');let n=0;let failures=[];for(const file of files){try{await putRecord({id:uid(),parent,type:'file',kind:getKind(file),name:safeName(file.name),instrument:inferInstrument(file.name),blob:file,created:Date.now()});n++}catch(e){failures.push(file.name+': '+e.message)}}await refresh();notify(n+' guardado(s). '+(failures.length?'Errores: '+failures.join('; '):''));}
 $('fileInput').addEventListener('change',e=>{upload([...e.target.files]);e.target.value=''});$('pickFiles').onclick=()=>$('fileInput').click();$('drop').onclick=()=>$('fileInput').click();['dragenter','dragover'].forEach(type=>$('drop').addEventListener(type,e=>{e.preventDefault();$('drop').classList.add('drag')}));['dragleave','drop'].forEach(type=>$('drop').addEventListener(type,e=>{e.preventDefault();$('drop').classList.remove('drag')}));$('drop').addEventListener('drop',e=>upload([...e.dataTransfer.files]));
-$('newFolder').onclick=async()=>{const name=prompt('Nombre de la nueva carpeta:');if(!name?.trim())return;await putRecord({id:uid(),parent:state.folder,type:'folder',name:safeName(name.trim()),created:Date.now()});await refresh()};
+$('newFolder').onclick=async()=>{const name=prompt('Nombre de la nueva carpeta:');if(!name?.trim())return;const clean=safeName(name.trim());const existing=state.records.find(x=>x.type==='folder'&&(x.parent??null)===(state.folder??null)&&x.name.normalize('NFD').toLowerCase()===clean.normalize('NFD').toLowerCase());if(existing){alert('Ya existe una carpeta con ese nombre aquí. Se abrirá la carpeta existente.');state.folder=existing.id;renderLibrary();return}await putRecord({id:uid(),parent:state.folder,type:'folder',name:clean,created:Date.now()});await refresh()};
 function iconFor(r){return r.cover||((r.type==='folder')?'':(localStorage.getItem('consorte_logo')||ORIGINAL_B))}
 function createButton(label,handler,cls=''){const b=document.createElement('button');b.textContent=label;if(cls)b.className=cls;b.onclick=handler;return b}
 const categoryStorageKey='consorte_custom_categories_v1';
@@ -269,7 +269,7 @@ function countFolderFiles(folderId, records=state.records){
  return count;
 }
 let folderSelectMode=false;
-const selectedFolderIds=new Set();
+const selectedFolderIds=new Set(); // Carpetas, partituras, audios y otros archivos.
 function updateFolderSelectButtons(){
  $('selectLibraryFolders').hidden=folderSelectMode;
  $('selectAllLibraryFolders').hidden=!folderSelectMode;
@@ -277,29 +277,25 @@ function updateFolderSelectButtons(){
  $('deleteSelectedFolders').hidden=!folderSelectMode;
  $('cancelFolderSelection').hidden=!folderSelectMode;
  $('deleteSelectedFolders').disabled=!selectedFolderIds.size;
- $('deleteSelectedFolders').textContent='Eliminar seleccionadas ('+selectedFolderIds.size+')';
+ $('deleteSelectedFolders').textContent='Eliminar seleccionados ('+selectedFolderIds.size+')';
 }
 $('selectLibraryFolders').onclick=()=>{folderSelectMode=true;selectedFolderIds.clear();updateFolderSelectButtons();renderLibrary()};
 $('cancelFolderSelection').onclick=()=>{folderSelectMode=false;selectedFolderIds.clear();updateFolderSelectButtons();renderLibrary()};
-function currentlyVisibleFolderIds(){
- const items=$('items');
- return [...items.querySelectorAll('[data-library-folder-id]')].map(el=>el.dataset.libraryFolderId).filter(Boolean);
+function currentlyVisibleLibraryIds(){
+ return [...$('items').querySelectorAll('[data-library-record-id]')].map(el=>el.dataset.libraryRecordId).filter(Boolean);
 }
 $('selectAllLibraryFolders').onclick=()=>{
- for(const id of currentlyVisibleFolderIds())selectedFolderIds.add(id);
+ for(const id of currentlyVisibleLibraryIds())selectedFolderIds.add(id);
  updateFolderSelectButtons();renderLibrary();
 };
 $('clearSelectedLibraryFolders').onclick=()=>{selectedFolderIds.clear();updateFolderSelectButtons();renderLibrary()};
 $('deleteSelectedFolders').onclick=async()=>{
- const roots=[...selectedFolderIds].filter(id=>rec(id)?.type==='folder');
- if(!roots.length){alert('Selecciona al menos una carpeta.');return}
- const current=await allRecords();
- const byId=new Map(current.map(x=>[x.id,x]));
+ // La selección incluye partituras PDF, imágenes, audios y carpetas.
+ const current=await allRecords(),byId=new Map(current.map(x=>[x.id,x]));
+ const roots=[...selectedFolderIds].filter(id=>byId.has(id));
+ if(!roots.length){alert('Selecciona al menos un archivo o carpeta.');return}
  const children=new Map();
- for(const x of current){
-  const parent=x.parent??null;if(!children.has(parent))children.set(parent,[]);
-  children.get(parent).push(x);
- }
+ for(const x of current){const parent=x.parent??null;if(!children.has(parent))children.set(parent,[]);children.get(parent).push(x)}
  const all=new Set(),stack=[...roots];
  while(stack.length){
   const id=stack.pop();if(all.has(id))continue;
@@ -307,22 +303,19 @@ $('deleteSelectedFolders').onclick=async()=>{
   all.add(id);
   if(item.type==='folder')for(const child of children.get(id)||[])stack.push(child.id);
  }
- const files=[...all].filter(id=>byId.get(id)?.type==='file').length;
- const label=roots.length+' '+(roots.length===1?'carpeta':'carpetas')+' y '+files+' '+(files===1?'archivo':'archivos');
- if(!confirm('¿Eliminar '+label+'? La última eliminación podrá deshacerse mientras mantengas abierta esta página.'))return;
+ const folderCount=[...all].filter(id=>byId.get(id)?.type==='folder').length;
+ const fileCount=all.size-folderCount;
+ const label=folderCount+' carpeta(s) y '+fileCount+' archivo(s) (incluye partituras seleccionadas)';
+ if(!confirm('¿Eliminar '+label+'? Solo se borrará lo seleccionado y el contenido de las carpetas elegidas. Puedes deshacer la última operación mientras no cierres esta página.'))return;
  const button=$('deleteSelectedFolders');button.disabled=true;
- const backup=[...all].map(id=>byId.get(id)).filter(Boolean);
- // Registrar toda la operación como un único cambio reversible.
  beginUndoBatch('Eliminar '+label);
  try{
-  for(const x of backup){await delRecord(x.id)}
+  for(const id of all)await delRecord(id);
   if(all.has(state.folder))state.folder=null;
   folderSelectMode=false;selectedFolderIds.clear();
-  await refresh();
-  notify('Eliminados: '+label+'. Puedes usar Deshacer última acción.');
+  await refresh();notify('Eliminados: '+label+'. Puedes usar Deshacer última acción.');
  }catch(e){
-  alert('No se completó la eliminación: '+e.message+'. Usa Deshacer última acción si necesitas recuperar lo borrado.');
-  await refresh();
+  alert('No se completó la eliminación: '+e.message+'. Puedes usar Deshacer última acción.');await refresh();
  }finally{endUndoBatch();updateFolderSelectButtons()}
 };
 function renderLibrary(){
@@ -332,21 +325,9 @@ function renderLibrary(){
  bySong=$('groupBySong').checked;
  // Mostrar juntos los archivos de subcarpetas duplicadas con el mismo nombre,
  // sin borrar, mover ni alterar los registros almacenados.
+ // Mostrar únicamente el contenido de la carpeta actual; las carpetas homónimas
+ // de otros lugares no deben mezclarse ni duplicar archivos en pantalla.
  const visibleParents=new Set([state.folder??null]);
- const normName=name=>String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLocaleLowerCase('es');
- if(state.folder){
-   const selected=rec(state.folder);
-   const sameName=normName(selected?.name);
-   let changed=true,loops=0;
-   while(changed&&loops++<100){
-     changed=false;
-     for(const folder of state.records){
-       if(folder.type==='folder'&&visibleParents.has(folder.parent??null)&&normName(folder.name)===sameName&&!visibleParents.has(folder.id)){
-         visibleParents.add(folder.id);changed=true;
-       }
-     }
-   }
- }
  let records=state.records.filter(r=>{
    if(!visibleParents.has(r.parent??null))return false;
    if(r.type==='folder'&&visibleParents.has(r.id))return false;
@@ -358,13 +339,15 @@ function renderLibrary(){
    if(kind&&!(kind==='audio'&&r.kind==='audio'||kind==='score'&&['pdf','image','other'].includes(r.kind)))return false;
    return true;
  });
- records.sort((a,b)=>bySong?(String(a.song||'Sin canción').localeCompare(String(b.song||'Sin canción'),'es')||a.name.localeCompare(b.name,'es')):(a.type!==b.type?a.type==='folder'?-1:1:a.name.localeCompare(b.name,'es')));$('folderNavigation').hidden=!state.folder;$('folderLocation').textContent=state.folder?'Estás dentro de: '+(rec(state.folder)?.name||'Carpeta'):'Estás en: Inicio de Biblioteca';let crumb=$('breadcrumbs');crumb.replaceChildren();let path=[],id=state.folder,guard=0;while(id&&guard++<100){let r=rec(id);if(!r)break;path.unshift(r);id=r.parent};[null,...path].forEach((r,i)=>{crumb.append(createButton(i===0?'⌂ Inicio':' '+r.name,()=>{state.folder=r?.id||null;renderLibrary()},'crumb'))});const list=$('items');list.replaceChildren();$('emptyLibrary').style.display=records.length?'none':'block';let previousSong=null;for(const r of records){if(bySong){const g=r.song||'Sin canción';if(g!==previousSong){let title=document.createElement('h3');title.className='song-group-title';title.textContent=' '+g;list.append(title);previousSong=g;}}let item=document.createElement('div');item.className='item'+(r.type==='folder'?' folder-item':'');if(r.type==='folder')item.dataset.libraryFolderId=r.id;
- if(r.type==='folder'&&folderSelectMode){
+ records.sort((a,b)=>bySong?(String(a.song||'Sin canción').localeCompare(String(b.song||'Sin canción'),'es')||a.name.localeCompare(b.name,'es')):(a.type!==b.type?a.type==='folder'?-1:1:a.name.localeCompare(b.name,'es')));$('folderNavigation').hidden=!state.folder;$('folderLocation').textContent=state.folder?'Estás dentro de: '+(rec(state.folder)?.name||'Carpeta'):'Estás en: Inicio de Biblioteca';let crumb=$('breadcrumbs');crumb.replaceChildren();let path=[],id=state.folder,guard=0;while(id&&guard++<100){let r=rec(id);if(!r)break;path.unshift(r);id=r.parent};[null,...path].forEach((r,i)=>{crumb.append(createButton(i===0?'⌂ Inicio':' '+r.name,()=>{state.folder=r?.id||null;renderLibrary()},'crumb'))});const list=$('items');list.replaceChildren();$('emptyLibrary').style.display=records.length?'none':'block';let previousSong=null;for(const r of records){if(bySong){const g=r.song||'Sin canción';if(g!==previousSong){let title=document.createElement('h3');title.className='song-group-title';title.textContent=' '+g;list.append(title);previousSong=g;}}let item=document.createElement('div');item.className='item'+(r.type==='folder'?' folder-item':'');if(r.type==='folder')item.dataset.libraryFolderId=r.id;item.dataset.libraryRecordId=r.id;
+ if(folderSelectMode){
   const picker=document.createElement('label');picker.style.cssText='display:flex;gap:8px;align-items:center;font-weight:700;padding-bottom:6px';
   const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=selectedFolderIds.has(r.id);
   checkbox.onchange=()=>{if(checkbox.checked)selectedFolderIds.add(r.id);else selectedFolderIds.delete(r.id);updateFolderSelectButtons()};
-  picker.append(checkbox,document.createTextNode('Seleccionar carpeta'));item.append(picker);
- }let top=document.createElement('div');top.className='itemtop';let art=document.createElement('img');art.className='art';art.alt='';if(r.cover)art.dataset.custom='1';art.src=iconFor(r)||ORIGINAL_B;if(r.type==='folder'&&!r.cover){let symbol=document.createElement('div');symbol.className='folder-circle';symbol.textContent='';top.append(symbol)}else top.append(art);let text=document.createElement('div');text.style.minWidth='0';let n=document.createElement('div');n.className='itemname';n.textContent=r.name;let sub=document.createElement('div');sub.className='small';sub.textContent=r.type==='folder'?(()=>{const total=countFolderFiles(r.id);return total+' '+(total===1?'archivo':'archivos')+' (incluye subcarpetas)'})():[(r.song?' '+r.song:''),r.instrument||'',r.category||'',r.kind].filter(Boolean).join(' · '); text.append(n,sub);top.append(text);top.onclick=e=>{if(r.type==='folder')return;if(e.target.closest('button,input,label,select,summary,details'))return;openRecord(r)};item.append(top);
+  picker.append(checkbox,document.createTextNode(r.type==='folder'?'Seleccionar carpeta':'Seleccionar archivo'));item.append(picker);
+ }let top=document.createElement('div');top.className='itemtop';let art=document.createElement('img');art.className='art';art.alt='';if(r.cover)art.dataset.custom='1';art.src=iconFor(r)||ORIGINAL_B;if(r.type==='folder'&&!r.cover){let symbol=document.createElement('div');symbol.className='folder-circle';symbol.textContent='';top.append(symbol)}else top.append(art);let text=document.createElement('div');text.style.minWidth='0';let n=document.createElement('div');n.className='itemname';n.textContent=r.name;let sub=document.createElement('div');sub.className='small';sub.textContent=r.type==='folder'?(()=>{const total=countFolderFiles(r.id);return total+' '+(total===1?'archivo':'archivos')+' (incluye subcarpetas)'})():[(r.song?' '+r.song:''),r.instrument||'',r.category||'',r.kind].filter(Boolean).join(' · '); text.append(n,sub);top.append(text);top.onclick=e=>{if(r.type==='folder')return;if(e.target.closest('button,input,label,select,summary,details'))return;
+ if(folderSelectMode){if(selectedFolderIds.has(r.id))selectedFolderIds.delete(r.id);else selectedFolderIds.add(r.id);updateFolderSelectButtons();renderLibrary();return}
+ openRecord(r)};item.append(top);
  if(r.type==='folder'){
   item.tabIndex=0;item.setAttribute('role','button');item.setAttribute('aria-label','Abrir carpeta '+r.name);
   item.onclick=e=>{
