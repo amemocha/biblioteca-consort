@@ -5,12 +5,12 @@
 </style></head><body>
 <header><strong>Biblioteca Consorte</strong> · Conversor de tablaturas</header><main>
 <div class="card noprint"><a href="./">← Volver a la biblioteca</a><h1>Convertir partitura a tablatura</h1>
-<p>Esta primera versión convierte archivos <strong>MusicXML (.musicxml, .xml)</strong> a tablatura de seis cuerdas. Conserva los eventos por compás y muestra las duraciones; revisa las digitaciones antes de tocar.</p>
+<p>El conversor admite <strong>MusicXML</strong> directamente y puede procesar <strong>PDF</strong> cuando esté conectado a un servidor con Audiveris instalado. Conserva los eventos por compás y muestra las duraciones; revisa las digitaciones antes de tocar.</p>
 <div class="controls"><input type="file" id="file" accept=".musicxml,.xml,.mxl,.pdf,image/*">
 <label>Afinación <select id="tuning"><option value="standard">Estándar E A D G B E</option><option value="dropd">Drop D D A D G B E</option></select></label>
 <button class="primary" id="convert">Convertir</button></div>
 <p id="feedback" role="status">Selecciona un archivo para comenzar.</p>
-<small>Los PDF, imágenes y archivos MXL requieren reconocimiento o descompresión adicional y todavía no se convierten en esta versión. No se suben tus archivos a ningún servidor.</small></div>
+<small>Los PDF se envían al servicio de reconocimiento musical configurado, si está disponible. Aún no está desplegado: hasta entonces los PDF no podrán convertirse. Los resultados automáticos requieren revisión.</small></div>
 <div class="card" id="result"><h2 id="heading"></h2><p id="description"></p><div class="controls noprint"><button id="print">Imprimir o guardar en PDF</button><button id="download">Descargar tablatura TXT</button></div><pre id="tab"></pre></div></main>
 <script>
 'use strict';
@@ -28,8 +28,18 @@ const parts=Array.from(xml.getElementsByTagName('part'));if(!parts.length)throw 
 const out=[];for(const [pi,part] of parts.entries()){let divisions=1;let prev=null;const measures=[];for(const measure of children(part,'measure')){const attr=child(measure,'attributes');if(txt(attr,'divisions'))divisions=Number(txt(attr,'divisions'))||1;const events=[];for(const el of Array.from(measure.children)){if(el.localName!=='note')continue;const d=duration(el,divisions);const chord=!!child(el,'chord');if(child(el,'rest')){if(!chord)events.push({rest:true,d});continue}const midi=asMidi(el);if(midi==null)continue;if(chord&&events.length&& !events.at(-1).rest){events.at(-1).notes.push(midi);continue}events.push({d,notes:[midi]})}measures.push({number:measure.getAttribute('number')||String(measures.length+1),events})}out.push({name:'Parte '+(pi+1),measures})}return out}
 function render(parts,open){let total=0;const output=[];for(const part of parts){output.push(part.name+'\n');let prev=null;for(const measure of part.measures){const lines=Array.from({length:6},()=>[]);const times=[];for(const event of measure.events){total++;const cells=Array(6).fill('--');if(!event.rest){const used=new Set();for(const midi of [...event.notes].sort((a,b)=>a-b)){const options=[];for(let s=0;s<6;s++){const fret=midi-open[s];if(fret>=0&&fret<=19&&!used.has(s))options.push({string:s,fret,score:fret*.18+(fret>12?5:0)+(prev?Math.abs(fret-prev.fret)*.24:0)})}options.sort((a,b)=>a.score-b.score);const p=options[0];if(p){used.add(p.string);cells[p.string]=String(p.fret).padStart(2,'-');prev=p}else cells[5]='??'}}times.push((event.rest?'R':'N')+event.d);for(let s=0;s<6;s++)lines[s].push(cells[s])}output.push('Compás '+measure.number+'\n');for(let s=5;s>=0;s--)output.push(['e','B','G','D','A','E'][5-s]+'|'+lines[s].join('-')+'|\n');output.push('Duraciones (negras): '+times.join(', ')+'\n\n')}}return {text:output.join(''),total}}
 let generated='';
-$('convert').onclick=async()=>{try{const f=$('file').files[0];if(!f)throw Error('Selecciona un archivo.');if(!/\.(xml|musicxml)$/i.test(f.name))throw Error('Este formato todavía no tiene conversión automática. Para PDF o imagen hace falta un motor de reconocimiento musical; para MXL, descomprimirlo primero.');
-const xml=await f.text();const parsed=parseXML(xml);const open=$('tuning').value==='dropd'?dropD:standard;const rendered=render(parsed,open);generated=rendered.text;$('tab').textContent=generated;$('heading').textContent=f.name;$('description').textContent=parsed.length+' parte(s) · '+rendered.total+' eventos procesados. Si ves “??”, esa nota no tiene posición dentro de los primeros 19 trastes. Comprueba las notas, ritmo y digitación con el original.';$('result').style.display='block';$('feedback').textContent='Tablatura creada para revisión.'}catch(err){$('result').style.display='none';$('feedback').textContent=err.message}};
+$('convert').onclick=async()=>{try{const f=$('file').files[0];if(!f)throw Error('Selecciona un archivo.');let xml;
+if(/\.pdf$/i.test(f.name)){
+ if(f.size>12*1024*1024)throw Error('El PDF debe pesar menos de 12 MB.');
+ $('feedback').textContent='Reconociendo notas del PDF...';
+ const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=reject;reader.readAsDataURL(f)});
+ let response;try{response=await fetch('/api/transcribe-pdf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pdfBase64:data})})}catch(e){throw Error('No se pudo conectar con el servicio de reconocimiento musical.');}
+ if(!response.ok&&[404,405,502,503].includes(response.status))throw Error('El reconocimiento de PDF todavía no está activado en este servidor.');
+ let payload;try{payload=await response.json()}catch(e){throw Error('El servidor no devolvió un resultado válido.')}
+ if(!response.ok)throw Error(payload.error||'No se pudo reconocer la partitura.');
+ xml=payload.musicxml;
+}else if(/\.(xml|musicxml)$/i.test(f.name)){xml=await f.text();}
+else throw Error('Formato no compatible todavía. Sube un PDF, MusicXML o XML.');const parsed=parseXML(xml);const open=$('tuning').value==='dropd'?dropD:standard;const rendered=render(parsed,open);generated=rendered.text;$('tab').textContent=generated;$('heading').textContent=f.name;$('description').textContent=parsed.length+' parte(s) · '+rendered.total+' eventos procesados. Si ves “??”, esa nota no tiene posición dentro de los primeros 19 trastes. Comprueba las notas, ritmo y digitación con el original.';$('result').style.display='block';$('feedback').textContent='Tablatura creada para revisión.'}catch(err){$('result').style.display='none';$('feedback').textContent=err.message}};
 $('print').onclick=()=>window.print();
 $('download').onclick=()=>{const blob=new Blob([generated],{type:'text/plain;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='tablatura-consorte.txt';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000)};
 </script></body></html>
