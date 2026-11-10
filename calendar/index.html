@@ -36,7 +36,33 @@ html.library-theme .dialog-head{background:#e2f0e8;color:#214f42}
 html.library-theme .notice{background:#e9f4ed;color:#2b594a}
 html.library-theme .event{background:var(--event-color)}
 html.library-theme .day .event{filter:saturate(.8)}
-</style><script>if(new URLSearchParams(location.search).get("theme")==="library")document.documentElement.classList.add("library-theme");</script></head><body>
+
+/* Versión blanca integrada en Biblioteca Consorte: mismas funciones y recordatorios. */
+html.white-theme,html.white-theme body{background:#ffffff;color:#272727}
+html.white-theme .layout{grid-template-columns:minmax(0,1fr);background:#ffffff}
+html.white-theme .side{display:none}
+html.white-theme .mobile-brand{display:block;color:#282828}
+html.white-theme .toolbar{background:#ffffff;border-bottom:1px solid #e1e1e1}
+html.white-theme .period{color:#222;font-weight:650}
+html.white-theme .days,html.white-theme .calendar,html.white-theme .day{background:#ffffff}
+html.white-theme .day{border-color:#e6e6e6}
+html.white-theme .day:hover{background:#f8f8f8}
+html.white-theme .day.other-month{background:#fbfbfb}
+html.white-theme .day.selected{box-shadow:inset 0 0 0 2px #ababab}
+html.white-theme .day.today .num{background:#333333;color:#fff}
+html.white-theme .weekdays{background:#ffffff;border-bottom-color:#ddd}
+html.white-theme .weekdays>span{color:#666}
+html.white-theme button{border-color:#dedede}
+html.white-theme button:hover{background:#f2f2f2}
+html.white-theme .primary{background:#353535;border-color:#353535;color:#fff}
+html.white-theme .primary:hover{background:#171717}
+html.white-theme .dialog{border-color:#ddd}
+html.white-theme .dialog-head{background:#fafafa}
+html.white-theme .notice{background:#fafafa;color:#333}
+html.white-theme .holiday-pill{background:#fff0f0;color:#a32828}
+html.white-theme .day.has-holiday .num{color:#ad2828}
+html.white-theme .day.has-holiday.today .num{color:#fff}
+</style><script>const calendarTheme=new URLSearchParams(location.search).get("theme");if(calendarTheme==="library")document.documentElement.classList.add("library-theme");if(calendarTheme==="white")document.documentElement.classList.add("white-theme");</script></head><body>
 <div class="layout"><aside class="side"><div class="brand"><div class="brandmark">C</div>Calendario Consorte</div><button class="create" id="sideCreate">＋ Crear evento</button><div class="mini-month"><h3 id="miniTitle"></h3><div id="miniGrid" class="mini-grid"></div></div><div class="categories"><b class="list-heading">Mis calendarios</b><label><input type="checkbox" data-category="Ensayo" checked><span class="dot" style="--c:#1967d2"></span> Ensayos</label><label><input type="checkbox" data-category="Presentación" checked><span class="dot" style="--c:#188038"></span> Presentaciones</label><label><input type="checkbox" data-category="Reunión" checked><span class="dot" style="--c:#9334e6"></span> Reuniones</label><label><input type="checkbox" data-category="Recordatorio" checked><span class="dot" style="--c:#d28a00"></span> Recordatorios</label><label><input type="checkbox" data-category="Otro" checked><span class="dot" style="--c:#b06020"></span> Otros</label><label><input id="showHolidays" type="checkbox" checked><span class="dot" style="--c:#d93025"></span> Feriados de Chile</label></div><div><b class="list-heading">Próximos eventos</b><div class="agenda-list" id="upcoming"></div></div><div class="side-actions"><button id="exportBtn">↓ Exportar calendario</button><button id="importBtn">↑ Importar respaldo</button><input type="file" id="importFile" accept=".json,application/json" hidden><div class="foot">Pulsa Guardar para ver el recordatorio dentro del día correspondiente. Los datos quedan en este navegador. Si abres este archivo en una vista previa, podría bloquearse el guardado. Usa Exportar calendario para una copia de seguridad.</div></div></aside>
 <main class="main"><header class="toolbar"><span class="mobile-brand">Calendario Consorte</span><button id="todayBtn">Hoy</button><div class="navcontrol"><button id="prevBtn" aria-label="Anterior">‹</button><button id="nextBtn" aria-label="Siguiente">›</button></div><strong class="period" id="periodTitle"></strong><div class="right-tools"><select id="viewSelect" aria-label="Vista"><option value="month">Mes</option><option value="week">Semana</option><option value="day">Día</option></select><button class="primary" id="createBtn">+ Crear</button></div></header>
 <div id="saveWarning" role="alert" hidden style="position:fixed;bottom:14px;left:14px;right:14px;background:#fff3cd;color:#63440c;border:1px solid #e5bb4c;z-index:9001;padding:13px;border-radius:12px"></div><div id="saveNotice" role="status" aria-live="polite" style="display:none;position:fixed;top:12px;right:14px;background:#147d46;color:white;padding:12px 18px;border-radius:12px;z-index:9000;box-shadow:0 4px 15px #0003;font-weight:650">Recordatorio guardado</div><div id="calendar" class="calendar"><div id="weekdays" class="weekdays"><span>Lunes</span><span>Martes</span><span>Miércoles</span><span>Jueves</span><span>Viernes</span><span>Sábado</span><span>Domingo</span></div><div class="days" id="days"></div></div></main></div>
