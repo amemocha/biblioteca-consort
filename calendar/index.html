@@ -79,7 +79,7 @@ async function fetchHolidayYear(year){
   if(!Array.isArray(data))throw Error('Respuesta inesperada');
   const mapped={};
   for(const entry of data){
-    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(entry.date||''))continue;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(entry.date||''))continue;
     if(entry.nationalHoliday===false)continue;
     if(Array.isArray(entry.subdivisionCodes)&&entry.subdivisionCodes.length>0&&entry.nationalHoliday!==true)continue;
     if(Array.isArray(entry.holidayTypes)&&!entry.holidayTypes.includes('Public'))continue;
