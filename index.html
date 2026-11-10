@@ -400,57 +400,39 @@ function downloadBlob(blob,name){let url=URL.createObjectURL(blob),a=document.cr
 function downloadRecord(r){if(r.type==='folder'){alert('Para descargar carpetas, utiliza «Respaldo» → Exportar biblioteca ZIP.');return}downloadBlob(r.blob,r.name)}
 // Imprimir el archivo original: todas las páginas del PDF, no solo la hoja mostrada en Estudio.
 // Abre inmediatamente una ventana propia y llama a la vista previa nativa de impresión.
+// Conservar los enlaces Blob originales mientras esté abierta la biblioteca.
+const scorePrintObjectUrls=[];
+window.addEventListener('pagehide',()=>{for(const u of scorePrintObjectUrls)URL.revokeObjectURL(u)});
 function printScoreRecord(record){
- if(record&&record.type==='file'&&record.scoreId){
+ if(record?.scoreId){
   const linked=rec(record.scoreId);
   if(linked?.blob instanceof Blob)record=linked;
  }
  if(!record||!(record.blob instanceof Blob)){
-  alert('Primero selecciona una partitura PDF o imagen.');return;
+  alert('No hay una partitura PDF o imagen seleccionada para imprimir.');return;
  }
- const name=String(record.name||'Partitura'),mime=record.blob.type||'';
+ const name=String(record.name||'Partitura');
+ const mime=record.blob.type||'';
  const kind=/\.pdf$/i.test(name)||mime==='application/pdf'?'pdf':/\.(png|jpe?g|webp|gif)$/i.test(name)||mime.startsWith('image/')?'image':record.kind;
- if(!['pdf','image'].includes(kind)){alert('Selecciona un PDF o imagen de la partitura.');return}
- // Evitar renderizar PDFs grandes como cientos de lienzos (podía detenerse en la primera página).
- // El visor PDF de Chrome carga todas las páginas y ofrece el mismo diálogo de impresión
- // que al abrir el archivo original en el navegador.
- const printableBlob=(record.blob.type?record.blob:new Blob([record.blob],{type:kind==='pdf'?'application/pdf':'image/png'}));
- const url=URL.createObjectURL(printableBlob);
- let w;
- try{w=window.open('','_blank')}catch{}
- if(!w){
-  URL.revokeObjectURL(url);
-  alert('Chrome está bloqueando la ventana nueva. Permite ventanas emergentes para Biblioteca Consorte.');return;
+ if(kind!=='pdf'&&kind!=='image'){
+  alert('Este archivo no es un PDF o imagen. Selecciona la partitura original.');return;
  }
- if(kind==='pdf'){
-  w.document.title='Partitura · '+name;
-  w.document.body.style.cssText='margin:0;font:16px Arial,sans-serif;background:#fff';
-  const bar=w.document.createElement('div');
-  bar.style.cssText='padding:10px 16px;background:#f3f3f3;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap';
-  const label=w.document.createElement('span');label.textContent=name;
-  const native=w.document.createElement('a');native.href=url;native.target='_self';
-  native.textContent='Abrir PDF en Chrome para imprimir';native.style.cssText='font-weight:bold;color:#174ea6;padding:10px';
-  const note=w.document.createElement('span');note.textContent='En el visor PDF, pulsa el icono de impresora o Ctrl + P.';
-  bar.append(label,native,note);
-  const frame=w.document.createElement('iframe');
-  frame.src=url;frame.title='Partitura completa: '+name;
-  frame.style.cssText='width:100%;height:calc(100vh - 75px);border:none;display:block';
-  w.document.body.replaceChildren(bar,frame);
-  // Importante: imprimir desde el visor de Chrome conserva exactamente todas las
-  // páginas y sus tamaños, a diferencia de convertir a canvas por separado.
-  // Intentar automáticamente desde el plugin PDF no está garantizado en Chrome.
- }else{
-  w.document.title='Imprimir · '+name;
-  w.document.body.style.cssText='margin:0;text-align:center;background:white';
-  const style=w.document.createElement('style');style.textContent='@page{margin:10mm}img{display:block;max-width:100%;max-height:275mm;object-fit:contain;margin:auto}@media print{button{display:none}}';
-  w.document.head.append(style);
-  const button=w.document.createElement('button');button.type='button';button.textContent='🖨 Imprimir imagen';button.style.cssText='margin:12px;padding:10px 18px;font-size:16px';button.onclick=()=>w.print();
-  const img=w.document.createElement('img');img.alt=name;img.onload=()=>{w.focus();setTimeout(()=>{try{w.print()}catch{}},400)};
-  img.onerror=()=>{w.document.body.append(w.document.createTextNode('No se pudo cargar esta imagen.'))};
-  w.document.body.append(button,img);img.src=url;
+ // Nunca convertir la partitura a canvas ni a HTML: el original conserva páginas,
+ // márgenes, orientación, notas y calidad vectorial tal como se subió.
+ const printBlob=kind==='pdf'&&mime!=='application/pdf'
+   ?new Blob([record.blob],{type:'application/pdf'})
+   :record.blob;
+ const url=URL.createObjectURL(printBlob);
+ scorePrintObjectUrls.push(url);
+ let printWindow=null;
+ try{printWindow=window.open(url,'_blank')}catch(error){console.error('Impresión bloqueada:',error)}
+ if(!printWindow){
+  alert('Chrome bloqueó la pestaña con la partitura. Permite las ventanas emergentes y vuelve a pulsar Imprimir.');
+  return;
  }
- // Conservar la dirección del PDF mientras el usuario tiene abierta la pestaña.
- w.addEventListener('unload',()=>setTimeout(()=>URL.revokeObjectURL(url),120000),{once:true});
+ // El visor PDF integrado en Chrome tiene el icono de impresora, páginas, copias
+ // y selección de impresora. Ctrl+P permite abrir ese mismo diálogo nativo.
+ try{printWindow.focus()}catch{}
 }
 $('printLibraryScore').onclick=()=>{
  const options=state.records.filter(r=>r.type==='file'&&r.blob instanceof Blob&&(
