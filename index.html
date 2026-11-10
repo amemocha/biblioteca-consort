@@ -13,6 +13,11 @@
 .library-more-options{position:absolute;right:0;bottom:calc(100% + 5px);z-index:80;min-width:200px;padding:8px;background:#fffaf3;border:1px solid var(--border);box-shadow:0 5px 22px #0002;border-radius:12px;display:grid;gap:5px}
 .library-more-options button{width:100%;text-align:left;white-space:nowrap;padding:9px 12px;font-size:13px}
 #items[data-view="list"] .library-more-options,#items[data-view="compact"] .library-more-options{bottom:auto;top:calc(100% + 4px)}
+
+/* El botón de impresión debe ser visible en cuadrícula, lista y modo compacto. */
+#items .itemactions{flex-wrap:wrap!important;overflow:visible}
+#items .print-visible{display:inline-flex!important;visibility:visible!important;opacity:1!important;align-items:center;justify-content:center;background:#fff;border:2px solid #3e3e3e;color:#222;font-weight:800;white-space:normal;padding:9px 12px}
+#printScore{display:inline-flex!important;visibility:visible!important;opacity:1!important;background:#fff;border:2px solid #3e3e3e;color:#222;font-weight:800}
 </style><style>
 .content{position:relative}
 .editor-decor,.editor-floating{position:absolute!important;z-index:40;touch-action:none;max-width:min(60vw,420px);max-height:60vh;object-fit:contain}
@@ -76,7 +81,7 @@ body:has(#consorteEditDock.active) #resizeHandle{z-index:11999!important;bottom:
 #items[data-view="compact"] .itemactions button{padding:4px 6px;font-size:11px}
 @media(max-width:550px){.view-switch button{padding:8px}.view-switch span{font-size:11px}#items[data-view="list"] .item,#items[data-view="compact"] .item{grid-template-columns:minmax(0,1fr)}#items[data-view="list"] .itemactions,#items[data-view="compact"] .itemactions{justify-content:flex-start}}
 </style></head><body><div class="app"><aside class="sidebar"><div class="logos"><img id="logA"><img id="logB"></div><button class="nav active" data-page="library">▦ Biblioteca</button><button class="nav" data-page="study">♫ Partitura + audio</button><button class="nav" data-page="custom"> Personalizar</button><button class="nav" data-page="calendar">▣ Calendario</button><button class="nav" data-page="planner">✎ Notas</button><button class="nav" data-page="backup">⇩ Respaldo</button><a class="nav" href="./tablaturas.html" style="text-decoration:none;display:block">♬ Convertir a tablatura</a><div class="sidefoot">Fundación Consorte · Orquesta Juvenil de Guitarras<br>Almacenamiento local en este navegador</div></aside><main class="main"><header class="top"><strong>Biblioteca Consorte · Orquesta Juvenil de Guitarras</strong><img id="headerLogo" alt="Logo Orquesta"></header><div class="content">
-<section class="page active" id="library"><h1>Tu biblioteca musical</h1><p class="sub">Organiza canciones, carpetas, partituras y audios. Toca un archivo para abrirlo.</p><div class="card"><div class="flex"><input class="fill" id="search" placeholder="Buscar canción o archivo…" aria-label="Buscar"><select id="instrumentFilter" aria-label="Filtrar guitarra"><option value="">Todas las guitarras</option><option>Soprano</option><option>Alto</option><option>Tenor</option><option>Bajo</option><option>Contrabajo</option><option>General</option></select><select id="typeFilter"><option value="">Todos los archivos</option><option value="audio">Audios</option><option value="score">Partituras</option></select><select id="songFilter" aria-label="Filtrar por canción"><option value="">Todas las canciones</option></select><select id="categoryFilter" aria-label="Filtrar por categoría"><option value="">Todas las categorías</option></select><label class="small" style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="groupBySong"> Agrupar por canción</label></div><div id="folderLocation" role="status" style="font-weight:700;margin:8px 0"></div><div class="flex" id="folderNavigation" hidden style="gap:10px;margin:12px 0;flex-wrap:wrap"><button class="primary" id="backToLibraryHome" type="button" style="background:#8b522e;color:white;font-weight:750;font-size:15px;padding:12px 18px">← Volver al inicio</button><button id="backToParentFolder" type="button" style="font-size:14px;padding:11px 16px">↑ Carpeta anterior</button></div><div class="tree" id="breadcrumbs"></div><div class="flex"><button id="undoLastLibraryAction" disabled type="button">↶ Deshacer última acción</button><button id="selectLibraryFolders" type="button">☑ Seleccionar carpetas</button><button id="selectAllLibraryFolders" type="button" hidden>☑ Seleccionar todas</button><button id="clearSelectedLibraryFolders" type="button" hidden>Deseleccionar todas</button><button id="deleteSelectedFolders" type="button" class="danger" hidden>Eliminar seleccionadas (0)</button><button id="cancelFolderSelection" type="button" hidden>Cancelar selección</button><button class="primary" id="newFolder">＋ Nueva carpeta</button><button class="primary" id="organizeSongs" type="button" style="background:#8b522e;color:#fff;font-weight:750">↪ Organizar canciones en carpetas</button><button id="pickFiles">↑ Elegir archivos</button><span class="small">PDF, imágenes, MP3, WAV, MusicXML</span></div><div class="drop" id="drop"> Arrastra archivos aquí o toca para seleccionarlos</div><input class="hidden" type="file" multiple id="fileInput" accept=".pdf,.mp3,.wav,.ogg,.m4a,.aac,.musicxml,.xml,.png,.jpg,.jpeg,.webp,audio/*,image/*,application/pdf"><p id="uploadStatus" class="status" role="status"></p></div><div class="library-view-toolbar" aria-label="Forma de mostrar los archivos">
+<section class="page active" id="library"><h1>Tu biblioteca musical</h1><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 16px"><button id="printLibraryScore" type="button" style="background:#fff;color:#202020;border:2px solid #333;font-size:16px;font-weight:800;padding:13px 20px;box-shadow:0 2px 8px #0002">🖨 IMPRIMIR PARTITURA</button><span class="small">Selecciona cualquier partitura PDF o imagen para imprimirla completa.</span></div><p class="sub">Organiza canciones, carpetas, partituras y audios. Toca un archivo para abrirlo.</p><div class="card"><div class="flex"><input class="fill" id="search" placeholder="Buscar canción o archivo…" aria-label="Buscar"><select id="instrumentFilter" aria-label="Filtrar guitarra"><option value="">Todas las guitarras</option><option>Soprano</option><option>Alto</option><option>Tenor</option><option>Bajo</option><option>Contrabajo</option><option>General</option></select><select id="typeFilter"><option value="">Todos los archivos</option><option value="audio">Audios</option><option value="score">Partituras</option></select><select id="songFilter" aria-label="Filtrar por canción"><option value="">Todas las canciones</option></select><select id="categoryFilter" aria-label="Filtrar por categoría"><option value="">Todas las categorías</option></select><label class="small" style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="groupBySong"> Agrupar por canción</label></div><div id="folderLocation" role="status" style="font-weight:700;margin:8px 0"></div><div class="flex" id="folderNavigation" hidden style="gap:10px;margin:12px 0;flex-wrap:wrap"><button class="primary" id="backToLibraryHome" type="button" style="background:#8b522e;color:white;font-weight:750;font-size:15px;padding:12px 18px">← Volver al inicio</button><button id="backToParentFolder" type="button" style="font-size:14px;padding:11px 16px">↑ Carpeta anterior</button></div><div class="tree" id="breadcrumbs"></div><div class="flex"><button id="undoLastLibraryAction" disabled type="button">↶ Deshacer última acción</button><button id="selectLibraryFolders" type="button">☑ Seleccionar carpetas</button><button id="selectAllLibraryFolders" type="button" hidden>☑ Seleccionar todas</button><button id="clearSelectedLibraryFolders" type="button" hidden>Deseleccionar todas</button><button id="deleteSelectedFolders" type="button" class="danger" hidden>Eliminar seleccionadas (0)</button><button id="cancelFolderSelection" type="button" hidden>Cancelar selección</button><button class="primary" id="newFolder">＋ Nueva carpeta</button><button class="primary" id="organizeSongs" type="button" style="background:#8b522e;color:#fff;font-weight:750">↪ Organizar canciones en carpetas</button><button id="pickFiles">↑ Elegir archivos</button><span class="small">PDF, imágenes, MP3, WAV, MusicXML</span></div><div class="drop" id="drop"> Arrastra archivos aquí o toca para seleccionarlos</div><input class="hidden" type="file" multiple id="fileInput" accept=".pdf,.mp3,.wav,.ogg,.m4a,.aac,.musicxml,.xml,.png,.jpg,.jpeg,.webp,audio/*,image/*,application/pdf"><p id="uploadStatus" class="status" role="status"></p></div><div class="library-view-toolbar" aria-label="Forma de mostrar los archivos">
  <span class="view-label">Ver archivos como:</span>
  <div class="view-switch" role="group" aria-label="Vista de biblioteca">
   <button type="button" data-library-view="grid" aria-pressed="true" title="Cuadrícula con portadas">▦ <span>Cuadrícula</span></button>
@@ -361,7 +366,7 @@ function renderLibrary(){
   picker.append(checkbox,document.createTextNode('Seleccionar carpeta'));item.append(picker);
  }let top=document.createElement('div');top.className='itemtop';let art=document.createElement('img');art.className='art';art.alt='';if(r.cover)art.dataset.custom='1';art.src=iconFor(r)||ORIGINAL_B;if(r.type==='folder'&&!r.cover){let symbol=document.createElement('div');symbol.className='folder-circle';symbol.textContent='';top.append(symbol)}else top.append(art);let text=document.createElement('div');text.style.minWidth='0';let n=document.createElement('div');n.className='itemname';n.textContent=r.name;let sub=document.createElement('div');sub.className='small';sub.textContent=r.type==='folder'?(()=>{const total=countFolderFiles(r.id);return total+' '+(total===1?'archivo':'archivos')+' (incluye subcarpetas)'})():[(r.song?' '+r.song:''),r.instrument||'',r.category||'',r.kind].filter(Boolean).join(' · '); text.append(n,sub);top.append(text);top.onclick=()=>{if(folderSelectMode&&r.type==='folder'){if(selectedFolderIds.has(r.id))selectedFolderIds.delete(r.id);else selectedFolderIds.add(r.id);renderLibrary();return}openRecord(r)};item.append(top);let actions=document.createElement('div');actions.className='itemactions';
  if(r.type==='file')actions.append(createButton('♫ Estudiar',async()=>{try{await openLinkedPiece(r)}catch(error){console.error('No se pudo abrir Estudio',error);nav('study');alert('No se pudo cargar el archivo: '+(error?.message||error))}},'primary'));
- if(r.type==='file'&&['pdf','image'].includes(r.kind))actions.append(createButton('🖨 Imprimir',()=>printScoreRecord(r)));
+ if(r.type==='file'&&(['pdf','image'].includes(r.kind)||r.scoreId))actions.append(createButton('🖨 Imprimir partitura',()=>printScoreRecord(r),'print-visible'));
  const menu=document.createElement('details');menu.className='library-more-menu';
  const summary=document.createElement('summary');summary.textContent='⋯';summary.title='Más opciones';summary.setAttribute('aria-label','Más opciones de '+r.name);menu.append(summary);
  const options=document.createElement('div');options.className='library-more-options';
@@ -372,7 +377,7 @@ function renderLibrary(){
  option('✎ Editar',()=>editRecord(r));
  option('↪ Mover a carpeta',()=>moveRecordToFolder(r));
  if(r.type==='file'&&r.parent!=null)option('↑ Sacar de carpeta',()=>takeFileOutOfFolder(r));
- if(r.type==='file'&&['pdf','image'].includes(r.kind))option('🖨 Imprimir partitura',()=>printScoreRecord(r));
+ if(r.type==='file'&&(['pdf','image'].includes(r.kind)||r.scoreId))option('🖨 Imprimir partitura',()=>printScoreRecord(r));
  if(r.type==='file')option('↓ Descargar',()=>downloadRecord(r));
  option('Eliminar',()=>removeRecord(r),true);
  menu.append(options);actions.append(menu);
@@ -383,8 +388,20 @@ function downloadBlob(blob,name){let url=URL.createObjectURL(blob),a=document.cr
 function downloadRecord(r){if(r.type==='folder'){alert('Para descargar carpetas, utiliza «Respaldo» → Exportar biblioteca ZIP.');return}downloadBlob(r.blob,r.name)}
 // Imprimir el archivo original: todas las páginas del PDF, no solo la hoja mostrada en Estudio.
 function printScoreRecord(record){
- if(!record||!['pdf','image'].includes(record.kind)||!(record.blob instanceof Blob)){
+ // Algunas canciones son contenedores, audio o están clasificadas como "other".
+ // Buscar su partitura asociada y detectar PDF / imagen por nombre y MIME.
+ if(record&&record.type==='file'&&record.scoreId){
+  const linked=rec(record.scoreId);
+  if(linked&&linked.blob instanceof Blob)record=linked;
+ }
+ if(!record||!(record.blob instanceof Blob)){
   alert('Selecciona una partitura PDF o imagen para imprimir.');return;
+ }
+ const filename=String(record.name||'');
+ const mime=record.blob.type||'';
+ const kind=/\.pdf$/i.test(filename)||mime==='application/pdf'?'pdf':/\.(png|jpe?g|webp|gif)$/i.test(filename)||mime.startsWith('image/')?'image':record.kind;
+ if(!['pdf','image'].includes(kind)){
+  alert('Este archivo es de audio u otro formato. Selecciona el PDF o imagen de la partitura.');return;
  }
  let url;
  try{
@@ -395,7 +412,7 @@ function printScoreRecord(record){
   let cleaned=false;
   const cleanup=()=>{if(cleaned)return;cleaned=true;setTimeout(()=>URL.revokeObjectURL(url),120000)};
   win.addEventListener('beforeunload',cleanup,{once:true});
-  if(record.kind==='pdf'){
+  if(kind==='pdf'){
    // El visor PDF nativo ofrece su botón Imprimir y Ctrl+P para el documento completo.
    win.location.href=url;
    try{win.addEventListener('load',()=>setTimeout(()=>{try{win.focus();win.print()}catch{}},800),{once:true})}catch{}
@@ -408,6 +425,17 @@ function printScoreRecord(record){
   }
  }catch(err){if(url)URL.revokeObjectURL(url);alert('No se pudo preparar la impresión: '+(err?.message||err))}
 }
+$('printLibraryScore').onclick=()=>{
+ const options=state.records.filter(r=>r.type==='file'&&r.blob instanceof Blob&&(
+ ['pdf','image'].includes(r.kind)||/\.(pdf|png|jpe?g|webp)$/i.test(r.name||'')
+ )).sort((a,b)=>a.name.localeCompare(b.name,'es'));
+ if(!options.length){alert('Todavía no hay partituras PDF ni imágenes en tu biblioteca. Primero sube una partitura.');return}
+ const input=prompt('¿Qué partitura quieres imprimir? Escribe su número:\\n'+options.slice(0,80).map((r,i)=>(i+1)+'. '+r.name).join('\\n')+(options.length>80?'\\n(Se muestran las primeras 80)':''));
+ if(input===null)return;
+ const n=Number(input);
+ if(!Number.isInteger(n)||n<1||n>Math.min(80,options.length)){alert('Escribe un número de la lista.');return}
+ printScoreRecord(options[n-1]);
+};
 $('printScore').onclick=()=>{
  const record=state.score;
  if(!record){alert('Primero selecciona una partitura en Estudio.');return}
