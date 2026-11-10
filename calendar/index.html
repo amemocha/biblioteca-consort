@@ -70,22 +70,41 @@ function renderMini(){const el=$('miniGrid');el.replaceChildren();$('miniTitle')
 function renderUpcoming(){const root=$('upcoming');root.replaceChildren();const list=events.filter(e=>e.date>=dateKey(currentDate)&&allowed().has(e.type)).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)).slice(0,7);if(!list.length){const p=document.createElement('p');p.className='empty';p.textContent='Sin actividades próximas';root.append(p)}else for(const e of list){const b=document.createElement('button');b.textContent=e.date+' · '+e.title;b.onclick=()=>openEvent(e.date,e);root.append(b)}}
 function openEvent(date,item=null){editing=item?.id||null;$('eventForm').reset();$('eventDate').value=date;$('eventTitle').value=item?.title||'';$('eventTime').value=item?.time||'';$('eventPlace').value=item?.place||'';$('eventNotes').value=item?.notes||'';$('eventType').value=item?.type||'Recordatorio';$('dialogTitle').textContent=item?'Editar evento':'Crear evento';$('deleteBtn').hidden=!item;$('eventDialog').showModal();setTimeout(()=>$('eventTitle').focus(),30)}
 function closeEvent(){$('eventDialog').close();editing=null}
-$('eventForm').noValidate=true;
-$('eventForm').addEventListener('submit',async e=>{
- e.preventDefault();e.stopPropagation();
- const button=$('saveEventBtn');
- const item={id:editing||('evt_'+Date.now()+'_'+Math.random().toString(36).slice(2)),date:$('eventDate').value,title:$('eventTitle').value.trim()||'Recordatorio',time:$('eventTime').value,type:$('eventType').value,place:$('eventPlace').value.trim(),notes:$('eventNotes').value.trim()};
- if(!item.date){$('eventDate').value=dateKey(currentDate);item.date=$('eventDate').value;}
- button.disabled=true;button.textContent='Guardando…';
+// Guardado directo: no depende del submit/validación de HTML.
+const eventForm=$('eventForm'),saveBtn=$('saveEventBtn');
+eventForm.noValidate=true;
+saveBtn.type='button';
+const errorNotice=document.createElement('p');
+errorNotice.id='saveErrorNotice';
+errorNotice.setAttribute('role','alert');
+errorNotice.style.cssText='color:#a11d1d;font-weight:700;margin:10px 0;display:none';
+eventForm.insertBefore(errorNotice,eventForm.querySelector('.actions'));
+function showSaveError(message){errorNotice.textContent=message;errorNotice.style.display='block';}
+function clearSaveError(){errorNotice.textContent='';errorNotice.style.display='none';}
+function saveEventDirectly(){
+ clearSaveError();
+ const date=$('eventDate').value||selected||dateKey(new Date());
+ const title=$('eventTitle').value.trim()||'Recordatorio';
+ if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)){showSaveError('Selecciona una fecha válida.');return;}
+ const item={id:editing||('evt_'+Date.now()+'_'+Math.random().toString(36).slice(2)),date,title,
+ time:$('eventTime').value,type:$('eventType').value||'Recordatorio',
+ place:$('eventPlace').value.trim(),notes:$('eventNotes').value.trim()};
  try{
-  const i=events.findIndex(x=>x.id===item.id);if(i>=0)events[i]=item;else events.push(item);
-  selected=item.date;const d=parseDate(item.date);month=new Date(d.getFullYear(),d.getMonth(),1);view='month';$('viewSelect').value='month';
-  // Draw the new record before awaiting any browser storage permission.
-  closeEvent();render();showSaved(item);
-  await save();
- }catch(err){console.error('Error al guardar',err);render();showSaved(item)}
- finally{button.disabled=false;button.textContent='Guardar recordatorio'}
-});
+  const idx=events.findIndex(x=>x.id===item.id);
+  if(idx>=0)events[idx]=item;else events.push(item);
+  selected=item.date;const dateObj=parseDate(item.date);
+  month=new Date(dateObj.getFullYear(),dateObj.getMonth(),1);
+  view='month';$('viewSelect').value='month';
+  // Persistir inmediatamente, antes de cerrar la ventana.
+  let localOK=false;try{localStorage.setItem(key,JSON.stringify(events));localOK=true}catch(error){console.warn('No se pudo guardar en localStorage:',error)}
+  try{closeEvent()}catch(error){console.error('No se pudo cerrar la ventana:',error)}
+  try{render();showSaved(item)}catch(error){showSaveError('Recordatorio creado, pero hubo un problema al mostrarlo: '+error.message);return}
+  // IndexedDB es el respaldo secundario para el mismo evento.
+  writeIDB(events).then(ok=>{if(!ok&&!localOK){$('saveWarning').hidden=false;$('saveWarning').textContent='El recordatorio se ve, pero el navegador no permitió almacenarlo. Utiliza Exportar calendario para conservarlo.'}else{$('saveWarning').hidden=true}});
+ }catch(error){console.error('Error al guardar recordatorio:',error);showSaveError('No se pudo guardar: '+(error?.message||error))}
+}
+saveBtn.addEventListener('click',saveEventDirectly);
+eventForm.addEventListener('submit',e=>{e.preventDefault();saveEventDirectly()});
 $('deleteBtn').onclick=async()=>{if(!editing||!confirm('¿Eliminar este evento?'))return;const i=events.findIndex(x=>x.id===editing);if(i>=0){events.splice(i,1);closeEvent();render();await save()}else closeEvent()};
 $('closeDialog').onclick=$('cancelBtn').onclick=closeEvent;
 $('eventDialog').addEventListener('close',()=>{editing=null});
