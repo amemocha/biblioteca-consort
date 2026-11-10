@@ -387,44 +387,63 @@ async function openRecord(r){if(r.type==='folder'){state.folder=r.id;$('search')
 function downloadBlob(blob,name){let url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)}
 function downloadRecord(r){if(r.type==='folder'){alert('Para descargar carpetas, utiliza «Respaldo» → Exportar biblioteca ZIP.');return}downloadBlob(r.blob,r.name)}
 // Imprimir el archivo original: todas las páginas del PDF, no solo la hoja mostrada en Estudio.
+// Abre inmediatamente una ventana propia y llama a la vista previa nativa de impresión.
 function printScoreRecord(record){
- // Algunas canciones son contenedores, audio o están clasificadas como "other".
- // Buscar su partitura asociada y detectar PDF / imagen por nombre y MIME.
  if(record&&record.type==='file'&&record.scoreId){
-  const linked=rec(record.scoreId);
-  if(linked&&linked.blob instanceof Blob)record=linked;
+  const linked=rec(record.scoreId);if(linked&&linked.blob instanceof Blob)record=linked;
  }
- if(!record||!(record.blob instanceof Blob)){
-  alert('Selecciona una partitura PDF o imagen para imprimir.');return;
+ if(!record||!(record.blob instanceof Blob)){alert('Selecciona una partitura PDF o imagen.');return}
+ const filename=String(record.name||''),mime=record.blob.type||'';
+ const kind=/\\.pdf$/i.test(filename)||mime==='application/pdf'?'pdf':/\\.(png|jpe?g|webp|gif)$/i.test(filename)||mime.startsWith('image/')?'image':record.kind;
+ if(!['pdf','image'].includes(kind)){alert('Este archivo no es una partitura imprimible. Selecciona el PDF o imagen correspondiente.');return}
+ const win=window.open('','_blank');
+ if(!win){alert('Chrome bloqueó la ventana de impresión. Permite ventanas emergentes para Biblioteca Consorte.');return}
+ // La ventana se crea durante el clic, antes de cualquier carga asíncrona.
+ const doc=win.document;
+ doc.title='Imprimir · '+filename;
+ doc.head.innerHTML='';
+ const css=doc.createElement('style');
+ css.textContent='@page{size:auto;margin:9mm}html,body{margin:0;background:#fff;color:#222;font-family:Arial,sans-serif}#print-progress{padding:20px;text-align:center;font-size:16px}.print-sheet{display:flex;align-items:center;justify-content:center;break-after:page;page-break-after:always;width:100%;min-height:10px}.print-sheet:last-child{break-after:auto;page-break-after:auto}.print-sheet canvas,.print-sheet img{display:block;max-width:100%;max-height:275mm;width:auto;height:auto;object-fit:contain}@media print{#print-progress,#print-again{display:none!important}.print-sheet{height:auto;page-break-inside:avoid}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}';
+ doc.head.append(css);
+ doc.body.replaceChildren();
+ const status=doc.createElement('p');status.id='print-progress';status.textContent='Preparando la partitura para imprimir…';doc.body.append(status);
+ const again=doc.createElement('button');again.id='print-again';again.type='button';again.textContent='🖨 Volver a imprimir';again.style.cssText='margin:12px;padding:10px 15px;font-size:15px;display:none';again.onclick=()=>win.print();doc.body.append(again);
+ const showPrint=()=>{status.textContent='La partitura está lista. Si Chrome no abre la ventana de impresión, pulsa «Volver a imprimir» o Ctrl + P.';again.style.display='inline-block';win.focus();setTimeout(()=>{try{win.print()}catch(err){status.textContent='Para imprimir, presiona Ctrl + P en esta ventana.'}},250)};
+ if(kind==='image'){
+  const url=URL.createObjectURL(record.blob);
+  const page=doc.createElement('section');page.className='print-sheet';
+  const img=doc.createElement('img');img.alt=filename;
+  img.onload=()=>{URL.revokeObjectURL(url);showPrint()};
+  img.onerror=()=>{URL.revokeObjectURL(url);status.textContent='No se pudo cargar la imagen.'};
+  page.append(img);doc.body.append(page);img.src=url;return;
  }
- const filename=String(record.name||'');
- const mime=record.blob.type||'';
- const kind=/\.pdf$/i.test(filename)||mime==='application/pdf'?'pdf':/\.(png|jpe?g|webp|gif)$/i.test(filename)||mime.startsWith('image/')?'image':record.kind;
- if(!['pdf','image'].includes(kind)){
-  alert('Este archivo es de audio u otro formato. Selecciona el PDF o imagen de la partitura.');return;
- }
- let url;
- try{
-  url=URL.createObjectURL(record.blob);
-  // Abrir en respuesta inmediata al clic permite que Chrome no bloquee la impresión.
-  const win=window.open('','_blank');
-  if(!win){URL.revokeObjectURL(url);alert('Chrome bloqueó la ventana de impresión. Permite las ventanas emergentes para Biblioteca Consorte e inténtalo de nuevo.');return}
-  let cleaned=false;
-  const cleanup=()=>{if(cleaned)return;cleaned=true;setTimeout(()=>URL.revokeObjectURL(url),120000)};
-  win.addEventListener('beforeunload',cleanup,{once:true});
-  if(kind==='pdf'){
-   // El visor PDF nativo ofrece su botón Imprimir y Ctrl+P para el documento completo.
-   win.location.href=url;
-   try{win.addEventListener('load',()=>setTimeout(()=>{try{win.focus();win.print()}catch{}},800),{once:true})}catch{}
-  }else{
-   win.document.title=record.name||'Partitura';
-   win.document.body.style.cssText='margin:0;background:#fff;text-align:center';
-   const css=win.document.createElement('style');css.textContent='@page{margin:10mm}body{margin:0}img{display:block;max-width:100%;max-height:none;width:auto;height:auto;margin:0 auto;break-inside:avoid}@media print{img{max-width:100%;max-height:270mm;object-fit:contain}}';
-   win.document.head.append(css);
-   const img=win.document.createElement('img');img.alt=record.name||'Partitura';img.onload=()=>{win.focus();setTimeout(()=>{try{win.print()}catch{}},250)};img.onerror=()=>{win.document.body.textContent='No se pudo cargar la imagen de la partitura.'};win.document.body.append(img);img.src=url;
+ // Renderizar todas las páginas PDF en HTML antes de invocar Chrome.print().
+ // Esto evita que la pestaña muestre solo el visor PDF sin diálogo de impresión.
+ (async()=>{
+  try{
+   const lib=await pdfLib();
+   const pdf=await lib.getDocument({data:await record.blob.arrayBuffer()}).promise;
+   for(let p=1;p<=pdf.numPages;p++){
+    status.textContent='Preparando página '+p+' de '+pdf.numPages+'…';
+    const page=await pdf.getPage(p);
+    const v=page.getViewport({scale:1.6});
+    const canvas=doc.createElement('canvas');
+    canvas.width=Math.ceil(v.width);canvas.height=Math.ceil(v.height);
+    const sheet=doc.createElement('section');sheet.className='print-sheet';
+    sheet.append(canvas);doc.body.append(sheet);
+    await page.render({canvasContext:canvas.getContext('2d'),viewport:v}).promise;
+   }
+   showPrint();
+  }catch(error){
+   console.error('Error de impresión PDF',error);
+   status.textContent='No se pudo preparar la impresión. Puedes abrir el PDF original y usar Ctrl + P.';
+   const url=URL.createObjectURL(record.blob);
+   const link=doc.createElement('a');link.href=url;link.target='_blank';link.rel='noopener';link.textContent='Abrir partitura PDF';link.style.cssText='display:block;text-align:center;font-size:16px';
+   doc.body.append(link);win.addEventListener('beforeunload',()=>setTimeout(()=>URL.revokeObjectURL(url),120000),{once:true});
   }
- }catch(err){if(url)URL.revokeObjectURL(url);alert('No se pudo preparar la impresión: '+(err?.message||err))}
+ })();
 }
+
 $('printLibraryScore').onclick=()=>{
  const options=state.records.filter(r=>r.type==='file'&&r.blob instanceof Blob&&(
  ['pdf','image'].includes(r.kind)||/\.(pdf|png|jpe?g|webp)$/i.test(r.name||'')
