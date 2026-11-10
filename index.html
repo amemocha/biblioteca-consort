@@ -394,7 +394,7 @@ function printScoreRecord(record){
  }
  if(!record||!(record.blob instanceof Blob)){alert('Selecciona una partitura PDF o imagen.');return}
  const filename=String(record.name||''),mime=record.blob.type||'';
- const kind=/\\.pdf$/i.test(filename)||mime==='application/pdf'?'pdf':/\\.(png|jpe?g|webp|gif)$/i.test(filename)||mime.startsWith('image/')?'image':record.kind;
+ const kind=/\.pdf$/i.test(filename)||mime==='application/pdf'?'pdf':/\.(png|jpe?g|webp|gif)$/i.test(filename)||mime.startsWith('image/')?'image':record.kind;
  if(!['pdf','image'].includes(kind)){alert('Este archivo no es una partitura imprimible. Selecciona el PDF o imagen correspondiente.');return}
  const win=window.open('','_blank');
  if(!win){alert('Chrome bloqueó la ventana de impresión. Permite ventanas emergentes para Biblioteca Consorte.');return}
