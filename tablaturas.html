@@ -9,7 +9,7 @@
 <div class="controls"><label style="flex-direction:column;align-items:flex-start;flex:1;min-width:230px"><strong>Elegir MusicXML de la biblioteca</strong><select id="libraryChoice"><option value="">Selecciona un archivo guardado...</option></select></label><button type="button" id="reloadLibrary">Actualizar lista</button></div>
 <p id="libraryNote"><small>Selecciona una partitura MusicXML que ya esté en una carpeta o subcarpeta. Si no la tienes guardada, también puedes subirla aquí.</small></p>
 <div class="controls"><label>O subir un archivo <input type="file" id="file" accept=".musicxml,.xml,.mxl,.pdf"></label>
-<label>Afinación <select id="tuning"><option value="standard">Estándar E A D G B E</option><option value="dropd">Drop D D A D G B E</option></select></label>
+<label>Afinación <select id="tuning"><option value="standard">Estándar E A D G B E</option><option value="dropd">Drop D D A D G B E</option><option value="consort">Consort: 6 Mi · 5 La · 4 Sol · 3 Re · 2 La · 1 Mi</option></select></label>
 <button class="primary" id="convert">Convertir</button></div>
 <p id="feedback" role="status">Selecciona un archivo para comenzar.</p>
 <small>Los PDF se envían al servicio de reconocimiento musical configurado, si está disponible. La conversión directa de PDF todavía no está activa en esta biblioteca. Los resultados automáticos requieren revisión.</small></div>
@@ -18,7 +18,8 @@
 'use strict';
 const $=id=>document.getElementById(id);
 const pitchNames={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
-const standard=[40,45,50,55,59,64],dropD=[38,45,50,55,59,64];
+const standard=[40,45,50,55,59,64],dropD=[38,45,50,55,59,64],consort=[40,45,55,62,69,76];
+const tuningLabels={standard:["E","A","D","G","B","e"],dropd:["D","A","D","G","B","e"],consort:["E","A","G","D","A","e"]};
 function child(el,name){return Array.from(el?.children||[]).find(e=>e.localName===name)||null}
 function children(el,name){return Array.from(el?.children||[]).filter(e=>e.localName===name)}
 function txt(el,name){return (child(el,name)?.textContent||'').trim()}
@@ -67,10 +68,104 @@ async function extractMXL(file){
  if(!rootfile)throw Error('Este MXL no incluye una partitura MusicXML.');
  return await readEntry(rootfile);
 }
-function parseXML(source){const xml=new DOMParser().parseFromString(source,'application/xml');if(xml.querySelector('parsererror'))throw Error('El MusicXML no es válido.');
-const parts=Array.from(xml.getElementsByTagName('part'));if(!parts.length)throw Error('No se encontraron partes musicales.');
-const out=[];for(const [pi,part] of parts.entries()){let divisions=1;let prev=null;const measures=[];for(const measure of children(part,'measure')){const attr=child(measure,'attributes');if(txt(attr,'divisions'))divisions=Number(txt(attr,'divisions'))||1;const events=[];for(const el of Array.from(measure.children)){if(el.localName!=='note')continue;const d=duration(el,divisions);const chord=!!child(el,'chord');if(child(el,'rest')){if(!chord)events.push({rest:true,d});continue}const midi=asMidi(el);if(midi==null)continue;if(chord&&events.length&& !events.at(-1).rest){events.at(-1).notes.push(midi);continue}events.push({d,notes:[midi]})}measures.push({number:measure.getAttribute('number')||String(measures.length+1),events})}out.push({name:'Parte '+(pi+1),measures})}return out}
-function render(parts,open){let total=0;const output=[];for(const part of parts){output.push(part.name+'\n');let prev=null;for(const measure of part.measures){const lines=Array.from({length:6},()=>[]);const times=[];for(const event of measure.events){total++;const cells=Array(6).fill('--');if(!event.rest){const used=new Set();for(const midi of [...event.notes].sort((a,b)=>a-b)){const options=[];for(let s=0;s<6;s++){const fret=midi-open[s];if(fret>=0&&fret<=19&&!used.has(s))options.push({string:s,fret,score:fret*.18+(fret>12?5:0)+(prev?Math.abs(fret-prev.fret)*.24:0)})}options.sort((a,b)=>a.score-b.score);const p=options[0];if(p){used.add(p.string);cells[p.string]=String(p.fret).padStart(2,'-');prev=p}else cells[5]='??'}}times.push((event.rest?'R':'N')+event.d);for(let s=0;s<6;s++)lines[s].push(cells[s])}output.push('Compás '+measure.number+'\n');for(let s=5;s>=0;s--)output.push(['e','B','G','D','A','E'][5-s]+'|'+lines[s].join('-')+'|\n');output.push('Duraciones (negras): '+times.join(', ')+'\n\n')}}return {text:output.join(''),total}}
+
+function parseXML(source){
+ const xml=new DOMParser().parseFromString(source,'application/xml');
+ if(xml.querySelector('parsererror'))throw Error('El MusicXML no es válido.');
+ const names=new Map();
+ for(const p of [...xml.getElementsByTagName('score-part')])names.set(p.getAttribute('id'),txt(p,'part-name')||txt(p,'part-abbreviation'));
+ const parts=[...xml.getElementsByTagName('part')].filter(el=>el.parentElement?.localName==='score-partwise');
+ if(!parts.length)throw Error('No se encontraron partes musicales en formato score-partwise.');
+ const out=[];
+ for(const [pi,part] of parts.entries()){
+  let divisions=1;const measures=[];
+  for(const measure of children(part,'measure')){
+   let cursor=0,lastStart=0;const voices=new Map();
+   const add=(voice,item)=>{if(!voices.has(voice))voices.set(voice,[]);voices.get(voice).push(item)};
+   for(const el of [...measure.children]){
+    if(el.localName==='attributes'){divisions=Number(txt(el,'divisions'))||divisions;continue}
+    if(el.localName==='backup'){cursor=Math.max(0,cursor-Number(txt(el,'duration')||0)/divisions);continue}
+    if(el.localName==='forward'){cursor+=Number(txt(el,'duration')||0)/divisions;continue}
+    if(el.localName!=='note'||child(el,'grace'))continue;
+    const d=Math.max(0,duration(el,divisions)),voice=txt(el,'voice')||'1';
+    const chord=!!child(el,'chord'),start=chord?lastStart:cursor;
+    if(!chord){lastStart=start;cursor+=d}
+    if(child(el,'rest')){add(voice,{start,d,rest:true,notes:[]});continue}
+    const midi=asMidi(el);if(!Number.isFinite(midi))continue;
+    const technical=child(child(el,'notations'),'technical');
+    const string=Number(txt(technical,'string')),fret=Number(txt(technical,'fret'));
+    const fingering=string>=1&&string<=6&&Number.isInteger(fret)&&fret>=0?{string:6-string,fret}:null;
+    const tied=[...children(el,'tie'),...children(child(el,'notations'),'tied')].some(t=>t.getAttribute('type')==='stop');
+    const notes=voices.get(voice)||[];
+    const previous=notes.at(-1);
+    if(chord&&previous&&!previous.rest&&Math.abs(previous.start-start)<0.001)previous.notes.push({midi,fingering,tied});
+    else add(voice,{start,d,rest:false,notes:[{midi,fingering,tied}]});
+   }
+   measures.push({number:measure.getAttribute('number')||String(measures.length+1),voices});
+  }
+  out.push({name:names.get(part.getAttribute('id'))||'Guitarra '+(pi+1),measures});
+ }
+ return out;
+}
+function assignChord(notes,open,prev){
+ const options=notes.map(note=>{
+  if(note.fingering){const p=note.fingering;return [{...p,score:open[p.string]+p.fret===note.midi?-1000:3+p.fret*.1}]}
+  return open.map((base,string)=>({string,fret:note.midi-base})).filter(p=>p.fret>=0&&p.fret<=24)
+   .map(p=>({...p,score:p.fret*.16+(p.fret>12?4:0)+(prev?Math.abs(p.fret-prev.fret)*.2+(p.string!==prev.string?.5:0):0)}))
+   .sort((a,b)=>a.score-b.score);
+ });
+ let best=null;
+ function visit(i,used,chosen,score){
+  if(i===options.length){if(!best||score<best.score)best={chosen:[...chosen],score};return}
+  for(const p of options[i]){
+   if(used.has(p.string))continue;
+   used.add(p.string);chosen.push(p);
+   visit(i+1,used,chosen,score+p.score);chosen.pop();used.delete(p.string);
+  }
+ }
+ visit(0,new Set(),[],0);
+ return best?.chosen||null;
+}
+function render(parts,open,labels){
+ let total=0,unplayable=0;
+ const output=[];
+ for(const part of parts){
+  output.push(part.name+'\n');
+  const allVoices=new Set(part.measures.flatMap(m=>[...m.voices.keys()]));
+  for(const voice of [...allVoices].sort()){
+   if(allVoices.size>1)output.push('Voz '+voice+'\n');
+   let prev=null;
+   for(const measure of part.measures){
+    const events=(measure.voices.get(voice)||[]).slice().sort((a,b)=>a.start-b.start);
+    const lines=Array.from({length:6},()=>[]),times=[];
+    let lastEnd=0;
+    for(const event of events){
+     if(event.start>lastEnd+0.001){
+      for(let j=0;j<6;j++)lines[j].push('---');
+      times.push('silencio '+Number((event.start-lastEnd).toFixed(3)));
+     }
+     total++;
+     const cells=Array(6).fill('---');
+     if(!event.rest){
+      const positions=assignChord(event.notes,open,prev);
+      if(positions)for(let i=0;i<positions.length;i++){
+       const p=positions[i];cells[p.string]=String(p.fret).padStart(3,'-');prev=p;
+      }
+      else{unplayable++;cells[5]='-??'}
+     }
+     times.push((event.rest?'silencio':'nota')+' '+Number(event.d.toFixed(3)));
+     for(let j=0;j<6;j++)lines[j].push(cells[j]);
+     lastEnd=Math.max(lastEnd,event.start+event.d);
+    }
+    output.push('Compás '+measure.number+'\n');
+    for(let j=5;j>=0;j--)output.push(labels[j]+'|'+lines[j].join('-')+'|\n');
+    output.push('Duración en negras: '+times.join(' · ')+'\n\n');
+   }
+  }
+  output.push('\n');
+ }
+ return {text:output.join(''),total,unplayable};
+}
 let generated='';
 let generatedName='tablatura-consorte';
 let pdfLibraryPromise=null;
@@ -100,7 +195,7 @@ async function downloadGeneratedPDF(){
  // Cada renglón se conserva en fuente monoespaciada para alinear cuerdas y trastes.
  // Los compases extensos se dividen sin recortar información.
  for(const originalLine of generated.replace(/\r/g,'').split('\n')){
-  const chunks=originalLine.match(/.{1,94}/g)||[''];
+  const chunks=originalLine.match(/.{1,84}/g)||[''];
   for(const line of chunks){
    if(y>limit){pdf.addPage();y=18}
    if(line)pdf.text(line,margin,y);
@@ -150,7 +245,7 @@ if(/\.pdf$/i.test(f.name)){
  xml=payload.musicxml;
 }else if(/\.mxl$/i.test(f.name)){xml=await extractMXL(f);}
 else if(/\.(xml|musicxml)$/i.test(f.name)){xml=await f.text();}
-else throw Error('Formato no compatible. Sube un archivo MusicXML (.mxl, .musicxml o .xml).');const parsed=parseXML(xml);const open=$('tuning').value==='dropd'?dropD:standard;const rendered=render(parsed,open);generated=rendered.text;generatedName=f.name;$('tab').textContent=generated;$('heading').textContent=f.name;$('description').textContent=parsed.length+' parte(s) · '+rendered.total+' eventos procesados. Si ves “??”, esa nota no tiene posición dentro de los primeros 19 trastes. Comprueba las notas, ritmo y digitación con el original.';$('result').style.display='block';$('feedback').textContent='Tablatura creada para revisión.'}catch(err){$('result').style.display='none';$('feedback').textContent=err.message}};
+else throw Error('Formato no compatible. Sube un archivo MusicXML (.mxl, .musicxml o .xml).');const parsed=parseXML(xml);const key=$('tuning').value;const open=key==='consort'?consort:key==='dropd'?dropD:standard;const rendered=render(parsed,open,tuningLabels[key]||tuningLabels.standard);generated=rendered.text;generatedName=f.name;$('tab').textContent=generated;$('heading').textContent=f.name;$('description').textContent=parsed.length+' guitarra(s)/parte(s) · '+rendered.total+' eventos. '+(rendered.unplayable?rendered.unplayable+' acordes o notas sin digitación posible en esta afinación. ':'')+'Las digitaciones son sugerencias automáticas: comprueba el original, especialmente con guitarras transpositoras y varias voces.';$('result').style.display='block';$('feedback').textContent='Tablatura creada para revisión.'}catch(err){$('result').style.display='none';$('feedback').textContent=err.message}};
 $('print').onclick=()=>window.print();
 $('download').onclick=async()=>{const button=$('download');button.disabled=true;try{await downloadGeneratedPDF();$('feedback').textContent='PDF de tablatura generado y descargado.'}catch(error){$('feedback').textContent='No se pudo generar el PDF: '+error.message}finally{button.disabled=false}};
 </script></body></html>
