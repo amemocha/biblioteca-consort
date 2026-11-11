@@ -1226,7 +1226,11 @@ const STORAGE_KEY='consorte_cloud_session_v1';
 const $c=id=>document.getElementById(id);
 const panel=$c('consorte-cloud-panel');
 const status=t=>{$c('cloud-status').textContent=t;};
-let session=null, busy=false, syncing=false;
+let session=null, busy=false, syncing=false, manualSync=false;
+const syncButton=$c('cloud-sync-now');
+const initialStatus=$c('cloud-status');
+if(syncButton){syncButton.title='Comprueba y sincroniza archivos con la nube';syncButton.setAttribute('aria-live','polite')}
+if(initialStatus)initialStatus.setAttribute('role','status');
 const localPut=putRecord, localDelete=delRecord;
 const markKey=()=>session?.user?.id?'consorte_synced_'+session.user.id:null;
 const revisionKey=()=>session?.user?.id?'consorte_remote_versions_'+session.user.id:null;
@@ -1269,7 +1273,8 @@ async function remoteList(){
  return await res.json();
 }
 async function pull(){
- if(!session||syncing||!db)return;
+ if(!session||!db){if(manualSync)status('No se puede recibir: falta iniciar sesión o cargar la biblioteca.');return}
+ if(syncing){if(manualSync)status('Ya se están descargando archivos; se completará la operación en curso.');return}
  syncing=true;
  try{
   status('Comprobando documentos de la nube…');
@@ -1325,7 +1330,8 @@ async function pull(){
  finally{syncing=false}
 }
 async function pushExisting(){
- if(!session||busy||!db||!navigator.onLine)return;
+ if(!session||!db||!navigator.onLine){if(manualSync)status('No se pueden subir archivos: comprueba tu sesión, conexión y biblioteca.');return}
+ if(busy){if(manualSync)status('Ya hay una subida en curso. Se completará antes de iniciar otra.');return}
  busy=true;
  try{
   const local=await allRecords(),remote=await remoteList();
@@ -1365,8 +1371,33 @@ $c('cloud-login').onclick=()=>login(false);
 $c('cloud-signup').onclick=()=>login(true);
 
 $c('cloud-sync-now').onclick=async()=>{
- const button=$c('cloud-sync-now');button.disabled=true;
- try{if(!session){status('Inicia sesión con la misma cuenta del computador.');return}await pushExisting();await pull()}finally{button.disabled=false}
+ const button=$c('cloud-sync-now');
+ if(manualSync){status('La sincronización ya está en marcha.');return}
+ manualSync=true;button.disabled=true;
+ const previous=button.textContent;button.textContent='Sincronizando…';
+ status('Sincronización solicitada. Comprobando la conexión…');
+ try{
+  if(!session){status('Inicia sesión con la misma cuenta del computador.');return}
+  if(!navigator.onLine){status('No hay conexión a internet. Los archivos locales están conservados.');return}
+  // La sincronización automática puede estar ejecutándose simultáneamente.
+  // Mostrar su estado y no finalizar silenciosamente por las banderas busy/syncing.
+  const started=Date.now();
+  while((busy||syncing)&&Date.now()-started<25000){
+   status('Terminando la sincronización anterior antes de continuar…');
+   await new Promise(resolve=>setTimeout(resolve,350));
+  }
+  if(busy||syncing){status('La sincronización anterior sigue trabajando. Intenta nuevamente en unos momentos.');return}
+  status('1 de 2: subiendo archivos pendientes desde este dispositivo…');
+  await pushExisting();
+  status('2 de 2: recibiendo carpetas y archivos de la nube…');
+  await pull();
+  const local=await allRecords();
+  status('Sincronización terminada · '+local.filter(x=>x.type==='folder').length+' carpetas y '+local.filter(x=>x.type==='file').length+' archivos en este dispositivo. Comprueba si faltan archivos; no se borró nada.');
+ }catch(error){
+  status('Error de sincronización: '+(error?.message||String(error)));
+ }finally{
+  manualSync=false;button.disabled=false;button.textContent=previous;
+ }
 };
 $c('cloud-logout').onclick=()=>{saveSession(null);status('Sesión cerrada. Archivos locales conservados.')};
 saveSession(loadSession());
