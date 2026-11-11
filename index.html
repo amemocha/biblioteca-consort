@@ -308,6 +308,11 @@ $('moveSelectedFolders').onclick=async()=>{
   }
   return true;
  });
+ const originParent=roots[0]?.parent??null;
+ if(roots.some(item=>(item.parent??null)!==originParent)){
+  alert('Selecciona elementos que estén dentro de la misma carpeta para moverlos juntos.');
+  return;
+ }
  const forbidden=new Set();
  const children=new Map();
  for(const item of state.records){
@@ -333,24 +338,45 @@ $('moveSelectedFolders').onclick=async()=>{
   }
   return 'Inicio / '+names.join(' / ');
  };
- const destinations=[{id:null,name:'Inicio'},...state.records.filter(x=>x.type==='folder'&&!forbidden.has(x.id))];
+ // Mostrar únicamente subcarpetas que pertenecen a la carpeta de origen.
+ // No permitir mover el conjunto a otras ramas de la biblioteca.
+ const insideOrigin=folder=>{
+  let parent=folder.parent,seen=new Set([folder.id]);
+  while(parent&&!seen.has(parent)){
+   if(parent===originParent)return true;
+   seen.add(parent);
+   parent=byId.get(parent)?.parent??null;
+  }
+  return originParent===null;
+ };
+ const destinations=state.records.filter(x=>
+  x.type==='folder'&&!forbidden.has(x.id)&&
+  x.id!==originParent&&insideOrigin(x)
+ );
+ if(!destinations.length){
+  alert('Esta carpeta no tiene subcarpetas disponibles. Crea una subcarpeta para mover allí los elementos seleccionados.');
+  return;
+ }
  destinations.sort((a,b)=>labelFor(a).localeCompare(labelFor(b),'es'));
  const dlg=document.createElement('dialog');
  dlg.style.cssText='width:min(95vw,540px);max-height:85vh;overflow:auto;border-radius:16px;padding:22px';
  const heading=document.createElement('h2');
  heading.textContent='Mover '+roots.length+' elemento(s) a una carpeta';
  const info=document.createElement('p');
- info.textContent='Las carpetas seleccionadas se moverán con todo su contenido. No se borrarán archivos.';
+ info.textContent='Solo puedes mover los elementos a subcarpetas de la carpeta actual. Se conserva todo su contenido.';
  const select=document.createElement('select');
  select.setAttribute('aria-label','Carpeta de destino');
  select.style.cssText='width:100%;padding:11px;margin:10px 0';
- for(const folder of destinations)select.add(new Option(labelFor(folder),folder.id||'__root__'));
- select.value='__root__';
+ for(const folder of destinations)select.add(new Option(labelFor(folder),folder.id));
+ select.value=destinations[0].id;
  const controls=document.createElement('div');
  controls.className='flex';controls.style.marginTop='16px';
  const cancel=createButton('Cancelar',()=>dlg.close());
  const submit=createButton('Mover aquí',async()=>{
-  const target=select.value==='__root__'?null:select.value;
+  const target=select.value;
+  if(!destinations.some(folder=>folder.id===target)){
+   alert('Elige una subcarpeta de la carpeta de origen.');return;
+  }
   if(target&&forbidden.has(target)){
    alert('No puedes mover una carpeta dentro de sí misma ni dentro de una de sus subcarpetas.');return;
   }
