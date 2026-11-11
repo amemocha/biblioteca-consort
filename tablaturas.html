@@ -10,7 +10,7 @@
 <label>Afinación <select id="tuning"><option value="standard">Estándar E A D G B E</option><option value="dropd">Drop D D A D G B E</option></select></label>
 <button class="primary" id="convert">Convertir</button></div>
 <p id="feedback" role="status">Selecciona un archivo para comenzar.</p>
-<small>Los PDF se envían al servicio de reconocimiento musical configurado, si está disponible. Aún no está desplegado: hasta entonces los PDF no podrán convertirse. Los resultados automáticos requieren revisión.</small></div>
+<small>Los PDF se envían al servicio de reconocimiento musical configurado, si está disponible. La conversión directa de PDF todavía no está activa en esta biblioteca. Los resultados automáticos requieren revisión.</small></div>
 <div class="card" id="result"><h2 id="heading"></h2><p id="description"></p><div class="controls noprint"><button id="print">Imprimir o guardar en PDF</button><button id="download">Descargar tablatura TXT</button></div><pre id="tab"></pre></div></main>
 <script>
 'use strict';
@@ -23,6 +23,48 @@ function txt(el,name){return (child(el,name)?.textContent||'').trim()}
 function asMidi(note){let p=child(note,'pitch');if(!p)return null;const step=txt(p,'step');const octave=Number(txt(p,'octave'));return (octave+1)*12+pitchNames[step]+Number(txt(p,'alter')||0)}
 function duration(note,divisions){let duration=Number(txt(note,'duration'));const type=txt(note,'type');if(!duration){const v={whole:4,half:2,quarter:1,eighth:.5,'16th':.25,'32nd':.125}[type]||0;duration=v*divisions}return duration/divisions}
 function position(midi,open,prev){const positions=[];for(let i=0;i<6;i++){let fret=midi-open[i];if(fret>=0&&fret<=19)positions.push({string:i,fret,score:fret*.18+(fret>12?5:0)+(prev?Math.abs(fret-prev.fret)*.24:0)+(prev&&i!==prev.string?0.7:0)})}positions.sort((a,b)=>a.score-b.score);return positions[0]||null}
+/* Abrir MusicXML comprimido (.mxl) sin bibliotecas externas. */
+async function extractMXL(file){
+ const buffer=await file.arrayBuffer(),view=new DataView(buffer),bytes=new Uint8Array(buffer);
+ const u16=i=>view.getUint16(i,true),u32=i=>view.getUint32(i,true);
+ let end=-1;
+ for(let i=bytes.length-22;i>=Math.max(0,bytes.length-65557);i--){
+  if(u32(i)===0x06054b50){end=i;break}
+ }
+ if(end<0)throw Error('Este archivo MXL no contiene un ZIP válido.');
+ const count=u16(end+10),offset=u32(end+16);
+ if(count>2000)throw Error('El MXL contiene demasiadas entradas.');
+ const entries=new Map();let cursor=offset;
+ for(let j=0;j<count;j++){
+  if(cursor+46>bytes.length||u32(cursor)!==0x02014b50)throw Error('Directorio MXL dañado.');
+  const flags=u16(cursor+8),method=u16(cursor+10),compressed=u32(cursor+20),nameLength=u16(cursor+28),extra=u16(cursor+30),comment=u16(cursor+32),local=u32(cursor+42);
+  const name=new TextDecoder('utf-8').decode(bytes.subarray(cursor+46,cursor+46+nameLength));
+  if(flags&1)throw Error('Los MXL protegidos con contraseña no son compatibles.');
+  entries.set(name,{method,compressed,local});
+  cursor+=46+nameLength+extra+comment;
+ }
+ async function readEntry(name){
+  const e=entries.get(name);if(!e)throw Error('Falta un archivo interno del MXL: '+name);
+  const i=e.local;if(i+30>bytes.length||u32(i)!==0x04034b50)throw Error('Entrada MXL incorrecta.');
+  const start=i+30+u16(i+26)+u16(i+28),stop=start+e.compressed;
+  if(stop>bytes.length)throw Error('Entrada MXL incompleta.');
+  const data=bytes.slice(start,stop);
+  if(e.method===0)return new TextDecoder('utf-8').decode(data);
+  if(e.method!==8)throw Error('Método de compresión MXL no compatible.');
+  if(typeof DecompressionStream==='undefined')throw Error('Tu navegador no puede descomprimir MXL. Exporta MusicXML sin comprimir.');
+  const stream=new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return await new Response(stream).text();
+ }
+ let rootfile=null;
+ if(entries.has('META-INF/container.xml')){
+  const container=new DOMParser().parseFromString(await readEntry('META-INF/container.xml'),'application/xml');
+  const node=Array.from(container.getElementsByTagName('*')).find(e=>e.localName==='rootfile');
+  rootfile=node?.getAttribute('full-path')||null;
+ }
+ if(!rootfile||!entries.has(rootfile))rootfile=[...entries.keys()].find(n=>/\.(musicxml|xml)$/i.test(n)&&!n.startsWith('META-INF/'));
+ if(!rootfile)throw Error('Este MXL no incluye una partitura MusicXML.');
+ return await readEntry(rootfile);
+}
 function parseXML(source){const xml=new DOMParser().parseFromString(source,'application/xml');if(xml.querySelector('parsererror'))throw Error('El MusicXML no es válido.');
 const parts=Array.from(xml.getElementsByTagName('part'));if(!parts.length)throw Error('No se encontraron partes musicales.');
 const out=[];for(const [pi,part] of parts.entries()){let divisions=1;let prev=null;const measures=[];for(const measure of children(part,'measure')){const attr=child(measure,'attributes');if(txt(attr,'divisions'))divisions=Number(txt(attr,'divisions'))||1;const events=[];for(const el of Array.from(measure.children)){if(el.localName!=='note')continue;const d=duration(el,divisions);const chord=!!child(el,'chord');if(child(el,'rest')){if(!chord)events.push({rest:true,d});continue}const midi=asMidi(el);if(midi==null)continue;if(chord&&events.length&& !events.at(-1).rest){events.at(-1).notes.push(midi);continue}events.push({d,notes:[midi]})}measures.push({number:measure.getAttribute('number')||String(measures.length+1),events})}out.push({name:'Parte '+(pi+1),measures})}return out}
@@ -38,8 +80,9 @@ if(/\.pdf$/i.test(f.name)){
  let payload;try{payload=await response.json()}catch(e){throw Error('El servidor no devolvió un resultado válido.')}
  if(!response.ok)throw Error(payload.error||'No se pudo reconocer la partitura.');
  xml=payload.musicxml;
+}else if(/\.mxl$/i.test(f.name)){xml=await extractMXL(f);}
 }else if(/\.(xml|musicxml)$/i.test(f.name)){xml=await f.text();}
-else throw Error('Formato no compatible todavía. Sube un PDF, MusicXML o XML.');const parsed=parseXML(xml);const open=$('tuning').value==='dropd'?dropD:standard;const rendered=render(parsed,open);generated=rendered.text;$('tab').textContent=generated;$('heading').textContent=f.name;$('description').textContent=parsed.length+' parte(s) · '+rendered.total+' eventos procesados. Si ves “??”, esa nota no tiene posición dentro de los primeros 19 trastes. Comprueba las notas, ritmo y digitación con el original.';$('result').style.display='block';$('feedback').textContent='Tablatura creada para revisión.'}catch(err){$('result').style.display='none';$('feedback').textContent=err.message}};
+else throw Error('Formato no compatible. Sube un archivo MusicXML (.mxl, .musicxml o .xml).');const parsed=parseXML(xml);const open=$('tuning').value==='dropd'?dropD:standard;const rendered=render(parsed,open);generated=rendered.text;$('tab').textContent=generated;$('heading').textContent=f.name;$('description').textContent=parsed.length+' parte(s) · '+rendered.total+' eventos procesados. Si ves “??”, esa nota no tiene posición dentro de los primeros 19 trastes. Comprueba las notas, ritmo y digitación con el original.';$('result').style.display='block';$('feedback').textContent='Tablatura creada para revisión.'}catch(err){$('result').style.display='none';$('feedback').textContent=err.message}};
 $('print').onclick=()=>window.print();
 $('download').onclick=()=>{const blob=new Blob([generated],{type:'text/plain;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='tablatura-consorte.txt';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000)};
 </script></body></html>
