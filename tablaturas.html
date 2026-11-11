@@ -1,12 +1,14 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Conversor de tablaturas · Biblioteca Consorte</title>
 <style>
-:root{font-family:system-ui,Arial,sans-serif;color:#342820;background:#f1e6d6}*{box-sizing:border-box}body{margin:0}header{background:#32221e;color:white;padding:18px 22px}main{max-width:1080px;margin:22px auto;padding:0 15px}.card{background:#faf4e9;border:1px solid #decbb7;border-radius:16px;padding:20px;margin-bottom:18px}h1{margin:0;font: bold 27px Georgia,serif}h2{font: bold 23px Georgia,serif}p{line-height:1.55}button,.button,select,input{font:inherit;padding:10px;border-radius:9px;border:1px solid #c6af9d;background:white;color:#342820}button,.button{cursor:pointer}button.primary{background:#b86b46;color:white;border-color:#b86b46}a{color:#8b482e}.controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0}label{display:flex;gap:7px;align-items:center}pre{white-space:pre;overflow-x:auto;background:white;border:1px solid #ddd1c2;border-radius:10px;padding:16px;line-height:1.6;font-size:14px}#result{display:none}#feedback{font-weight:600}small{color:#6a5e53}input[type=file]{max-width:100%}@media print{header,.noprint,#feedback{display:none!important}body{background:white}.card{border:0;padding:0}main{margin:0;max-width:none}pre{border:0;font-size:12px;white-space:pre-wrap}#result{display:block!important}}
+:root{font-family:system-ui,Arial,sans-serif;color:#342820;background:#f1e6d6}*{box-sizing:border-box}body{margin:0}header{background:#32221e;color:white;padding:18px 22px}main{max-width:1080px;margin:22px auto;padding:0 15px}.card{background:#faf4e9;border:1px solid #decbb7;border-radius:16px;padding:20px;margin-bottom:18px}h1{margin:0;font: bold 27px Georgia,serif}h2{font: bold 23px Georgia,serif}p{line-height:1.55}button,.button,select,input{font:inherit;padding:10px;border-radius:9px;border:1px solid #c6af9d;background:white;color:#342820}button,.button{cursor:pointer}button.primary{background:#b86b46;color:white;border-color:#b86b46}a{color:#8b482e}.controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0}label{display:flex;gap:7px;align-items:center}pre{white-space:pre;overflow-x:auto;background:white;border:1px solid #ddd1c2;border-radius:10px;padding:16px;line-height:1.6;font-size:14px}#result{display:none}#feedback{font-weight:600}small{color:#6a5e53}input[type=file]{max-width:100%}body.embedded header{display:none}body.embedded main{max-width:none;margin:0;padding:4px}body.embedded main>.card:first-child>a{display:none}#libraryChoice{width:min(100%,680px)}@media print{header,.noprint,#feedback{display:none!important}body{background:white}.card{border:0;padding:0}main{margin:0;max-width:none}pre{border:0;font-size:12px;white-space:pre-wrap}#result{display:block!important}}
 </style></head><body>
 <header><strong>Biblioteca Consorte</strong> · Conversor de tablaturas</header><main>
 <div class="card noprint"><a href="./">← Volver a la biblioteca</a><h1>Convertir partitura a tablatura</h1>
 <p>El conversor admite <strong>MusicXML</strong> directamente y puede procesar <strong>PDF</strong> cuando esté conectado a un servidor con Audiveris instalado. Conserva los eventos por compás y muestra las duraciones; revisa las digitaciones antes de tocar.</p>
-<div class="controls"><input type="file" id="file" accept=".musicxml,.xml,.mxl,.pdf,image/*">
+<div class="controls"><label style="flex-direction:column;align-items:flex-start;flex:1;min-width:230px"><strong>Elegir MusicXML de la biblioteca</strong><select id="libraryChoice"><option value="">Selecciona un archivo guardado...</option></select></label><button type="button" id="reloadLibrary">Actualizar lista</button></div>
+<p id="libraryNote"><small>Selecciona una partitura MusicXML que ya esté en una carpeta o subcarpeta. Si no la tienes guardada, también puedes subirla aquí.</small></p>
+<div class="controls"><label>O subir un archivo <input type="file" id="file" accept=".musicxml,.xml,.mxl,.pdf"></label>
 <label>Afinación <select id="tuning"><option value="standard">Estándar E A D G B E</option><option value="dropd">Drop D D A D G B E</option></select></label>
 <button class="primary" id="convert">Convertir</button></div>
 <p id="feedback" role="status">Selecciona un archivo para comenzar.</p>
@@ -70,7 +72,34 @@ const parts=Array.from(xml.getElementsByTagName('part'));if(!parts.length)throw 
 const out=[];for(const [pi,part] of parts.entries()){let divisions=1;let prev=null;const measures=[];for(const measure of children(part,'measure')){const attr=child(measure,'attributes');if(txt(attr,'divisions'))divisions=Number(txt(attr,'divisions'))||1;const events=[];for(const el of Array.from(measure.children)){if(el.localName!=='note')continue;const d=duration(el,divisions);const chord=!!child(el,'chord');if(child(el,'rest')){if(!chord)events.push({rest:true,d});continue}const midi=asMidi(el);if(midi==null)continue;if(chord&&events.length&& !events.at(-1).rest){events.at(-1).notes.push(midi);continue}events.push({d,notes:[midi]})}measures.push({number:measure.getAttribute('number')||String(measures.length+1),events})}out.push({name:'Parte '+(pi+1),measures})}return out}
 function render(parts,open){let total=0;const output=[];for(const part of parts){output.push(part.name+'\n');let prev=null;for(const measure of part.measures){const lines=Array.from({length:6},()=>[]);const times=[];for(const event of measure.events){total++;const cells=Array(6).fill('--');if(!event.rest){const used=new Set();for(const midi of [...event.notes].sort((a,b)=>a-b)){const options=[];for(let s=0;s<6;s++){const fret=midi-open[s];if(fret>=0&&fret<=19&&!used.has(s))options.push({string:s,fret,score:fret*.18+(fret>12?5:0)+(prev?Math.abs(fret-prev.fret)*.24:0)})}options.sort((a,b)=>a.score-b.score);const p=options[0];if(p){used.add(p.string);cells[p.string]=String(p.fret).padStart(2,'-');prev=p}else cells[5]='??'}}times.push((event.rest?'R':'N')+event.d);for(let s=0;s<6;s++)lines[s].push(cells[s])}output.push('Compás '+measure.number+'\n');for(let s=5;s>=0;s--)output.push(['e','B','G','D','A','E'][5-s]+'|'+lines[s].join('-')+'|\n');output.push('Duraciones (negras): '+times.join(', ')+'\n\n')}}return {text:output.join(''),total}}
 let generated='';
-$('convert').onclick=async()=>{try{const f=$('file').files[0];if(!f)throw Error('Selecciona un archivo.');let xml;
+function libraryRecords(){
+ try{return window.parent!==window&&typeof window.parent.consorteAllLibraryRecords==='function'
+  ?window.parent.consorteAllLibraryRecords()||[] : []}
+ catch(error){return []}
+}
+function refreshTabLibraryFiles(){
+ const selector=$('libraryChoice'),old=selector.value;
+ const records=libraryRecords(),byId=new Map(records.map(record=>[record.id,record]));
+ const eligible=records.filter(record=>record.type==='file'&&/\.(mxl|musicxml|xml)$/i.test(record.name||'')&&record.blob);
+ selector.replaceChildren(new Option('Selecciona un archivo guardado...', ''));
+ for(const record of eligible.sort((a,b)=>a.name.localeCompare(b.name,'es'))){
+  const dirs=[],seen=new Set([record.id]);let folder=record.parent;
+  while(folder&&!seen.has(folder)){seen.add(folder);const entry=byId.get(folder);if(!entry)break;dirs.unshift(entry.name);folder=entry.parent}
+  const label=(dirs.length?dirs.join(' / ')+' / ':'Inicio / ')+record.name;
+  selector.add(new Option(label,record.id));
+ }
+ if(eligible.some(r=>r.id===old))selector.value=old;
+ $('libraryNote').textContent=eligible.length?'Hay '+eligible.length+' archivo(s) MusicXML en tu biblioteca.':'No se encontraron archivos MusicXML guardados. Puedes subir uno desde tu equipo.';
+}
+window.refreshTabLibraryFiles=refreshTabLibraryFiles;
+$('reloadLibrary').onclick=refreshTabLibraryFiles;
+$('libraryChoice').onchange=()=>{if($('libraryChoice').value)$('file').value=''};
+$('file').onchange=()=>{if($('file').files.length)$('libraryChoice').value=''};
+refreshTabLibraryFiles();
+$('convert').onclick=async()=>{try{const selectedId=$('libraryChoice').value;
+ const chosen=libraryRecords().find(record=>record.id===selectedId);
+ const f=chosen?new File([chosen.blob],chosen.name,{type:chosen.blob.type||'application/octet-stream'}):$('file').files[0];
+ if(!f)throw Error('Selecciona un MusicXML guardado en la biblioteca o sube un archivo.');let xml;
 if(/\.pdf$/i.test(f.name)){
  if(f.size>12*1024*1024)throw Error('El PDF debe pesar menos de 12 MB.');
  $('feedback').textContent='Reconociendo notas del PDF...';
@@ -81,7 +110,7 @@ if(/\.pdf$/i.test(f.name)){
  if(!response.ok)throw Error(payload.error||'No se pudo reconocer la partitura.');
  xml=payload.musicxml;
 }else if(/\.mxl$/i.test(f.name)){xml=await extractMXL(f);}
-}else if(/\.(xml|musicxml)$/i.test(f.name)){xml=await f.text();}
+else if(/\.(xml|musicxml)$/i.test(f.name)){xml=await f.text();}
 else throw Error('Formato no compatible. Sube un archivo MusicXML (.mxl, .musicxml o .xml).');const parsed=parseXML(xml);const open=$('tuning').value==='dropd'?dropD:standard;const rendered=render(parsed,open);generated=rendered.text;$('tab').textContent=generated;$('heading').textContent=f.name;$('description').textContent=parsed.length+' parte(s) · '+rendered.total+' eventos procesados. Si ves “??”, esa nota no tiene posición dentro de los primeros 19 trastes. Comprueba las notas, ritmo y digitación con el original.';$('result').style.display='block';$('feedback').textContent='Tablatura creada para revisión.'}catch(err){$('result').style.display='none';$('feedback').textContent=err.message}};
 $('print').onclick=()=>window.print();
 $('download').onclick=()=>{const blob=new Blob([generated],{type:'text/plain;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='tablatura-consorte.txt';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000)};
