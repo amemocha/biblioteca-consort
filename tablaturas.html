@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Conversor de tablaturas · Biblioteca Consorte</title>
 <style>
-:root{font-family:system-ui,Arial,sans-serif;color:#342820;background:#f1e6d6}*{box-sizing:border-box}body{margin:0}header{background:#32221e;color:white;padding:18px 22px}main{max-width:1080px;margin:22px auto;padding:0 15px}.card{background:#faf4e9;border:1px solid #decbb7;border-radius:16px;padding:20px;margin-bottom:18px}h1{margin:0;font: bold 27px Georgia,serif}h2{font: bold 23px Georgia,serif}p{line-height:1.55}button,.button,select,input{font:inherit;padding:10px;border-radius:9px;border:1px solid #c6af9d;background:white;color:#342820}button,.button{cursor:pointer}button.primary{background:#b86b46;color:white;border-color:#b86b46}a{color:#8b482e}.controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0}label{display:flex;gap:7px;align-items:center}pre{white-space:pre;overflow-x:auto;background:white;border:1px solid #ddd1c2;border-radius:10px;padding:16px;line-height:1.6;font-size:14px}#result{display:none}#feedback{font-weight:600}small{color:#6a5e53}input[type=file]{max-width:100%}body.embedded header{display:none}body.embedded main{max-width:none;margin:0;padding:4px}body.embedded main>.card:first-child>a{display:none}#libraryChoice{width:min(100%,680px)}@media print{header,.noprint,#feedback{display:none!important}body{background:white}.card{border:0;padding:0}main{margin:0;max-width:none}pre{border:0;font-size:12px;white-space:pre-wrap}#result{display:block!important}}
+:root{font-family:system-ui,Arial,sans-serif;color:#342820;background:#f1e6d6}*{box-sizing:border-box}body{margin:0}header{background:#32221e;color:white;padding:18px 22px}main{max-width:1080px;margin:22px auto;padding:0 15px}.card{background:#faf4e9;border:1px solid #decbb7;border-radius:16px;padding:20px;margin-bottom:18px}h1{margin:0;font: bold 27px Georgia,serif}h2{font: bold 23px Georgia,serif}p{line-height:1.55}button,.button,select,input{font:inherit;padding:10px;border-radius:9px;border:1px solid #c6af9d;background:white;color:#342820}button,.button{cursor:pointer}button.primary{background:#b86b46;color:white;border-color:#b86b46}a{color:#8b482e}.controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0}label{display:flex;gap:7px;align-items:center}pre{white-space:pre;overflow-x:auto;background:white;border:1px solid #ddd1c2;border-radius:10px;padding:16px;line-height:1.6;font-size:14px}#result{display:none}.tab-sheet{background:#fff;color:#111;border:1px solid #ddd;padding:20px;border-radius:8px;overflow-x:auto}.tab-sheet h3{font:700 18px Georgia,serif;margin:14px 0 2px}.tab-sheet h4{font:600 13px Georgia,serif;margin:14px 0 2px}.tab-system{width:100%;display:block;max-width:100%;margin:4px auto 12px;overflow:visible}.tab-warning{color:#a43324}#tab{display:none}#feedback{font-weight:600}small{color:#6a5e53}input[type=file]{max-width:100%}body.embedded header{display:none}body.embedded main{max-width:none;margin:0;padding:4px}body.embedded main>.card:first-child>a{display:none}#libraryChoice{width:min(100%,680px)}@media print{header,.noprint,#feedback{display:none!important}.tab-sheet{border:0;padding:0}.tab-system{break-inside:avoid;page-break-inside:avoid}body{background:white}.card{border:0;padding:0}main{margin:0;max-width:none}pre{border:0;font-size:12px;white-space:pre-wrap}#result{display:block!important}}
 </style></head><body>
 <header><strong>Biblioteca Consorte</strong> · Conversor de tablaturas</header><main>
 <div class="card noprint"><a href="./">← Volver a la biblioteca</a><h1>Convertir partitura a tablatura</h1>
@@ -13,7 +13,7 @@
 <button class="primary" id="convert">Convertir</button></div>
 <p id="feedback" role="status">Selecciona un archivo para comenzar.</p>
 <small>Los PDF se envían al servicio de reconocimiento musical configurado, si está disponible. La conversión directa de PDF todavía no está activa en esta biblioteca. Los resultados automáticos requieren revisión.</small></div>
-<div class="card" id="result"><h2 id="heading"></h2><p id="description"></p><div class="controls noprint"><button class="primary" id="download">Descargar tablatura PDF</button><button id="print">Imprimir</button></div><pre id="tab"></pre></div></main>
+<div class="card" id="result"><h2 id="heading"></h2><p id="description"></p><div class="controls noprint"><button class="primary" id="download">Descargar tablatura PDF</button><button id="print">Imprimir</button></div><div id="engraved" class="tab-sheet"></div><pre id="tab" hidden></pre></div></main>
 <script>
 'use strict';
 const $=id=>document.getElementById(id);
@@ -166,6 +166,93 @@ function render(parts,open,labels){
  }
  return {text:output.join(''),total,unplayable};
 }
+
+let scoreSystems=[];
+const SVG_NS='http://www.w3.org/2000/svg';
+function svgNode(tag,attrs={},value){
+ const el=document.createElementNS(SVG_NS,tag);
+ for(const [k,v] of Object.entries(attrs))el.setAttribute(k,String(v));
+ if(value!==undefined)el.textContent=value;
+ return el;
+}
+function drawTabSystems(parts,open,labels){
+ const root=$('engraved');root.replaceChildren();scoreSystems=[];
+ const W=920,left=67,right=20,top=30,spacing=15,bottom=top+spacing*5;
+ function drawMeasure(part,voice,measure,prevState){
+  const svg=svgNode('svg',{viewBox:'0 0 '+W+' 164',class:'tab-system',xmlns:SVG_NS,'aria-label':'Tablatura del compás '+measure.number});
+  const events=(measure.voices.get(voice)||[]).slice().sort((a,b)=>a.start-b.start);
+  const total=Math.max(4,...events.map(e=>e.start+e.d),1),usable=W-left-right;
+  const xpos=t=>left+22+Math.max(0,t)/total*(usable-46);
+  for(let i=0;i<6;i++){
+   const y=top+i*spacing;
+   svg.append(svgNode('line',{x1:left,y1:y,x2:W-right,y2:y,stroke:'#222','stroke-width':1}));
+   svg.append(svgNode('text',{x:24,y:y+4,'font-family':'Georgia,serif','font-size':13,fill:'#222'},labels[5-i]));
+  }
+  svg.append(svgNode('text',{x:9,y:16,'font-family':'Arial','font-size':13,'font-weight':600},String(measure.number)));
+  svg.append(svgNode('line',{x1:W-right,y1:top,x2:W-right,y2:bottom,stroke:'#222','stroke-width':1.7}));
+  for(const event of events){
+   const x=xpos(event.start),dur=event.d||1;
+   if(event.rest){
+    svg.append(svgNode('text',{x,y:bottom+29,'font-family':'Georgia,serif','font-size':15,'text-anchor':'middle'},'𝄽'));
+    continue;
+   }
+   const positions=assignChord(event.notes,open,prevState.prev);
+   if(!positions){
+    svg.append(svgNode('text',{x,y:bottom+18,'font-family':'Arial','font-size':11,fill:'#a33','text-anchor':'middle'},'Nota fuera de rango'));
+    continue;
+   }
+   for(const p of positions){
+    const y=top+(5-p.string)*spacing;
+    const fret=String(p.fret);
+    const pad=5+fret.length*4;
+    svg.append(svgNode('rect',{x:x-pad,y:y-8,width:pad*2,height:16,fill:'#fff'}));
+    svg.append(svgNode('text',{x,y:y+5,'font-family':'Arial,sans-serif','font-size':14,'font-weight':600,'text-anchor':'middle'},fret));
+    prevState.prev=p;
+   }
+   // Plicas y banderines: negras, corcheas y semicorcheas;
+   // las notas más largas se representan sin banderín.
+   if(dur<4){
+    const yStart=bottom+9,yEnd=bottom+36;
+    svg.append(svgNode('line',{x1:x,y1:yStart,x2:x,y2:yEnd,stroke:'#111','stroke-width':1.7}));
+    if(dur<1){
+     const flags=dur<=0.25?2:1;
+     for(let f=0;f<flags;f++){
+      const y=yEnd-8-f*8;
+      svg.append(svgNode('path',{d:'M '+x+' '+y+' Q '+(x+20)+' '+(y+2)+' '+(x+14)+' '+(y+17),stroke:'#111','stroke-width':2,fill:'none'}));
+     }
+    }
+   }
+   if(dur>=2)svg.append(svgNode('text',{x,y:bottom+44,'text-anchor':'middle','font-family':'Arial','font-size':10},dur>=4?'𝅝':'𝅗𝅥'));
+  }
+  return svg;
+ }
+ for(const part of parts){
+  const title=document.createElement('h3');title.textContent=part.name;root.append(title);
+  const voices=[...new Set(part.measures.flatMap(m=>[...m.voices.keys()]))].sort();
+  for(const voice of voices){
+   if(voices.length>1){const v=document.createElement('h4');v.textContent='Voz '+voice;root.append(v)}
+   const prev={prev:null};
+   for(const measure of part.measures){
+    const svg=drawMeasure(part,voice,measure,prev);root.append(svg);scoreSystems.push({svg,part:part.name,voice,measure:measure.number});
+   }
+  }
+ }
+ if(!scoreSystems.length){const p=document.createElement('p');p.textContent='No se encontraron compases para representar.';root.append(p)}
+}
+async function svgRaster(svg){
+ const clone=svg.cloneNode(true);
+ clone.setAttribute('width','920');clone.setAttribute('height','164');
+ const source=new XMLSerializer().serializeToString(clone);
+ const uri=URL.createObjectURL(new Blob([source],{type:'image/svg+xml;charset=utf-8'}));
+ try{
+  const img=new Image();img.src=uri;
+  await img.decode();
+  const canvas=document.createElement('canvas');canvas.width=1840;canvas.height=328;
+  const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(img,0,0,canvas.width,canvas.height);
+  return canvas.toDataURL('image/png');
+ }finally{URL.revokeObjectURL(uri)}
+}
 let generated='';
 let generatedName='tablatura-consorte';
 let pdfLibraryPromise=null;
@@ -181,26 +268,23 @@ function loadPdfLibrary(){
  return pdfLibraryPromise;
 }
 async function downloadGeneratedPDF(){
- if(!generated.trim())throw Error('Primero convierte una partitura.');
+ if(!scoreSystems.length)throw Error('Primero convierte una partitura.');
  const jsPDF=await loadPdfLibrary();
  const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
- const margin=15,limit=282,lineHeight=4.2;
+ const margin=15,available=180,height=available*164/920;
  let y=18;
  pdf.setFont('helvetica','bold');pdf.setFontSize(14);
  pdf.text('Biblioteca Consorte · Tablatura',margin,y);y+=9;
- pdf.setFont('helvetica','normal');pdf.setFontSize(9);
- const heading=pdf.splitTextToSize(generatedName,180);
- for(const line of heading){pdf.text(line,margin,y);y+=5}
- y+=3;pdf.setFont('courier','normal');pdf.setFontSize(8);
- // Cada renglón se conserva en fuente monoespaciada para alinear cuerdas y trastes.
- // Los compases extensos se dividen sin recortar información.
- for(const originalLine of generated.replace(/\r/g,'').split('\n')){
-  const chunks=originalLine.match(/.{1,84}/g)||[''];
-  for(const line of chunks){
-   if(y>limit){pdf.addPage();y=18}
-   if(line)pdf.text(line,margin,y);
-   y+=lineHeight;
-  }
+ pdf.setFont('helvetica','normal');pdf.setFontSize(10);
+ for(const line of pdf.splitTextToSize(generatedName,180)){pdf.text(line,margin,y);y+=5}
+ let previous='';
+ for(const system of scoreSystems){
+  const heading=system.part+(system.voice?' · Voz '+system.voice:'');
+  if(y+height+12>282){pdf.addPage();y=19;previous=''}
+  if(heading!==previous){pdf.setFont('helvetica','bold');pdf.setFontSize(10);pdf.text(heading,margin,y);y+=7;previous=heading}
+  const data=await svgRaster(system.svg);
+  pdf.addImage(data,'PNG',margin,y,available,height);
+  y+=height+3;
  }
  const filename=generatedName.replace(/\.(mxl|musicxml|xml|pdf)$/i,'').replace(/[\\/:*?"<>|]/g,'_').slice(0,110)||'tablatura-consorte';
  pdf.save(filename+'-tablatura.pdf');
@@ -245,7 +329,7 @@ if(/\.pdf$/i.test(f.name)){
  xml=payload.musicxml;
 }else if(/\.mxl$/i.test(f.name)){xml=await extractMXL(f);}
 else if(/\.(xml|musicxml)$/i.test(f.name)){xml=await f.text();}
-else throw Error('Formato no compatible. Sube un archivo MusicXML (.mxl, .musicxml o .xml).');const parsed=parseXML(xml);const key=$('tuning').value;const open=key==='consort'?consort:key==='dropd'?dropD:standard;const rendered=render(parsed,open,tuningLabels[key]||tuningLabels.standard);generated=rendered.text;generatedName=f.name;$('tab').textContent=generated;$('heading').textContent=f.name;$('description').textContent=parsed.length+' guitarra(s)/parte(s) · '+rendered.total+' eventos. '+(rendered.unplayable?rendered.unplayable+' acordes o notas sin digitación posible en esta afinación. ':'')+'Las digitaciones son sugerencias automáticas: comprueba el original, especialmente con guitarras transpositoras y varias voces.';$('result').style.display='block';$('feedback').textContent='Tablatura creada para revisión.'}catch(err){$('result').style.display='none';$('feedback').textContent=err.message}};
+else throw Error('Formato no compatible. Sube un archivo MusicXML (.mxl, .musicxml o .xml).');const parsed=parseXML(xml);const key=$('tuning').value;const open=key==='consort'?consort:key==='dropd'?dropD:standard;const rendered=render(parsed,open,tuningLabels[key]||tuningLabels.standard);generated=rendered.text;generatedName=f.name;$('tab').textContent=generated;drawTabSystems(parsed,open,tuningLabels[key]||tuningLabels.standard);$('heading').textContent=f.name;$('description').textContent=parsed.length+' guitarra(s)/parte(s) · '+rendered.total+' eventos. '+(rendered.unplayable?rendered.unplayable+' acordes o notas sin digitación posible en esta afinación. ':'')+'Las digitaciones son sugerencias automáticas: comprueba el original, especialmente con guitarras transpositoras y varias voces.';$('result').style.display='block';$('feedback').textContent='Tablatura creada para revisión.'}catch(err){$('result').style.display='none';$('feedback').textContent=err.message}};
 $('print').onclick=()=>window.print();
 $('download').onclick=async()=>{const button=$('download');button.disabled=true;try{await downloadGeneratedPDF();$('feedback').textContent='PDF de tablatura generado y descargado.'}catch(error){$('feedback').textContent='No se pudo generar el PDF: '+error.message}finally{button.disabled=false}};
 </script></body></html>
