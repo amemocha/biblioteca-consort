@@ -78,12 +78,13 @@ function parseXML(source){
  if(!parts.length)throw Error('No se encontraron partes musicales en formato score-partwise.');
  const out=[];
  for(const [pi,part] of parts.entries()){
-  let divisions=1;const measures=[];
+  let divisions=1;let fifths=0;let beats='4',beatType='4';const measures=[];
   for(const measure of children(part,'measure')){
    let cursor=0,lastStart=0;const voices=new Map();
-   const add=(voice,item)=>{if(!voices.has(voice))voices.set(voice,[]);voices.get(voice).push(item)};
+   const add=(voice,item)=>{if(!voices.has(voice))voices.set(voice,[]);voices.get(voice).push(item)};const harmonies=[];
    for(const el of [...measure.children]){
-    if(el.localName==='attributes'){divisions=Number(txt(el,'divisions'))||divisions;continue}
+    if(el.localName==='attributes'){divisions=Number(txt(el,'divisions'))||divisions;const key=child(el,'key');if(key&&txt(key,'fifths')!=='')fifths=Number(txt(key,'fifths'))||0;const time=child(el,'time');if(time){beats=txt(time,'beats')||beats;beatType=txt(time,'beat-type')||beatType}continue}
+    if(el.localName==='harmony'){const root=child(el,'root');const step=txt(root,'root-step');const alt=Number(txt(root,'root-alter')||0);const kind=txt(el,'kind');if(step)harmonies.push({start:cursor,label:step+(alt===1?'#':alt===-1?'b':'')+({minor:'m',major:'',dominant:'7','major-seventh':'maj7','minor-seventh':'m7',diminished:'dim',augmented:'aug'}[kind]??(kind||''))});continue}
     if(el.localName==='backup'){cursor=Math.max(0,cursor-Number(txt(el,'duration')||0)/divisions);continue}
     if(el.localName==='forward'){cursor+=Number(txt(el,'duration')||0)/divisions;continue}
     if(el.localName!=='note'||child(el,'grace'))continue;
@@ -98,10 +99,10 @@ function parseXML(source){
     const tied=[...children(el,'tie'),...children(child(el,'notations'),'tied')].some(t=>t.getAttribute('type')==='stop');
     const notes=voices.get(voice)||[];
     const previous=notes.at(-1);
-    if(chord&&previous&&!previous.rest&&Math.abs(previous.start-start)<0.001)previous.notes.push({midi,fingering,tied});
-    else add(voice,{start,d,rest:false,notes:[{midi,fingering,tied}]});
+    if(chord&&previous&&!previous.rest&&Math.abs(previous.start-start)<0.001)previous.notes.push({midi,fingering,tied,step:txt(child(el,'pitch'),'step'),octave:Number(txt(child(el,'pitch'),'octave')),alter:Number(txt(child(el,'pitch'),'alter')||0)});
+    else add(voice,{start,d,rest:false,notes:[{midi,fingering,tied,step:txt(child(el,'pitch'),'step'),octave:Number(txt(child(el,'pitch'),'octave')),alter:Number(txt(child(el,'pitch'),'alter')||0)}]});
    }
-   measures.push({number:measure.getAttribute('number')||String(measures.length+1),voices});
+   measures.push({number:measure.getAttribute('number')||String(measures.length+1),voices,harmonies,fifths,beats,beatType});
   }
   out.push({name:names.get(part.getAttribute('id'))||'Guitarra '+(pi+1),measures});
  }
@@ -175,79 +176,95 @@ function svgNode(tag,attrs={},value){
  if(value!==undefined)el.textContent=value;
  return el;
 }
+
 function drawTabSystems(parts,open,labels){
  const root=$('engraved');root.replaceChildren();scoreSystems=[];
- const W=920,left=67,right=20,top=30,spacing=15,bottom=top+spacing*5;
+ const W=920,H=250,left=76,right=22,staffTop=55,staffGap=10,tabTop=143,tabGap=14;
+ const add=(svg,tag,attrs,value)=>{const n=svgNode(tag,attrs,value);svg.append(n);return n};
+ const stepIndex={C:0,D:1,E:2,F:3,G:4,A:5,B:6};
+ const noteY=note=>staffTop+4*staffGap-((Number(note.octave)-4)*7+(stepIndex[note.step]??2)-2)*staffGap/2;
  function drawMeasure(part,voice,measure,prevState){
-  const svg=svgNode('svg',{viewBox:'0 0 '+W+' 164',class:'tab-system',xmlns:SVG_NS,'aria-label':'Tablatura del compás '+measure.number});
+  const svg=svgNode('svg',{viewBox:'0 0 '+W+' '+H,class:'tab-system',xmlns:SVG_NS,'aria-label':'Pentagrama y tablatura alineados del compás '+measure.number});
   const events=(measure.voices.get(voice)||[]).slice().sort((a,b)=>a.start-b.start);
-  const total=Math.max(4,...events.map(e=>e.start+e.d),1),usable=W-left-right;
-  const xpos=t=>left+22+Math.max(0,t)/total*(usable-46);
-  for(let i=0;i<6;i++){
-   const y=top+i*spacing;
-   svg.append(svgNode('line',{x1:left,y1:y,x2:W-right,y2:y,stroke:'#222','stroke-width':1}));
-   svg.append(svgNode('text',{x:24,y:y+4,'font-family':'Georgia,serif','font-size':13,fill:'#222'},labels[5-i]));
+  const total=Math.max(Number(measure.beats)*4/Number(measure.beatType)||4,...events.map(e=>e.start+e.d),1);
+  const xpos=t=>left+75+Math.max(0,t)/total*(W-left-right-105);
+  const line=(x1,y1,x2,y2,width=1)=>add(svg,'line',{x1,y1,x2,y2,stroke:'#171717','stroke-width':width});
+  const text=(x,y,str,size=14,extra={})=>add(svg,'text',{x,y,fill:'#111','font-family':'Arial,sans-serif','font-size':size,...extra},str);
+  for(let i=0;i<5;i++)line(left,staffTop+i*staffGap,W-right,staffTop+i*staffGap,.9);
+  for(let i=0;i<6;i++)line(left,tabTop+i*tabGap,W-right,tabTop+i*tabGap,.9);
+  line(left,staffTop,left,tabTop+5*tabGap,1.5);
+  line(W-right,staffTop,W-right,tabTop+5*tabGap,1.5);
+  text(5,staffTop+13,String(measure.number),16,{'font-weight':'bold'});
+  text(37,staffTop+30,'𝄞',39,{'font-family':'DejaVu Sans,serif'});
+  text(22,tabTop+40,'TAB',15,{'font-family':'Georgia,serif','font-weight':'bold'});
+  if(measure.number==='1'){
+   text(left+29,staffTop+18,String(measure.beats),16,{'font-weight':'bold'});
+   text(left+29,staffTop+35,String(measure.beatType),16,{'font-weight':'bold'});
   }
-  svg.append(svgNode('text',{x:9,y:16,'font-family':'Arial','font-size':13,'font-weight':600},String(measure.number)));
-  svg.append(svgNode('line',{x1:W-right,y1:top,x2:W-right,y2:bottom,stroke:'#222','stroke-width':1.7}));
+  for(const h of measure.harmonies||[])text(xpos(h.start),26,h.label,16,{'font-weight':'bold','text-anchor':'middle'});
   for(const event of events){
-   const x=xpos(event.start),dur=event.d||1;
+   const x=xpos(event.start),d=event.d||1;
    if(event.rest){
-    svg.append(svgNode('text',{x,y:bottom+29,'font-family':'Georgia,serif','font-size':15,'text-anchor':'middle'},'𝄽'));
+    text(x,staffTop+24,'𝄽',19,{'text-anchor':'middle','font-family':'DejaVu Sans,serif'});
     continue;
    }
    const positions=assignChord(event.notes,open,prevState.prev);
-   if(!positions){
-    svg.append(svgNode('text',{x,y:bottom+18,'font-family':'Arial','font-size':11,fill:'#a33','text-anchor':'middle'},'Nota fuera de rango'));
-    continue;
-   }
-   for(const p of positions){
-    const y=top+(5-p.string)*spacing;
-    const fret=String(p.fret);
-    const pad=5+fret.length*4;
-    svg.append(svgNode('rect',{x:x-pad,y:y-8,width:pad*2,height:16,fill:'#fff'}));
-    svg.append(svgNode('text',{x,y:y+5,'font-family':'Arial,sans-serif','font-size':14,'font-weight':600,'text-anchor':'middle'},fret));
-    prevState.prev=p;
-   }
-   // Plicas y banderines: negras, corcheas y semicorcheas;
-   // las notas más largas se representan sin banderín.
-   if(dur<4){
-    const yStart=bottom+9,yEnd=bottom+36;
-    svg.append(svgNode('line',{x1:x,y1:yStart,x2:x,y2:yEnd,stroke:'#111','stroke-width':1.7}));
-    if(dur<1){
-     const flags=dur<=0.25?2:1;
-     for(let f=0;f<flags;f++){
-      const y=yEnd-8-f*8;
-      svg.append(svgNode('path',{d:'M '+x+' '+y+' Q '+(x+20)+' '+(y+2)+' '+(x+14)+' '+(y+17),stroke:'#111','stroke-width':2,fill:'none'}));
+   for(const note of event.notes){
+    const y=noteY(note);
+    if(!Number.isFinite(y))continue;
+    if(y<staffTop-2)for(let v=staffTop-10;v>=y-1;v-=10)line(x-11,v,x+11,v,1);
+    if(y>staffTop+40+2)for(let v=staffTop+50;v<=y+1;v+=10)line(x-11,v,x+11,v,1);
+    const filled=d<2;
+    add(svg,'ellipse',{cx:x,cy:y,rx:6.8,ry:4.4,transform:'rotate(-18 '+x+' '+y+')',stroke:'#111','stroke-width':1.3,fill:filled?'#111':'#fff'});
+    if(note.alter)text(x-17,y+4,note.alter>0?'♯':'♭',18,{'font-family':'DejaVu Sans,serif'});
+    if(d<4){
+     const up=y>=staffTop+20,stemX=up?x+6:x-6,tip=up?y-33:y+33;
+     line(stemX,y,stemX,tip,1.5);
+     if(d<1){
+      const count=d<=.125?3:d<=.25?2:1;
+      for(let j=0;j<count;j++){
+       const sy=tip+(up?j*7:-j*7);
+       add(svg,'path',{d:up?('M '+stemX+' '+sy+' q 17 7 11 24'):('M '+stemX+' '+sy+' q -17 -7 -11 -24'),stroke:'#111','stroke-width':1.5,fill:'none'});
+      }
      }
     }
    }
-   if(dur>=2)svg.append(svgNode('text',{x,y:bottom+44,'text-anchor':'middle','font-family':'Arial','font-size':10},dur>=4?'𝅝':'𝅗𝅥'));
+   if(!positions){
+    text(x,tabTop+42,'?',15,{fill:'#b22','text-anchor':'middle'});
+    continue;
+   }
+   for(const p of positions){
+    const y=tabTop+(5-p.string)*tabGap,number=String(p.fret);
+    add(svg,'rect',{x:x-7,y:y-8,width:14+(number.length-1)*6,height:16,fill:'#fff'});
+    text(x,y+5,number,14,{'text-anchor':'middle'});
+    prevState.prev=p;
+   }
   }
   return svg;
  }
  for(const part of parts){
-  const title=document.createElement('h3');title.textContent=part.name;root.append(title);
+  const heading=document.createElement('h3');heading.textContent=part.name;root.append(heading);
   const voices=[...new Set(part.measures.flatMap(m=>[...m.voices.keys()]))].sort();
   for(const voice of voices){
-   if(voices.length>1){const v=document.createElement('h4');v.textContent='Voz '+voice;root.append(v)}
+   if(voices.length>1){const sub=document.createElement('h4');sub.textContent='Voz '+voice;root.append(sub)}
    const prev={prev:null};
    for(const measure of part.measures){
-    const svg=drawMeasure(part,voice,measure,prev);root.append(svg);scoreSystems.push({svg,part:part.name,voice,measure:measure.number});
+    const svg=drawMeasure(part,voice,measure,prev);
+    root.append(svg);
+    scoreSystems.push({svg,part:part.name,voice,measure:measure.number});
    }
   }
  }
- if(!scoreSystems.length){const p=document.createElement('p');p.textContent='No se encontraron compases para representar.';root.append(p)}
+ if(!scoreSystems.length){const p=document.createElement('p');p.textContent='No hay compases para mostrar.';root.append(p)}
 }
 async function svgRaster(svg){
  const clone=svg.cloneNode(true);
- clone.setAttribute('width','920');clone.setAttribute('height','164');
+ clone.setAttribute('width','920');clone.setAttribute('height','250');
  const source=new XMLSerializer().serializeToString(clone);
  const uri=URL.createObjectURL(new Blob([source],{type:'image/svg+xml;charset=utf-8'}));
  try{
-  const img=new Image();img.src=uri;
-  await img.decode();
-  const canvas=document.createElement('canvas');canvas.width=1840;canvas.height=328;
+  const img=new Image();img.src=uri;await img.decode();
+  const canvas=document.createElement('canvas');canvas.width=1840;canvas.height=500;
   const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
   ctx.drawImage(img,0,0,canvas.width,canvas.height);
   return canvas.toDataURL('image/png');
@@ -271,7 +288,7 @@ async function downloadGeneratedPDF(){
  if(!scoreSystems.length)throw Error('Primero convierte una partitura.');
  const jsPDF=await loadPdfLibrary();
  const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
- const margin=15,available=180,height=available*164/920;
+ const margin=15,available=180,height=available*250/920;
  let y=18;
  pdf.setFont('helvetica','bold');pdf.setFontSize(14);
  pdf.text('Biblioteca Consorte · Tablatura',margin,y);y+=9;
@@ -280,14 +297,14 @@ async function downloadGeneratedPDF(){
  let previous='';
  for(const system of scoreSystems){
   const heading=system.part+(system.voice?' · Voz '+system.voice:'');
-  if(y+height+12>282){pdf.addPage();y=19;previous=''}
+  if(y+height+15>282){pdf.addPage();y=19;previous=''}
   if(heading!==previous){pdf.setFont('helvetica','bold');pdf.setFontSize(10);pdf.text(heading,margin,y);y+=7;previous=heading}
   const data=await svgRaster(system.svg);
   pdf.addImage(data,'PNG',margin,y,available,height);
   y+=height+3;
  }
  const filename=generatedName.replace(/\.(mxl|musicxml|xml|pdf)$/i,'').replace(/[\\/:*?"<>|]/g,'_').slice(0,110)||'tablatura-consorte';
- pdf.save(filename+'-tablatura.pdf');
+ pdf.save(filename+'-partitura-y-tablatura.pdf');
 }
 
 function libraryRecords(){
@@ -330,6 +347,6 @@ if(/\.pdf$/i.test(f.name)){
 }else if(/\.mxl$/i.test(f.name)){xml=await extractMXL(f);}
 else if(/\.(xml|musicxml)$/i.test(f.name)){xml=await f.text();}
 else throw Error('Formato no compatible. Sube un archivo MusicXML (.mxl, .musicxml o .xml).');const parsed=parseXML(xml);const key=$('tuning').value;const open=key==='consort'?consort:key==='dropd'?dropD:standard;const rendered=render(parsed,open,tuningLabels[key]||tuningLabels.standard);generated=rendered.text;generatedName=f.name;$('tab').textContent=generated;drawTabSystems(parsed,open,tuningLabels[key]||tuningLabels.standard);$('heading').textContent=f.name;$('description').textContent=parsed.length+' guitarra(s)/parte(s) · '+rendered.total+' eventos. '+(rendered.unplayable?rendered.unplayable+' acordes o notas sin digitación posible en esta afinación. ':'')+'Las digitaciones son sugerencias automáticas: comprueba el original, especialmente con guitarras transpositoras y varias voces.';$('result').style.display='block';$('feedback').textContent='Tablatura creada para revisión.'}catch(err){$('result').style.display='none';$('feedback').textContent=err.message}};
-$('print').onclick=()=>window.print();
+$('print').onclick=()=>{if(!scoreSystems.length){$('feedback').textContent='Primero convierte una partitura para imprimir.';return}window.print()};
 $('download').onclick=async()=>{const button=$('download');button.disabled=true;try{await downloadGeneratedPDF();$('feedback').textContent='PDF de tablatura generado y descargado.'}catch(error){$('feedback').textContent='No se pudo generar el PDF: '+error.message}finally{button.disabled=false}};
 </script></body></html>
