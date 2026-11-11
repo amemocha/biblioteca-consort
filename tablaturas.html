@@ -13,7 +13,7 @@
 <button class="primary" id="convert">Convertir</button></div>
 <p id="feedback" role="status">Selecciona un archivo para comenzar.</p>
 <small>Los PDF se envían al servicio de reconocimiento musical configurado, si está disponible. La conversión directa de PDF todavía no está activa en esta biblioteca. Los resultados automáticos requieren revisión.</small></div>
-<div class="card" id="result"><h2 id="heading"></h2><p id="description"></p><div class="controls noprint"><button id="print">Imprimir o guardar en PDF</button><button id="download">Descargar tablatura TXT</button></div><pre id="tab"></pre></div></main>
+<div class="card" id="result"><h2 id="heading"></h2><p id="description"></p><div class="controls noprint"><button class="primary" id="download">Descargar tablatura PDF</button><button id="print">Imprimir</button></div><pre id="tab"></pre></div></main>
 <script>
 'use strict';
 const $=id=>document.getElementById(id);
@@ -72,6 +72,45 @@ const parts=Array.from(xml.getElementsByTagName('part'));if(!parts.length)throw 
 const out=[];for(const [pi,part] of parts.entries()){let divisions=1;let prev=null;const measures=[];for(const measure of children(part,'measure')){const attr=child(measure,'attributes');if(txt(attr,'divisions'))divisions=Number(txt(attr,'divisions'))||1;const events=[];for(const el of Array.from(measure.children)){if(el.localName!=='note')continue;const d=duration(el,divisions);const chord=!!child(el,'chord');if(child(el,'rest')){if(!chord)events.push({rest:true,d});continue}const midi=asMidi(el);if(midi==null)continue;if(chord&&events.length&& !events.at(-1).rest){events.at(-1).notes.push(midi);continue}events.push({d,notes:[midi]})}measures.push({number:measure.getAttribute('number')||String(measures.length+1),events})}out.push({name:'Parte '+(pi+1),measures})}return out}
 function render(parts,open){let total=0;const output=[];for(const part of parts){output.push(part.name+'\n');let prev=null;for(const measure of part.measures){const lines=Array.from({length:6},()=>[]);const times=[];for(const event of measure.events){total++;const cells=Array(6).fill('--');if(!event.rest){const used=new Set();for(const midi of [...event.notes].sort((a,b)=>a-b)){const options=[];for(let s=0;s<6;s++){const fret=midi-open[s];if(fret>=0&&fret<=19&&!used.has(s))options.push({string:s,fret,score:fret*.18+(fret>12?5:0)+(prev?Math.abs(fret-prev.fret)*.24:0)})}options.sort((a,b)=>a.score-b.score);const p=options[0];if(p){used.add(p.string);cells[p.string]=String(p.fret).padStart(2,'-');prev=p}else cells[5]='??'}}times.push((event.rest?'R':'N')+event.d);for(let s=0;s<6;s++)lines[s].push(cells[s])}output.push('Compás '+measure.number+'\n');for(let s=5;s>=0;s--)output.push(['e','B','G','D','A','E'][5-s]+'|'+lines[s].join('-')+'|\n');output.push('Duraciones (negras): '+times.join(', ')+'\n\n')}}return {text:output.join(''),total}}
 let generated='';
+let generatedName='tablatura-consorte';
+let pdfLibraryPromise=null;
+function loadPdfLibrary(){
+ if(!pdfLibraryPromise)pdfLibraryPromise=new Promise((resolve,reject)=>{
+  if(window.jspdf?.jsPDF){resolve(window.jspdf.jsPDF);return}
+  const script=document.createElement('script');
+  script.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js';
+  script.onload=()=>window.jspdf?.jsPDF?resolve(window.jspdf.jsPDF):reject(Error('No se pudo iniciar el generador PDF.'));
+  script.onerror=()=>reject(Error('No se pudo cargar el generador PDF. Comprueba tu conexión a internet.'));
+  document.head.append(script);
+ }).catch(error=>{pdfLibraryPromise=null;throw error});
+ return pdfLibraryPromise;
+}
+async function downloadGeneratedPDF(){
+ if(!generated.trim())throw Error('Primero convierte una partitura.');
+ const jsPDF=await loadPdfLibrary();
+ const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+ const margin=15,limit=282,lineHeight=4.2;
+ let y=18;
+ pdf.setFont('helvetica','bold');pdf.setFontSize(14);
+ pdf.text('Biblioteca Consorte · Tablatura',margin,y);y+=9;
+ pdf.setFont('helvetica','normal');pdf.setFontSize(9);
+ const heading=pdf.splitTextToSize(generatedName,180);
+ for(const line of heading){pdf.text(line,margin,y);y+=5}
+ y+=3;pdf.setFont('courier','normal');pdf.setFontSize(8);
+ // Cada renglón se conserva en fuente monoespaciada para alinear cuerdas y trastes.
+ // Los compases extensos se dividen sin recortar información.
+ for(const originalLine of generated.replace(/\r/g,'').split('\n')){
+  const chunks=originalLine.match(/.{1,94}/g)||[''];
+  for(const line of chunks){
+   if(y>limit){pdf.addPage();y=18}
+   if(line)pdf.text(line,margin,y);
+   y+=lineHeight;
+  }
+ }
+ const filename=generatedName.replace(/\.(mxl|musicxml|xml|pdf)$/i,'').replace(/[\\/:*?"<>|]/g,'_').slice(0,110)||'tablatura-consorte';
+ pdf.save(filename+'-tablatura.pdf');
+}
+
 function libraryRecords(){
  try{return window.parent!==window&&typeof window.parent.consorteAllLibraryRecords==='function'
   ?window.parent.consorteAllLibraryRecords()||[] : []}
@@ -111,7 +150,7 @@ if(/\.pdf$/i.test(f.name)){
  xml=payload.musicxml;
 }else if(/\.mxl$/i.test(f.name)){xml=await extractMXL(f);}
 else if(/\.(xml|musicxml)$/i.test(f.name)){xml=await f.text();}
-else throw Error('Formato no compatible. Sube un archivo MusicXML (.mxl, .musicxml o .xml).');const parsed=parseXML(xml);const open=$('tuning').value==='dropd'?dropD:standard;const rendered=render(parsed,open);generated=rendered.text;$('tab').textContent=generated;$('heading').textContent=f.name;$('description').textContent=parsed.length+' parte(s) · '+rendered.total+' eventos procesados. Si ves “??”, esa nota no tiene posición dentro de los primeros 19 trastes. Comprueba las notas, ritmo y digitación con el original.';$('result').style.display='block';$('feedback').textContent='Tablatura creada para revisión.'}catch(err){$('result').style.display='none';$('feedback').textContent=err.message}};
+else throw Error('Formato no compatible. Sube un archivo MusicXML (.mxl, .musicxml o .xml).');const parsed=parseXML(xml);const open=$('tuning').value==='dropd'?dropD:standard;const rendered=render(parsed,open);generated=rendered.text;generatedName=f.name;$('tab').textContent=generated;$('heading').textContent=f.name;$('description').textContent=parsed.length+' parte(s) · '+rendered.total+' eventos procesados. Si ves “??”, esa nota no tiene posición dentro de los primeros 19 trastes. Comprueba las notas, ritmo y digitación con el original.';$('result').style.display='block';$('feedback').textContent='Tablatura creada para revisión.'}catch(err){$('result').style.display='none';$('feedback').textContent=err.message}};
 $('print').onclick=()=>window.print();
-$('download').onclick=()=>{const blob=new Blob([generated],{type:'text/plain;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='tablatura-consorte.txt';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000)};
+$('download').onclick=async()=>{const button=$('download');button.disabled=true;try{await downloadGeneratedPDF();$('feedback').textContent='PDF de tablatura generado y descargado.'}catch(error){$('feedback').textContent='No se pudo generar el PDF: '+error.message}finally{button.disabled=false}};
 </script></body></html>
