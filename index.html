@@ -1291,7 +1291,7 @@ async function pull(){
   }
   for(const row of ordered){
    const m=row.metadata||{},existing=byLocal.get(row.id),parent=m.parent?mapRemoteId.get(m.parent)||m.parent:null;
-   const copy={...m,id:row.id,parent,type:m.type||'file'};
+   const copy={...(existing||{}),...m,id:row.id,parent,type:m.type||'file'};
    const same=existing?null:equivalentLocal(copy,row.id);
    if(same){
     mapRemoteId.set(row.id,same.id);equivalent++;
@@ -1332,12 +1332,15 @@ async function pushExisting(){
   const remoteIds=new Set(remote.map(x=>x.id));
   const localById=new Map(local.map(x=>[x.id,x]));
   const remoteById=new Map(remote.map(x=>[x.id,{...(x.metadata||{}),id:x.id}]));
-  const pending=readSet(dirtyKey());
+  const pending=readSet(dirtyKey()),uploaded=marked();
   let saved=0,failed=0,duplicates=0,firstError='';
   // Prevent reinserting same named folders from different devices.
   for(const item of local){
    const isPending=pending.has(item.id);
    if(remoteIds.has(item.id)&&!isPending)continue;
+   // An item already uploaded but now absent was removed on another device;
+   // do not resurrect it just because an old local copy still exists.
+   if(!remoteIds.has(item.id)&&uploaded.has(item.id)&&!isPending)continue;
    if(!remoteIds.has(item.id)){
     const localPath=pathKey(item,localById);
     const equivalent=remote.find(row=>{
