@@ -35,3 +35,31 @@ input,select,textarea{background:#fff;color:var(--ink);border-color:#e2def5;bord
 .bottomnav button{color:#8b7bb8}
 .bottomnav button.active{background:linear-gradient(110deg,#687ce8,#c35edb)!important}
 @media(max-width:850px){.top{border-radius:0 0 20px 20px}.content{padding-top:18px}.card{border-radius:20px}}
+
+/* Smart-home inspired organization across Biblioteca, Estudio, Diseño, Agenda y Respaldo.
+   Presentation only: existing actions, ids and editor interactions are preserved. */
+:root{--consorte-purple:#9a66df;--consorte-pink:#ec61b6;--consorte-blue:#7383ed}
+.app .content{padding-bottom:105px}
+.app .page>h1,.app .page>div>h1{color:#51467e}
+.app .page .card,.app .page .item{border-radius:23px;background:#fff;box-shadow:0 8px 26px rgba(105,92,171,.10)}
+.app .page .flex,.app .page .actions,.app .page .toolbar,.app .page .controls{gap:11px;flex-wrap:wrap}
+.app .page button:not(.nav):not(.activeMark),.app .page .primary{min-height:40px;border-radius:15px;transition:transform .15s,box-shadow .15s;box-shadow:0 5px 15px rgba(114,95,177,.10)}
+.app .page button:active{transform:scale(.97)}
+.app .page button.primary,.app .page .primary{background:linear-gradient(115deg,#7384ec,#a46be4,#d66edc)!important;color:#fff!important}
+.app .page button[aria-pressed="true"],.app .page button.selected,.app .page button.active{background:linear-gradient(115deg,#8d6ce5,#e866ba)!important;color:#fff!important}
+.app .page .card>h2,.app .page .card>h3{color:#57478d}
+.app .page .sub,.app .page .small{color:#9296b5}
+.app .page input,.app .page select,.app .page textarea{border-radius:13px;border:1px solid #e5e4f3;box-shadow:inset 0 1px 3px #a9a0c00c}
+.app .page .drop,.app .page .scoreview{border-radius:20px}
+.app .bottomnav{display:flex;justify-content:space-around;align-items:stretch;gap:5px;padding:9px max(10px,env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));border-radius:22px 22px 0 0}
+.app .bottomnav button{flex:1;min-width:0;max-width:160px;border:0;background:transparent;box-shadow:none;color:#999fbd;font-size:12px;font-weight:650;line-height:1.35;padding:9px 4px;border-radius:15px}
+.app .bottomnav button.active{color:white!important;background:linear-gradient(130deg,#7a82ed,#b65de2,#ed6cba)!important;box-shadow:0 6px 15px #ad78e347}
+.app .sidebar .nav{margin:3px 7px;padding:13px 15px;border:1px solid transparent;box-shadow:none;text-align:left}
+.app .sidebar .nav.active{background:#ffffff30!important;border:1px solid #ffffff55!important}
+@media(max-width:850px){
+ .app .page{max-width:100%}
+ .app .page .card{padding:15px}
+ .app .page .flex,.app .page .actions,.app .page .toolbar,.app .page .controls{display:flex;flex-wrap:wrap;align-items:center}
+ .app .page .flex>button,.app .page .actions>button,.app .page .toolbar>button,.app .page .controls>button{flex:0 1 auto}
+ .app .bottomnav button{font-size:11px}
+}
