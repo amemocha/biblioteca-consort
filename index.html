@@ -1076,12 +1076,12 @@ $x('backupFile').onchange=async e=>{
    if(editorActive){const active=document.querySelector('.page.active');activeDockPage(active?.id||'library');}
    app.classList.toggle('editor-mode',editorActive); toggle.textContent=editorActive?'✓ Guardar y cerrar editor':'✎ Abrir editor';
    if(!editorActive){ if(selected) selected.classList.remove('editor-selected'); selected=null; resizeHandle.style.display='none'; save(); }
-   else { ensureIds(); applyAll(); setStatus('Editor activo. Toca cualquier elemento para moverlo o editarlo.'); }
+   else { ensureIds(); applyAll(); setStatus('Editor activo: mueve objetos con un dedo y desplaza la pantalla con dos.'); }
  }
- function startSelectAndDrag(e){ if(!editorActive || editingText) return; if(isInsideEditor(e.target)) return; const el=e.target.closest('.editor-copy, [data-editor-id], .editor-floating') || e.target; if(!el || !app.contains(el)) return; if(['INPUT','SELECT','TEXTAREA','AUDIO'].includes(e.target.tagName)) return; e.preventDefault(); e.stopPropagation(); selectElement(el);
+ function startSelectAndDrag(e){ if(!editorActive || editingText || editorTwoFingerPan || (e.pointerType==='touch' && editorTouchCount>=2)) return; if(isInsideEditor(e.target)) return; const el=e.target.closest('.editor-copy, [data-editor-id], .editor-floating') || e.target; if(!el || !app.contains(el)) return; if(['INPUT','SELECT','TEXTAREA','AUDIO'].includes(e.target.tagName)) return; e.preventDefault(); e.stopPropagation(); selectElement(el);
    const style=styleOfSelected(); const isFloat=el.classList.contains('editor-floating') || el.classList.contains('editor-copy'); drag={pointer:e.pointerId, startX:e.clientX, startY:e.clientY, origX:parseInt(style.left||el.style.left||0)||0, origY:parseInt(style.top||el.style.top||0)||0, isFloat}; el.setPointerCapture?.(e.pointerId); if(e.pointerType==='touch') document.body.style.overscrollBehavior='none';
  }
- function onMove(e){ if(!editorActive) return; if((drag||resizing) && e.cancelable) e.preventDefault(); if(resizing && selected){ let st=styleOfSelected(); st.width=Math.max(30, resizing.origW + (e.clientX-resizing.x)); st.height=Math.max(20, resizing.origH + (e.clientY-resizing.y)); applyStyle(selected,st); document.getElementById('edWidth').value=st.width; document.getElementById('edHeight').value=st.height; positionResizeHandle(); return; }
+ function onMove(e){ if(!editorActive || editorTwoFingerPan) return; if((drag||resizing) && e.cancelable) e.preventDefault(); if(resizing && selected){ let st=styleOfSelected(); st.width=Math.max(30, resizing.origW + (e.clientX-resizing.x)); st.height=Math.max(20, resizing.origH + (e.clientY-resizing.y)); applyStyle(selected,st); document.getElementById('edWidth').value=st.width; document.getElementById('edHeight').value=st.height; positionResizeHandle(); return; }
    if(!drag || !selected) return; let st=styleOfSelected(); st.positionType = drag.isFloat ? 'absolute' : 'relative'; st.left = drag.origX + (e.clientX-drag.startX); st.top = drag.origY + (e.clientY-drag.startY); applyStyle(selected,st); document.getElementById('edX').value=st.left; document.getElementById('edY').value=st.top; positionResizeHandle(); }
  function onUp(){ if(drag||resizing){ save(); drag=null; resizing=false; document.body.style.overscrollBehavior=''; } }
  function positionResizeHandle(){ if(!editorActive || !selected){ resizeHandle.style.display='none'; return;} const r=selected.getBoundingClientRect(); resizeHandle.style.display='block'; resizeHandle.style.left=(Math.max(8, r.right-12))+'px'; resizeHandle.style.top=(Math.max(8, r.bottom-12))+'px'; }
@@ -1174,6 +1174,38 @@ $x('backupFile').onchange=async e=>{
    }
  },true);
  renderExtras();
+ // Gestos táctiles exclusivos del editor: un dedo mueve objetos; dos dedos desplazan la página.
+ let editorTouchCount=0, editorTwoFingerPan=false, editorPanLast=null;
+ const editorPanCenter=t=>({x:(t[0].clientX+t[1].clientX)/2,y:(t[0].clientY+t[1].clientY)/2});
+ document.addEventListener('touchstart',e=>{
+   if(!editorActive || !e.target.closest('.main'))return;
+   editorTouchCount=e.touches.length;
+   if(editorTouchCount>=2){
+     if(drag||resizing){save();drag=null;resizing=false;}
+     document.body.style.overscrollBehavior='';
+     editorTwoFingerPan=true;editorPanLast=editorPanCenter(e.touches);
+     if(e.cancelable)e.preventDefault();
+   }
+ },{capture:true,passive:false});
+ document.addEventListener('touchmove',e=>{
+   if(!editorActive || !e.target.closest('.main'))return;
+   editorTouchCount=e.touches.length;
+   if(editorTwoFingerPan && editorTouchCount>=2){
+     const next=editorPanCenter(e.touches);
+     if(editorPanLast)window.scrollBy(editorPanLast.x-next.x,editorPanLast.y-next.y);
+     editorPanLast=next;
+     if(e.cancelable)e.preventDefault();
+   }else if(editorTouchCount===1 && !editingText && !isInsideEditor(e.target)){
+     if(e.cancelable)e.preventDefault();
+   }
+ },{capture:true,passive:false});
+ const endEditorTouch=e=>{
+   editorTouchCount=e.touches.length;
+   if(editorTwoFingerPan && editorTouchCount<2){editorTwoFingerPan=false;editorPanLast=null;}
+   if(!editorTouchCount)document.body.style.overscrollBehavior='';
+ };
+ document.addEventListener('touchend',endEditorTouch,{capture:true,passive:true});
+ document.addEventListener('touchcancel',endEditorTouch,{capture:true,passive:true});
  app.addEventListener('pointerdown',startSelectAndDrag,true); window.addEventListener('pointermove',onMove,{capture:true,passive:false}); window.addEventListener('pointerup',onUp,true); window.addEventListener('resize',positionResizeHandle);
  document.getElementById('editorPickMode').onclick=()=>setStatus('Toca un elemento para seleccionarlo. Arrástralo para moverlo. Usa el círculo flotante para cambiar su tamaño.');
  /* No mutation observer: avoids infinite re-render loop when inserting images. */
