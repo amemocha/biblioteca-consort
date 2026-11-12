@@ -101,3 +101,6 @@ input,select,textarea{background:#fff;color:var(--ink);border-color:#e2def5;bord
  .app .page button:has(>svg),.app .page button:has(>img){align-content:center}
  .app .bottomnav button{border-radius:11px!important}
 }
+
+/* Rounded corners on compact square action tiles */
+@media(max-width:850px){.app .page button:not(.nav):not(.editor-toolbar button):not(.dockNav button):not(.bottomnav button),.app .page button.primary{border-radius:20px!important}}
