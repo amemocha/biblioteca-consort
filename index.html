@@ -959,7 +959,7 @@ $x('backupFile').onchange=async e=>{
    else if(k==='y'||(k==='z'&&e.shiftKey)){e.preventDefault();e.stopImmediatePropagation();restoreHistory(1);}
  },true);
  updateHistoryButtons();
- function isInsideEditor(el){return !!el.closest('#visualEditor')||el.id==='toggleVisualEditor' || el.closest('dialog');}
+ function isInsideEditor(el){return !!el.closest('#visualEditor, #consorteEditDock')||el.id==='toggleVisualEditor' || el.closest('dialog');}
  function editorId(el){ if(!el) return ''; let path=[]; let cur=el; while(cur && !cur.classList.contains('app')){ let idx=cur.parentElement ? [...cur.parentElement.children].filter(n=>n.nodeType===1).indexOf(cur)+1 : 1; let name=cur.tagName.toLowerCase()+':'+idx; if(cur.id) name+='#'+cur.id; path.unshift(name); cur=cur.parentElement; } return path.join('/'); }
  function allTargets(){ return [...document.querySelectorAll('.app *')].filter(el=>{
    if(['SCRIPT','STYLE','DIALOG','AUDIO','OPTION'].includes(el.tagName)) return false;
@@ -1078,7 +1078,7 @@ $x('backupFile').onchange=async e=>{
    if(!editorActive){ if(selected) selected.classList.remove('editor-selected'); selected=null; resizeHandle.style.display='none'; save(); }
    else { ensureIds(); applyAll(); setStatus('Editor activo: mueve objetos con un dedo y desplaza la pantalla con dos.'); }
  }
- function startSelectAndDrag(e){ if(!editorActive || editingText || editorTwoFingerPan || (e.pointerType==='touch' && editorTouchCount>=2)) return; if(isInsideEditor(e.target)) return; const el=e.target.closest('.editor-copy, [data-editor-id], .editor-floating') || e.target; if(!el || !app.contains(el)) return; if(['INPUT','SELECT','TEXTAREA','AUDIO'].includes(e.target.tagName)) return; e.preventDefault(); e.stopPropagation(); selectElement(el);
+ function startSelectAndDrag(e){ if(!editorActive || editingText || editorTwoFingerPan || (e.pointerType==='touch' && editorTouchCount>=2)) return; if(isInsideEditor(e.target)) return; const el=e.target.closest('button, .nav, .editor-copy, .editor-floating, [data-editor-id]') || e.target; if(!el || !app.contains(el)) return; if(['INPUT','SELECT','TEXTAREA','AUDIO'].includes(e.target.tagName)) return; e.preventDefault(); e.stopPropagation(); selectElement(el);
    const style=styleOfSelected(); const isFloat=el.classList.contains('editor-floating') || el.classList.contains('editor-copy'); drag={pointer:e.pointerId, startX:e.clientX, startY:e.clientY, origX:parseInt(style.left||el.style.left||0)||0, origY:parseInt(style.top||el.style.top||0)||0, isFloat}; el.setPointerCapture?.(e.pointerId); if(e.pointerType==='touch') document.body.style.overscrollBehavior='none';
  }
  function onMove(e){ if(!editorActive || editorTwoFingerPan) return; if((drag||resizing) && e.cancelable) e.preventDefault(); if(resizing && selected){ let st=styleOfSelected(); st.width=Math.max(30, resizing.origW + (e.clientX-resizing.x)); st.height=Math.max(20, resizing.origH + (e.clientY-resizing.y)); applyStyle(selected,st); document.getElementById('edWidth').value=st.width; document.getElementById('edHeight').value=st.height; positionResizeHandle(); return; }
@@ -1125,7 +1125,7 @@ $x('backupFile').onchange=async e=>{
  }
  app.addEventListener('dblclick',e=>{
    if(!editorActive || isInsideEditor(e.target))return;
-   let target=e.target.closest('.editor-copy,[data-editor-id]');
+   let target=e.target.closest('button,.editor-copy,[data-editor-id]');
    if(target){e.preventDefault();e.stopPropagation();editTextInline(target);}
  },true);
  function selectedSnapshot(){
