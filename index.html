@@ -235,6 +235,25 @@ async function chooseSharedDestination(count){
   dlg.showModal();
  });
 }
+window.consorteReceiveNativeShare=async function(items){
+ if(!Array.isArray(items)||!items.length)return;
+ try{
+  if(!db){setTimeout(()=>window.consorteReceiveNativeShare(items),500);return}
+  const destination=await chooseSharedDestination(items.length);
+  if(destination===undefined)return;
+  let count=0;
+  for(const item of items){
+   const response=await fetch(item.url);
+   if(!response.ok)throw new Error('No se pudo leer '+item.name);
+   const blob=await response.blob();
+   const name=safeName(item.name||'Archivo compartido');
+   await putRecord({id:uid(),parent:destination,type:'file',kind:getKind({name,type:blob.type}),name,instrument:inferInstrument(name),blob,created:Date.now()});
+   count++;
+  }
+  state.folder=destination;await refresh();
+  notify(count+' archivo(s) guardado(s) en '+(destination?rec(destination)?.name||'carpeta':'Biblioteca')+'.');
+ }catch(error){console.error('Error al recibir archivo de Android',error);alert('No se pudo guardar el archivo: '+error.message)}
+};
 async function importSharedFiles(){
  if(!new URLSearchParams(location.search).has('consorte_share'))return;
  try{
