@@ -124,7 +124,7 @@ input,select,textarea{border-radius:12px!important;background:#fff!important;bor
 </section>
 <section class="page" id="planner">
 <h1>Mis notas</h1><p class="sub">Escribe, dibuja y organiza tus canciones, partituras y fotografías.</p>
-<div class="card agenda-calendar-card" hidden aria-hidden="true">
+<div class="card agenda-calendar-card">
 <div class="agenda-toolbar"><div class="agenda-toolbar-primary"><button id="agenda-today" type="button">Hoy</button><button id="agenda-prev" type="button" aria-label="Periodo anterior">‹</button><button id="agenda-next" type="button" aria-label="Periodo siguiente">›</button><h2 id="agenda-month"></h2></div><div class="agenda-toolbar-secondary"><label for="agenda-view">Vista</label><select id="agenda-view"><option value="month">Mes</option><option value="week">Semana</option><option value="day">Día</option></select><button id="agenda-new-event" type="button" class="primary">+ Crear evento</button></div></div>
 <div class="agenda-week" aria-hidden="true"><span>Lunes</span><span>Martes</span><span>Miércoles</span><span>Jueves</span><span>Viernes</span><span>Sábado</span><span>Domingo</span></div>
 <div class="agenda-days" id="agenda-days" aria-label="Calendario de actividades"></div>
@@ -1628,8 +1628,9 @@ updateConsorteUndoButton();
 .note-song-results{max-height:45vh;overflow:auto;display:grid;gap:5px;margin-top:12px}.note-song-results button{text-align:left}
 @media(max-width:600px){#consorte-note-dialog{padding:13px}.note-title{font-size:23px}.note-rich-editor{min-height:210px}}
 
-/* Retiramos de la interfaz el calendario anterior; se conserva el almacenamiento de notas. */
-#planner .agenda-calendar-card,#planner #legacy-agenda-activities{display:none!important}
+/* Calendario de notas y eventos visible en Mis notas. */
+#planner .agenda-calendar-card{display:block!important}
+#planner #legacy-agenda-activities{display:none!important}
 </style><script id="agenda-script">
 (()=>{
 'use strict';
@@ -1728,6 +1729,16 @@ window.consorteAgendaRender=render;
 
 render();
 })();
+</script><script id="consorte-notes-click-recovery">
+document.addEventListener('click',function(e){
+ const btn=e.target.closest&&e.target.closest('#agenda-note-new');
+ if(!btn)return;
+ e.preventDefault();
+ e.stopImmediatePropagation();
+ if(typeof window.consorteOpenNote==='function'){window.consorteOpenNote();return}
+ const dialog=document.getElementById('consorte-note-dialog');
+ if(dialog){try{dialog.showModal()}catch(_){dialog.setAttribute('open','')}}
+},true);
 </script><script id="consorte-rich-notes-script">
 (()=>{
 'use strict';
