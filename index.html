@@ -1767,15 +1767,15 @@ function openNote(id=null){
  editing=n?.id||null;title.value=n?.title||'';
  editor.innerHTML=cleanHtml(n?.html||escapeHtml(n?.body||'').replace(/\n/g,'<br>'));
  linked=Array.isArray(n?.songIds)?[...n.songIds]:[];showLinks();
- dlg.showModal();setTimeout(()=>title.focus(),30);
+ try{if(!dlg.open)dlg.showModal()}catch(error){dlg.setAttribute('open','');dlg.style.display='block'}setTimeout(()=>title.focus(),30);
 }
 window.consorteOpenNote=openNote;
 $('agenda-note-new').onclick=()=>openNote();
-function closeNote(){dlg.close();editing=null}
+function closeNote(){if(dlg.open&&typeof dlg.close==='function')dlg.close();else{dlg.removeAttribute('open');dlg.style.display='none'}editing=null}
 $('consorte-note-close').onclick=closeNote;
 function persistNote(){
  const name=title.value.trim(),html=cleanHtml(editor.innerHTML),body=editor.innerText||'';
- if(!name&&!body.trim()&&!editor.querySelector('img')&&!linked.length){closeNote();return}
+ if(!name&&!body.trim()&&!editor.querySelector('img')&&!linked.length){alert('Escribe un título o contenido para guardar la nota.');title.focus();return}
  const old=data.notes.find(n=>n.id===editing),note={
  id:editing||freshId(),created:old?.created||Date.now(),updated:Date.now(),
  title:name||'Sin título',body,html,songIds:[...linked],category:old?.category||'General'
