@@ -156,6 +156,7 @@ input,select,textarea{border-radius:12px!important;background:#fff!important;bor
 <button class="primary" id="toggleVisualEditor">✎ Abrir editor</button><div id="visualEditor" hidden>
 <label>Tamaño de botones <input id="buttonSize" type="range" min="7" max="25" value="11"></label>
 <label>Forma <select id="buttonShape"><option value="6">Cuadrada</option><option value="12">Redondeada</option><option value="25">Muy redondeada</option><option value="999">Píldora</option></select></label>
+<label>Color de las carpetas <input type="color" id="folderColor" value="#7e3fb5"></label>
 <label>Color del texto <input type="color" id="textColor" value="#352821"></label>
 <label>Color de paneles <input type="color" id="panelColor" value="#faf4e9"></label>
 <label>Color de bordes <input type="color" id="borderColor" value="#decbb7"></label>
@@ -172,7 +173,7 @@ input,select,textarea{border-radius:12px!important;background:#fff!important;bor
 <button type="button" data-dock-page="study">♫ Estudio</button>
 <button type="button" data-dock-page="custom"> Diseño</button>
 <button type="button" data-dock-page="planner">Calendario y notas</button><button type="button" data-dock-page="backup">⇩ Respaldo</button>
-<button type="button" id="dockExit">✓ Guardar y cerrar</button>
+<label style="display:flex;align-items:center;gap:9px;padding:8px 12px;color:#fff;font-size:13px;white-space:nowrap">Color de carpetas <input id="dockFolderColor" type="color" value="#7e3fb5" style="width:42px;height:34px;border:1px solid #fff8;border-radius:8px;padding:2px;background:#fff"></label><button type="button" id="dockExit">✓ Guardar y cerrar</button>
 </div></div>
 <dialog id="editor"><h2 id="editorTitle">Editar archivo</h2><label>Nombre<br><input id="editName" style="width:100%"></label><label style="display:block;margin-top:12px">Guitarra<br><select id="editInstrument"><option value="">Sin clasificar</option><option>Soprano</option><option>Alto</option><option>Tenor</option><option>Bajo</option><option>Contrabajo</option><option>General</option></select></label><div id="songCategoryPanel" style="margin-top:12px;display:grid;gap:10px"><label>Canción<br><input id="editSong" list="songSuggestions" placeholder="Ej.: Feliz Navidad" style="width:100%"><datalist id="songSuggestions"></datalist></label><label>Categoría<br><select id="editCategory" style="width:100%"><option value="">Sin categoría</option></select></label><button id="addNewCategory" type="button">＋ Agregar nueva categoría</button></div><label style="display:block;margin-top:12px">Portada personalizada<br><input id="editCover" accept="image/*" type="file"></label><div id="linksEditor" style="margin-top:14px"><p class="small">Vincula los tres documentos para abrirlos directamente desde Estudio.</p><label>Partitura <select id="editScore" style="width:100%"></select></label><label>Tablatura <select id="editTab" style="width:100%"></select></label><label>Audio <select id="editAudio" style="width:100%"></select></label></div><menu><button id="editCancel">Cancelar</button><button class="primary" id="editSave">Guardar</button></menu></dialog>
 
@@ -1773,5 +1774,15 @@ const b=document.createElement('button');b.type='button';b.id='consortRestoreCon
 b.style.cssText='position:fixed;right:12px;top:12px;z-index:2147483640;background:#fff;color:#673caa;border:2px solid #8750c4;border-radius:13px;padding:8px 12px;font-size:12px;box-shadow:0 3px 12px #0002';
 b.onclick=function(){if(!confirm('¿Restaurar la distribución de botones y el diseño del editor? No se borrarán partituras, audios, notas ni carpetas.'))return;keys.forEach(k=>localStorage.removeItem(k));location.reload()};
 document.body.appendChild(b);
+})();
+</script><style id="editableFolderIconColor">
+html body .app .folder-circle::before{background-image:none!important;background-color:var(--user-folder-color,#7e3fb5)!important;filter:none!important;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='24' viewBox='0 0 28 24'%3E%3Cpath d='M3 6V4.5Q3 3 4.5 3H11l3 3h9.5Q25 6 25 7.5v12Q25 21 23.5 21h-19Q3 21 3 19.5Z' fill='black'/%3E%3C/svg%3E") center/contain no-repeat!important;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='24' viewBox='0 0 28 24'%3E%3Cpath d='M3 6V4.5Q3 3 4.5 3H11l3 3h9.5Q25 6 25 7.5v12Q25 21 23.5 21h-19Q3 21 3 19.5Z' fill='black'/%3E%3C/svg%3E") center/contain no-repeat!important}
+</style><script>
+(function(){
+const key='consorte-folder-icon-color';
+const controls=['folderColor','dockFolderColor'];
+function apply(value){if(!/^#[0-9a-fA-F]{6}$/.test(value))return;document.documentElement.style.setProperty('--user-folder-color',value);try{localStorage.setItem(key,value)}catch(e){}controls.forEach(id=>{const el=document.getElementById(id);if(el&&el.value!==value)el.value=value})}
+function init(){let saved;try{saved=localStorage.getItem(key)}catch(e){}apply(saved||'#7e3fb5');controls.forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('input',e=>apply(e.target.value))})}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
 </script></body></html>
