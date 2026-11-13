@@ -367,23 +367,10 @@ $('moveSelectedFolders').onclick=async()=>{
   }
   return 'Inicio / '+names.join(' / ');
  };
- // Mostrar únicamente subcarpetas que pertenecen a la carpeta de origen.
- // No permitir mover el conjunto a otras ramas de la biblioteca.
- const insideOrigin=folder=>{
-  let parent=folder.parent,seen=new Set([folder.id]);
-  while(parent&&!seen.has(parent)){
-   if(parent===originParent)return true;
-   seen.add(parent);
-   parent=byId.get(parent)?.parent??null;
-  }
-  return originParent===null;
- };
- const destinations=state.records.filter(x=>
-  x.type==='folder'&&!forbidden.has(x.id)&&
-  x.id!==originParent&&insideOrigin(x)
- );
+ // Permitir mover a cualquier carpeta válida de la biblioteca, sin crear ciclos.
+ const destinations=state.records.filter(x=>x.type==='folder'&&!forbidden.has(x.id)&&x.id!==originParent);
  if(!destinations.length){
-  alert('Esta carpeta no tiene subcarpetas disponibles. Crea una subcarpeta para mover allí los elementos seleccionados.');
+  alert('No hay otra carpeta de destino disponible. Crea una carpeta primero.');
   return;
  }
  destinations.sort((a,b)=>labelFor(a).localeCompare(labelFor(b),'es'));
@@ -392,7 +379,7 @@ $('moveSelectedFolders').onclick=async()=>{
  const heading=document.createElement('h2');
  heading.textContent='Mover '+roots.length+' elemento(s) a una carpeta';
  const info=document.createElement('p');
- info.textContent='Solo puedes mover los elementos a subcarpetas de la carpeta actual. Se conserva todo su contenido.';
+ info.textContent='Elige cualquier carpeta de destino. Los archivos y las subcarpetas se conservarán.';
  const select=document.createElement('select');
  select.setAttribute('aria-label','Carpeta de destino');
  select.style.cssText='width:100%;padding:11px;margin:10px 0';
@@ -404,7 +391,7 @@ $('moveSelectedFolders').onclick=async()=>{
  const submit=createButton('Mover aquí',async()=>{
   const target=select.value;
   if(!destinations.some(folder=>folder.id===target)){
-   alert('Elige una subcarpeta de la carpeta de origen.');return;
+   alert('Elige una carpeta de destino.');return;
   }
   if(target&&forbidden.has(target)){
    alert('No puedes mover una carpeta dentro de sí misma ni dentro de una de sus subcarpetas.');return;
