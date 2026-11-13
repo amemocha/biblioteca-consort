@@ -855,6 +855,9 @@ $x('consorteZipFile').onchange=async event=>{
    // sin crear carpetas separadas para audio, PDF o partitura.
    const generic=/^(?:partituras?|audios?|tablaturas?|pdfs?|mp3s?|wav|archivos?|documentos?|descargas?|drive|consort(?:e)?|musica|musical|guitarras?|voces?|soprano|alto|tenor|bajo|contrabajo|general|guitarra\s*[1-5]|voz\s*[1-5])$/i;
    const dirs=parts.slice(0,-1).map(x=>x.trim()).filter(Boolean);
+   // Estas tres carpetas son categorías finales: no crear subcarpetas por canción.
+   const protectedCategory=dirs.find(x=>/^(?:partituras?|audios?|general)$/i.test(normalize(x)));
+   if(protectedCategory)return /partituras?/i.test(normalize(protectedCategory))?'Partituras':/audios?/i.test(normalize(protectedCategory))?'Audios':'General';
    const meaningful=dirs.filter(x=>{
      const v=normalize(x);
      return v&&!generic.test(v)&&!/^partituras?\s+y\s+audios?(?:\s+consort(?:e)?)?/i.test(v);
