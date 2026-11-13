@@ -1734,6 +1734,8 @@ render();
 const $=id=>document.getElementById(id),data=window.consorteAgendaData,save=window.consorteAgendaSave;
 if(!data||!save)return;
 const editor=$('agenda-note-editor'),title=$('agenda-note-title'),dlg=$('consorte-note-dialog');
+if(!editor||!title||!dlg)return;
+
 let editing=null,linked=[],currentDrawing=null,penDown=false,lastPosition=null;
 const freshId=()=>('note-'+Date.now()+'-'+Math.random().toString(36).slice(2));
 function escapeHtml(v){return String(v||'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
@@ -1770,7 +1772,12 @@ function openNote(id=null){
  try{if(!dlg.open)dlg.showModal()}catch(error){dlg.setAttribute('open','');dlg.style.display='block'}setTimeout(()=>title.focus(),30);
 }
 window.consorteOpenNote=openNote;
-$('agenda-note-new').onclick=()=>openNote();
+const newNoteButton=$('agenda-note-new');
+if(newNoteButton){
+ newNoteButton.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();openNote()},true);
+ newNoteButton.onclick=null;
+}
+
 function closeNote(){if(dlg.open&&typeof dlg.close==='function')dlg.close();else{dlg.removeAttribute('open');dlg.style.display='none'}editing=null}
 $('consorte-note-close').onclick=closeNote;
 function persistNote(){
