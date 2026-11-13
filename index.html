@@ -197,12 +197,43 @@ window.consorteFindRecord=rec;
 window.consorteAllLibraryRecords=()=>state.records;
 window.consorteStudyRecord=r=>openLinkedPiece(r);
 async function refresh(){state.records=await allRecords();rebuildFilters();renderLibrary();try{$('consorte-tablature-frame')?.contentWindow?.refreshTabLibraryFiles?.()}catch(error){console.warn(error)}}
+const CONSORTE_SECTIONS=['Audios','Partituras','General'];
+function consorteSectionFor(r){
+ const name=String(r.name||'').toLowerCase();
+ if(r.kind==='audio'||/\.(mp3|wav|ogg|m4a|aac|flac|aiff|mid|midi)$/i.test(name))return 'Audios';
+ if(['pdf','image'].includes(r.kind)||/\.(pdf|xml|musicxml|mxl|mscz|mscx|gp|gp3|gp4|gp5|gpx|png|jpg|jpeg|webp|svg)$/i.test(name))return 'Partituras';
+ return 'General';
+}
+async function consorteOrganizeFolders(){
+ const records=await allRecords();
+ const folders=records.filter(r=>r.type==='folder');
+ const sections=new Set(CONSORTE_SECTIONS);
+ const parents=folders.filter(f=>!sections.has(f.name)||!folders.some(p=>p.id===f.parent&&sections.has(p.name)));
+ const index=new Map(records.map(r=>[r.id,r]));
+ const rootParents=new Set(parents.map(r=>r.id));
+ const rootFiles=records.filter(r=>r.type==='file'&&r.parent==null);
+ if(rootFiles.length)rootParents.add(null);
+ const updates=[];
+ for(const parent of rootParents){
+   const existing=records.filter(r=>r.type==='folder'&&(r.parent??null)===(parent??null)&&sections.has(r.name));
+   const sectionIds={};
+   for(const name of CONSORTE_SECTIONS){
+     let folder=existing.find(f=>f.name===name);
+     if(!folder){folder={id:uid(),parent,type:'folder',name,created:Date.now()};updates.push(folder);records.push(folder)}
+     sectionIds[name]=folder.id;
+   }
+   for(const file of records.filter(r=>r.type==='file'&&(r.parent??null)===(parent??null))){
+     updates.push({...file,parent:sectionIds[consorteSectionFor(file)]});
+   }
+ }
+ for(const record of updates)await putRecord(record);
+}
 const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now()+'_'+Math.random();
 function getKind(f){if(f.type?.startsWith('audio/')||/\.(mp3|wav|ogg|m4a|aac)$/i.test(f.name))return 'audio';if(f.type?.startsWith('image/')||/\.(png|jpg|jpeg|webp)$/i.test(f.name))return 'image';if(/\.pdf$/i.test(f.name)||f.type==='application/pdf')return 'pdf';return 'other'}
 function inferInstrument(name){const x=name.toLowerCase();return ['Contrabajo','Soprano','Tenor','Alto','Bajo'].find(n=>x.includes(n.toLowerCase()))||''}
 async function upload(files,parent=state.folder){if(!files.length)return;notify('Guardando '+files.length+' archivo(s)…');let n=0;let failures=[];for(const file of files){try{await putRecord({id:uid(),parent,type:'file',kind:getKind(file),name:safeName(file.name),instrument:inferInstrument(file.name),blob:file,created:Date.now()});n++}catch(e){failures.push(file.name+': '+e.message)}}await refresh();notify(n+' guardado(s). '+(failures.length?'Errores: '+failures.join('; '):''));}
 $('fileInput').addEventListener('change',e=>{upload([...e.target.files]);e.target.value=''});$('pickFiles').onclick=()=>$('fileInput').click();$('drop').onclick=()=>$('fileInput').click();['dragenter','dragover'].forEach(type=>$('drop').addEventListener(type,e=>{e.preventDefault();$('drop').classList.add('drag')}));['dragleave','drop'].forEach(type=>$('drop').addEventListener(type,e=>{e.preventDefault();$('drop').classList.remove('drag')}));$('drop').addEventListener('drop',e=>upload([...e.dataTransfer.files]));
-$('newFolder').onclick=async()=>{const name=prompt('Nombre de la nueva carpeta:');if(!name?.trim())return;const clean=safeName(name.trim());const existing=state.records.find(x=>x.type==='folder'&&(x.parent??null)===(state.folder??null)&&x.name.normalize('NFD').toLowerCase()===clean.normalize('NFD').toLowerCase());if(existing){alert('Ya existe una carpeta con ese nombre aquí. Se abrirá la carpeta existente.');state.folder=existing.id;renderLibrary();return}await putRecord({id:uid(),parent:state.folder,type:'folder',name:clean,created:Date.now()});await refresh()};
+$('newFolder').onclick=async()=>{const name=prompt('Nombre de la nueva carpeta:');if(!name?.trim())return;const clean=safeName(name.trim());const existing=state.records.find(x=>x.type==='folder'&&(x.parent??null)===(state.folder??null)&&x.name.normalize('NFD').toLowerCase()===clean.normalize('NFD').toLowerCase());if(existing){alert('Ya existe una carpeta con ese nombre aquí. Se abrirá la carpeta existente.');state.folder=existing.id;renderLibrary();return}await putRecord({id:uid(),parent:state.folder,type:'folder',name:clean,created:Date.now()});await consorteOrganizeFolders();await refresh()};
 function iconFor(r){return r.cover||((r.type==='folder')?'':(localStorage.getItem('consorte_logo')||ORIGINAL_B))}
 function createButton(label,handler,cls=''){const b=document.createElement('button');b.textContent=label;if(cls)b.className=cls;b.onclick=handler;return b}
 const categoryStorageKey='consorte_custom_categories_v1';
@@ -706,7 +737,7 @@ $('removeDecorations').onclick=()=>{if(confirm('¿Eliminar todas las imágenes d
 applyVisual();
 $('importFolder').onclick=()=>$('folderInput').click();$('folderInput').onchange=async e=>{let files=[...e.target.files];for(const f of files){let parts=(f.webkitRelativePath||f.name).split('/');let parent=null;for(const segment of parts.slice(0,-1)){let existing=state.records.find(r=>r.type==='folder'&&r.parent===parent&&r.name===segment);if(!existing){existing={id:uid(),type:'folder',parent,name:segment,created:Date.now()};await putRecord(existing);state.records.push(existing)}parent=existing.id}await upload([f],parent)}await refresh();e.target.value=''};
 $('export').onclick=async()=>{try{if(!window.JSZip)throw new Error('Compresor ZIP no disponible');let zip=new JSZip();let byId=new Map(state.records.map(r=>[r.id,r]));function path(r){let parts=[safeName(r.name)],node=r,k=0;while(node.parent&&k++<100){node=byId.get(node.parent);if(!node)break;parts.unshift(safeName(node.name))}return parts.join('/')}for(const r of state.records){if(r.type==='folder')zip.folder(path(r));else zip.file(path(r),r.blob)}let blob=await zip.generateAsync({type:'blob',compression:'DEFLATE'});downloadBlob(blob,'Biblioteca_Consorte_Respaldo.zip')}catch(e){alert('No se pudo exportar: '+e.message+'. Comprueba la conexión a internet.')}};
-(async()=>{try{db=await openDB();applyDesign();await refresh();notify('Listo para subir archivos.')}catch(e){notify('Error al iniciar el almacenamiento: '+e.message);alert('No se pudo iniciar la biblioteca en este navegador. Intenta abrirla desde un servidor HTTPS o Chrome actualizado.')}})();
+(async()=>{try{db=await openDB();applyDesign();await consorteOrganizeFolders();await refresh();notify('Listo para subir archivos.')}catch(e){notify('Error al iniciar el almacenamiento: '+e.message);alert('No se pudo iniciar la biblioteca en este navegador. Intenta abrirla desde un servidor HTTPS o Chrome actualizado.')}})();
 </script><script>/*!
 
 JSZip v3.10.1 - A JavaScript class for generating and reading zip files
