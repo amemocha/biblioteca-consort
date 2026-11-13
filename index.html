@@ -204,21 +204,55 @@ const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now()+'_'+Math.random()
 function getKind(f){if(f.type?.startsWith('audio/')||/\.(mp3|wav|ogg|m4a|aac)$/i.test(f.name))return 'audio';if(f.type?.startsWith('image/')||/\.(png|jpg|jpeg|webp)$/i.test(f.name))return 'image';if(/\.pdf$/i.test(f.name)||f.type==='application/pdf')return 'pdf';return 'other'}
 function inferInstrument(name){const x=name.toLowerCase();return ['Contrabajo','Soprano','Tenor','Alto','Bajo'].find(n=>x.includes(n.toLowerCase()))||''}
 async function upload(files,parent=state.folder){if(!files.length)return;notify('Guardando '+files.length+' archivo(s)…');let n=0;let failures=[];for(const file of files){try{await putRecord({id:uid(),parent,type:'file',kind:getKind(file),name:safeName(file.name),instrument:inferInstrument(file.name),blob:file,created:Date.now()});n++}catch(e){failures.push(file.name+': '+e.message)}}await refresh();notify(n+' guardado(s). '+(failures.length?'Errores: '+failures.join('; '):''));}
+async function chooseSharedDestination(count){
+ return new Promise(resolve=>{
+  const dlg=document.createElement('dialog');
+  dlg.style.cssText='width:min(94vw,520px);max-height:85vh;overflow:auto;border-radius:16px;padding:22px';
+  const heading=document.createElement('h2');heading.textContent='¿Dónde quieres guardar '+(count===1?'el archivo?':'los '+count+' archivos?');
+  const info=document.createElement('p');info.textContent='Elige Biblioteca o una carpeta. También puedes crear una carpeta nueva.';
+  const select=document.createElement('select');select.style.cssText='width:100%;padding:12px;margin:10px 0';
+  select.setAttribute('aria-label','Destino de los archivos compartidos');
+  select.add(new Option('📚 Biblioteca (inicio)','__root__'));
+  const labelFor=folder=>{
+   const parts=[folder.name],seen=new Set([folder.id]);let parent=folder.parent;
+   while(parent&&!seen.has(parent)){seen.add(parent);const p=rec(parent);if(!p)break;parts.unshift(p.name);parent=p.parent}
+   return 'Biblioteca / '+parts.join(' / ');
+  };
+  state.records.filter(x=>x.type==='folder').sort((a,b)=>labelFor(a).localeCompare(labelFor(b),'es')).forEach(folder=>select.add(new Option(labelFor(folder),folder.id)));
+  const newFolder=createButton('＋ Crear carpeta',async()=>{
+   const name=prompt('Nombre de la nueva carpeta:');if(!name?.trim())return;
+   const parent=select.value==='__root__'?null:select.value;
+   const folder={id:uid(),parent,type:'folder',name:safeName(name.trim()),created:Date.now()};
+   try{await putRecord(folder);state.records.push(folder);select.add(new Option(labelFor(folder),folder.id));select.value=folder.id}
+   catch(error){alert('No se pudo crear la carpeta: '+error.message)}
+  });
+  const controls=document.createElement('div');controls.className='flex';controls.style.marginTop='16px';
+  const cancel=createButton('Ahora no',()=>dlg.close());
+  const save=createButton('Guardar aquí',()=>{const value=select.value;dlg.close();resolve(value==='__root__'?null:value)},'primary');
+  controls.append(cancel,save);dlg.append(heading,info,select,newFolder,controls);
+  document.body.append(dlg);
+  dlg.addEventListener('close',()=>{dlg.remove();resolve(undefined)},{once:true});
+  dlg.showModal();
+ });
+}
 async function importSharedFiles(){
  if(!new URLSearchParams(location.search).has('consorte_share'))return;
  try{
   const sharedDb=await new Promise((resolve,reject)=>{const request=indexedDB.open('consorte-share-inbox-v1',1);request.onupgradeneeded=()=>request.result.createObjectStore('files',{keyPath:'id',autoIncrement:true});request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error)});
   const entries=await new Promise((resolve,reject)=>{const request=sharedDb.transaction('files').objectStore('files').getAll();request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error)});
+  if(!entries.length){sharedDb.close();history.replaceState(null,'',location.pathname);return}
+  const destination=await chooseSharedDestination(entries.length);
+  if(destination===undefined){sharedDb.close();history.replaceState(null,'',location.pathname);notify('Archivos pendientes. Vuelve a compartirlos para elegir dónde guardarlos.');return}
   let count=0;
   for(const entry of entries){
    const file=entry.file;
    if(!(file instanceof Blob))continue;
-   await putRecord({id:uid(),parent:null,type:'file',kind:getKind(file),name:safeName(file.name||'Archivo compartido'),instrument:inferInstrument(file.name||''),blob:file,created:Date.now()});
+   await putRecord({id:uid(),parent:destination,type:'file',kind:getKind(file),name:safeName(file.name||'Archivo compartido'),instrument:inferInstrument(file.name||''),blob:file,created:Date.now()});
    await new Promise((resolve,reject)=>{const request=sharedDb.transaction('files','readwrite').objectStore('files').delete(entry.id);request.onsuccess=resolve;request.onerror=()=>reject(request.error)});
    count++;
   }
-  sharedDb.close();await refresh();
-  notify(count?count+' archivo(s) recibido(s) desde Compartir.':'No se encontraron archivos compartidos.');
+  sharedDb.close();state.folder=destination;await refresh();
+  notify(count+' archivo(s) guardado(s) en '+(destination?rec(destination)?.name||'carpeta':'Biblioteca')+'.');
  }catch(error){console.error('Error importando archivos compartidos',error);alert('No se pudo importar el archivo compartido: '+error.message)}
  history.replaceState(null,'',location.pathname);
 }
