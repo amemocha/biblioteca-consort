@@ -187,7 +187,28 @@ const $=id=>document.getElementById(id), q=(s)=>document.querySelector(s);
 const state={folder:null,records:[],score:null,audio:null,scoreUrl:null,audioUrl:null,pdf:null,page:1,marks:[],editing:null,help:null};
 const safeName=s=>String(s||'Sin nombre').replace(/[\\/\x00-\x1f]/g,'_');
 function notify(t){$('uploadStatus').textContent=t;}
-function nav(page){document.querySelectorAll('.page').forEach(e=>e.classList.toggle('active',e.id===page));document.querySelectorAll('[data-page]').forEach(e=>e.classList.toggle('active',e.dataset.page===page));if(page==='tablaturas'){try{$('consorte-tablature-frame')?.contentWindow?.refreshTabLibraryFiles?.()}catch(error){console.warn(error)}}window.scrollTo({top:0,behavior:'instant'});}
+let consorteRestoringHistory=false;
+function consorteCurrentPage(){return document.querySelector('.page.active')?.id||'library'}
+function consorteSnapshot(page=consorteCurrentPage()){return {consorteNavigation:true,page,folder:state?.folder??null}}
+function consortePushNavigation(page=consorteCurrentPage(),folder=state?.folder??null){
+ if(consorteRestoringHistory)return;
+ const current=history.state;
+ if(!current?.consorteNavigation)history.replaceState(consorteSnapshot(),'',location.href);
+ if(current?.consorteNavigation&&current.page===page&&(current.folder??null)===(folder??null))return;
+ history.pushState({consorteNavigation:true,page,folder:folder??null},'',location.href);
+}
+window.addEventListener('popstate',event=>{
+ const target=event.state?.consorteNavigation?event.state:{page:'library',folder:null};
+ consorteRestoringHistory=true;
+ try{
+  if(typeof state!=='undefined'&&state){state.folder=target.folder&&rec(target.folder)?target.folder:null;renderLibrary()}
+  nav(target.page||'library');
+ }finally{consorteRestoringHistory=false}
+});
+function nav(page){
+ const before=consorteCurrentPage();
+ if(before!==page)consortePushNavigation(page);
+ document.querySelectorAll('.page').forEach(e=>e.classList.toggle('active',e.id===page));document.querySelectorAll('[data-page]').forEach(e=>e.classList.toggle('active',e.dataset.page===page));if(page==='tablaturas'){try{$('consorte-tablature-frame')?.contentWindow?.refreshTabLibraryFiles?.()}catch(error){console.warn(error)}}window.scrollTo({top:0,behavior:'instant'});}
 document.querySelectorAll('[data-page]').forEach(b=>b.addEventListener('click',()=>nav(b.dataset.page)));
 function openDB(){return new Promise((resolve,reject)=>{let r=indexedDB.open('consorte_library_v2',1);r.onupgradeneeded=()=>{const db=r.result;const st=db.createObjectStore('files',{keyPath:'id'});st.createIndex('parent','parent')};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
 let db;
@@ -349,8 +370,8 @@ $('organizeSongs').onclick=async()=>{
  const chosen=await selectRecordDialog(items,'Elige el archivo que quieres mover');
  if(chosen)await moveRecordToFolder(chosen);
 };
-$('backToLibraryHome').onclick=()=>{state.folder=null;$('search').value='';renderLibrary();};
-$('backToParentFolder').onclick=()=>{state.folder=rec(state.folder)?.parent||null;renderLibrary();};
+$('backToLibraryHome').onclick=()=>{consortePushNavigation(consorteCurrentPage(),null);state.folder=null;$('search').value='';renderLibrary();};
+$('backToParentFolder').onclick=()=>{consortePushNavigation(consorteCurrentPage(),rec(state.folder)?.parent||null);state.folder=rec(state.folder)?.parent||null;renderLibrary();};
 // Conteo de archivos por carpeta, incluyendo sus subcarpetas.
 function countFolderFiles(folderId, records=state.records){
  const children=new Map();
@@ -616,7 +637,7 @@ function renderLibrary(){
  actions.append(menu);
  item.append(actions);list.append(item)}}
 $('search').oninput=renderLibrary;$('instrumentFilter').onchange=renderLibrary;$('typeFilter').onchange=renderLibrary;
-async function openRecord(r){if(r.type==='folder'){state.folder=r.id;$('search').value='';$('instrumentFilter').value='';$('typeFilter').value='';$('songFilter').value='';$('categoryFilter').value='';renderLibrary();return}if(r.scoreId||r.audioId||r.tabId){await openLinkedPiece(r)}else if(r.kind==='audio'||['pdf','image','other'].includes(r.kind)){await openLinkedPiece(r)}else downloadRecord(r)}
+async function openRecord(r){if(r.type==='folder'){consortePushNavigation(consorteCurrentPage(),r.id);state.folder=r.id;$('search').value='';$('instrumentFilter').value='';$('typeFilter').value='';$('songFilter').value='';$('categoryFilter').value='';renderLibrary();return}if(r.scoreId||r.audioId||r.tabId){await openLinkedPiece(r)}else if(r.kind==='audio'||['pdf','image','other'].includes(r.kind)){await openLinkedPiece(r)}else downloadRecord(r)}
 function downloadBlob(blob,name){let url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)}
 function downloadRecord(r){if(r.type==='folder'){alert('Para descargar carpetas, utiliza «Respaldo» → Exportar biblioteca ZIP.');return}downloadBlob(r.blob,r.name)}
 // Imprimir el archivo original: todas las páginas del PDF, no solo la hoja mostrada en Estudio.
