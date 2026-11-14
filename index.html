@@ -579,7 +579,41 @@ function renderLibrary(){
  if(r.type==='file'&&(['pdf','image'].includes(r.kind)||r.scoreId))option('🖨 Imprimir partitura',()=>printScoreRecord(r));
  if(r.type==='file')option('↓ Descargar',()=>downloadRecord(r));
  option('Eliminar',()=>removeRecord(r),true);
- menu.append(options);actions.append(menu);
+ menu.append(options);
+ let closeFloating=()=>{};
+ menu.addEventListener('toggle',()=>{
+  if(!menu.open){closeFloating();return}
+  document.querySelectorAll('.library-more-menu[open]').forEach(other=>{if(other!==menu)other.open=false});
+  document.body.append(options);
+  options.style.position='fixed';options.style.zIndex='99999';options.style.bottom='auto';options.style.right='auto';options.style.top='0px';options.style.left='0px';
+  options.style.maxHeight='min(75vh, 440px)';options.style.overflowY='auto';
+  options.style.width='max-content';options.style.maxWidth='calc(100vw - 16px)';
+  const position=()=>{
+   if(!menu.open)return;
+   const rect=summary.getBoundingClientRect();
+   const width=options.offsetWidth,height=options.offsetHeight;
+   const left=Math.max(8,Math.min(rect.right-width,innerWidth-width-8));
+   const below=innerHeight-rect.bottom-8,above=rect.top-8;
+   const top=below>=height||below>=above?Math.min(rect.bottom+5,innerHeight-height-8):Math.max(8,rect.top-height-5);
+   options.style.left=left+'px';options.style.top=Math.max(8,top)+'px';
+  };
+  position();
+  const outside=e=>{if(!menu.contains(e.target)&&!options.contains(e.target))menu.open=false};
+  const escape=e=>{if(e.key==='Escape')menu.open=false};
+  const reposition=()=>position();
+  document.addEventListener('pointerdown',outside,true);
+  document.addEventListener('keydown',escape,true);
+  window.addEventListener('resize',reposition);
+  window.addEventListener('scroll',reposition,true);
+  closeFloating=()=>{
+   document.removeEventListener('pointerdown',outside,true);
+   document.removeEventListener('keydown',escape,true);
+   window.removeEventListener('resize',reposition);
+   window.removeEventListener('scroll',reposition,true);
+   options.removeAttribute('style');menu.append(options);
+  };
+ });
+ actions.append(menu);
  item.append(actions);list.append(item)}}
 $('search').oninput=renderLibrary;$('instrumentFilter').onchange=renderLibrary;$('typeFilter').onchange=renderLibrary;
 async function openRecord(r){if(r.type==='folder'){state.folder=r.id;$('search').value='';$('instrumentFilter').value='';$('typeFilter').value='';$('songFilter').value='';$('categoryFilter').value='';renderLibrary();return}if(r.scoreId||r.audioId||r.tabId){await openLinkedPiece(r)}else if(r.kind==='audio'||['pdf','image','other'].includes(r.kind)){await openLinkedPiece(r)}else downloadRecord(r)}
@@ -641,9 +675,11 @@ $('printScore').onclick=()=>{
 async function takeFileOutOfFolder(r){
  if(r.type!=='file'||r.parent==null)return;
  try{
-  await putRecord({...r,parent:null});
+  const parentFolder=rec(r.parent);
+  const destination=parentFolder?.parent??null;
+  await putRecord({...r,parent:destination});
   await refresh();
-  notify('«'+r.name+'» está ahora en el inicio de Biblioteca.');
+  notify('«'+r.name+'» se movió a '+(destination?(rec(destination)?.name||'la carpeta anterior'):'Biblioteca')+'.');
  }catch(e){alert('No se pudo sacar el archivo de la carpeta: '+e.message)}
 }
 async function removeRecord(r){if(!confirm('¿Eliminar «'+r.name+'»? Los archivos no se podrán recuperar sin respaldo.'))return;let ids=new Set([r.id]);if(r.type==='folder'){let changed=true;while(changed){changed=false;for(const child of state.records){if(ids.has(child.parent)&&!ids.has(child.id)){ids.add(child.id);changed=true}}}}beginUndoBatch('Eliminar archivo o carpeta');try{for(const id of ids)await delRecord(id)}finally{endUndoBatch()}if(ids.has(state.folder))state.folder=null;await refresh()}
