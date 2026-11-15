@@ -15,6 +15,16 @@
     if(!audio||!card||!meter||!bpm||!beats||!speed||!speedText||!lamp||
        document.getElementById('consorte-player-plus'))return;
 
+    // El reproductor debe verse ANTES del PDF al abrir cualquier audio desde Biblioteca.
+    // No bloquear la pantalla del celular con un reproductor pegajoso.
+    const study=document.getElementById('study');
+    const studyView=study?.querySelector('.view');
+    if(studyView&&card.parentElement!==study){
+      studyView.before(card);
+      card.classList.add('cp-top-audio');
+    }
+    const heading=card.querySelector('h2');
+    if(heading)heading.textContent='🎧 Reproductor de audio';
     const ui=document.createElement('section');
     ui.id='consorte-player-plus';
     ui.className='consorte-player-plus';
