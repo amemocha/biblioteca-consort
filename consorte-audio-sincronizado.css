@@ -1,0 +1,33 @@
+/* Solo sección Estudio; no altera las carpetas ni el editor. */
+#study .consorte-player-plus{background:linear-gradient(145deg,#33204d 0%,#4c2779 65%,#6a3aa1 100%);color:#fff;border-radius:19px;padding:16px;margin:12px 0 14px;box-shadow:0 8px 26px #291b3d30;box-sizing:border-box}
+#study .consorte-player-plus button{border:1px solid #ffffff4d;border-radius:13px;color:#fff;background:#ffffff1b;padding:9px 12px;min-height:38px;cursor:pointer}
+#study .consorte-player-plus button:active{transform:scale(.98)}
+#study .consorte-player-plus .cp-play{background:#f0caff;color:#3d1b62;border:0;border-radius:50%;width:64px;height:64px;font-size:25px;box-shadow:0 5px 18px #0003}
+#study .cp-hero{display:flex;align-items:center;gap:12px;padding:3px 0 16px}
+#study .cp-disc{width:50px;height:50px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#dcacff,#8d5cd5);font-size:30px;color:#392050;flex:none}
+#study .cp-titles{display:flex;flex-direction:column;min-width:0;flex:1;gap:3px}
+#study .cp-titles strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:1.03rem}
+#study .cp-titles span{font-size:12px;opacity:.86}
+#study .cp-signal{opacity:.55;font-size:14px}
+#study .cp-transport{display:flex;justify-content:center;gap:16px;align-items:center;margin-bottom:10px}
+#study .cp-timeline{display:flex;align-items:center;gap:9px;font-size:12px;margin-bottom:12px}
+#study .cp-timeline input{flex:1;min-width:60px;accent-color:#f1c5ff}
+#study .cp-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:11px 0}
+#study .cp-row label{display:flex;align-items:center;gap:9px;flex:1;font-size:12px}
+#study .cp-row input{min-width:70px;max-width:160px;width:100%;accent-color:#e0aeff}
+#study .cp-group{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:12px;margin-top:12px}
+#study .cp-presets{display:flex;flex-wrap:wrap;gap:6px}
+#study .cp-presets button{font-size:12px}
+#study .cp-presets .cp-selected{background:#eac7ff;color:#432160;border-color:#eac7ff;font-weight:700}
+#study .cp-speed-shortcuts{font-size:12px;gap:7px}
+#study .cp-speed-shortcuts button{padding:6px 9px;font-size:12px;min-height:32px}
+#study .cp-native-audio{display:none!important}
+#study .cp-meter-card{margin-top:15px!important;background:#f8f2ff;border:1px solid #d8c6f2}
+#study .cp-meter-card h2{color:#492876}
+#study .cp-meter-card .cp-meter-info{display:flex;flex-direction:column;gap:8px;margin-top:12px;color:#4a345c;font-size:12px}
+#study .cp-beat-indicator{display:flex;gap:9px;font-size:18px;color:#bca3d0}
+#study .cp-beat-indicator span{transition:color .06s,transform .06s;display:inline-block}
+#study .cp-beat-indicator .cp-beat-lit{color:#8c39cd;transform:scale(1.25)}
+#study .cp-meter-card #metronome.cp-click-on{background:#5d2e9a;color:#fff}
+#study .cp-meter-card #cp-align{font-size:12px}
+@media(max-width:640px){#study .consorte-player-plus{padding:12px}#study .cp-transport{gap:7px}#study .cp-speed-shortcuts{flex-wrap:wrap}#study .cp-row label{flex:1 1 160px}}
