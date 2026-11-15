@@ -52,7 +52,7 @@
     const indicator=$('cp-beat-indicator'),align=$('cp-align');
     const sample=(Number(localStorage.getItem('consorte_bpm')||'100')||100);
     bpm.value=String(Math.max(30,Math.min(260,sample)));
-    let ctx=null,low=null,high=null,graphReady=false,eq='natural';
+    let ctx=null,low=null,high=null,masterGain=null,graphReady=false,eq='natural';
     let audible=false,offset=0,lastScheduled=-1,timer=null,raf=null,nodes=[];
     let previousTime=-1,wasPlaying=false;
     const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
@@ -98,7 +98,8 @@
           const src=ctx.createMediaElementSource(audio);
           low=ctx.createBiquadFilter();low.type='lowshelf';low.frequency.value=270;
           high=ctx.createBiquadFilter();high.type='highshelf';high.frequency.value=3000;
-          src.connect(low).connect(high).connect(ctx.destination);
+          masterGain=ctx.createGain();masterGain.gain.value=Number(volume.value)/100;
+          src.connect(low).connect(high).connect(masterGain).connect(ctx.destination);
           graphReady=true;
           applyEQ();
         }catch(err){console.warn('Ecualizador no disponible:',err)}
@@ -157,13 +158,13 @@
     playBtn.addEventListener('click',async()=>{
       if(!audio.currentSrc){document.getElementById('chooseAudio')?.click();return}
       if(playing()){audio.pause();return}
-      await unlock();
-      try{await audio.play()}catch(err){status.textContent='No se pudo reproducir el audio';console.warn(err)}
+      const audioReady=unlock();
+      try{await audio.play();await audioReady}catch(err){status.textContent='No se pudo reproducir el audio';console.warn(err)}
     });
     $('cp-back').onclick=()=>{audio.currentTime=Math.max(0,audio.currentTime-10)};
     $('cp-forward').onclick=()=>{if(Number.isFinite(audio.duration))audio.currentTime=Math.min(audio.duration,audio.currentTime+10)};
     progress.addEventListener('input',()=>{if(Number.isFinite(audio.duration)&&audio.duration>0){audio.currentTime=audio.duration*Number(progress.value)/1000;cancelScheduled();}});
-    volume.oninput=()=>{audio.volume=Number(volume.value)/100;mute.textContent=audio.volume===0?'🔇 Audio':'🔊 Audio';};
+    volume.oninput=()=>{const v=Number(volume.value)/100;if(masterGain)masterGain.gain.value=v;else audio.volume=v;mute.textContent=v===0||audio.muted?'🔇 Audio':'🔊 Audio';};
     mute.onclick=()=>{audio.muted=!audio.muted;mute.textContent=audio.muted?'🔇 Audio':'🔊 Audio';};
     ui.querySelectorAll('[data-eq]').forEach(b=>b.onclick=async()=>{await unlock();eq=b.dataset.eq;applyEQ()});
     ui.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{
