@@ -1535,7 +1535,7 @@ async function cloudSave(r){if(!session||suppress)return;
  const previousRows=await previousRes.json();
  const previous=previousRows[0]||null;
  const known=readRevisions()[r.id];
- if(previous&&(!known||known!==previous.updated_at)){
+ if(previous&&(!known||Date.parse(known)!==Date.parse(previous.updated_at))){
    throw Error('Conflicto de versión: existe una versión diferente en la nube. Se conserva tu copia local sin sobrescribirla.');
  }
  const meta={id:r.id,parent:r.parent??null,type:r.type,kind:r.kind||'',name:r.name||'',instrument:r.instrument||'',song:r.song||'',category:r.category||'',cover:r.cover||'',scoreId:r.scoreId||null,tabId:r.tabId||null,audioId:r.audioId||null,created:r.created||Date.now(),size:r.type==='file'?(r.blob?.size??r.size??null):null};
