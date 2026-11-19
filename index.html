@@ -1441,7 +1441,7 @@ body:has(#consorteEditDock.active) #launchEditorAnywhere{display:none}
  <input type="password" id="cloud-password" placeholder="Contraseña" autocomplete="current-password" aria-label="Contraseña">
  <button id="cloud-login" type="button">Entrar</button><button id="cloud-signup" type="button">Crear cuenta</button>
  
- <button id="cloud-sync-now" type="button" style="display:none">↻ Sincronizar ahora</button><button id="cloud-logout" type="button" style="display:none">Salir</button>
+ <button id="consort-recover-cloud-folders" type="button">☁ Recuperar carpetas</button><button id="cloud-sync-now" type="button" style="display:none">↻ Sincronizar ahora</button><button id="cloud-logout" type="button" style="display:none">Salir</button>
  </div>
  <p class="cloud-note">Usa el mismo correo y contraseña en cada dispositivo. Los archivos locales se subirán automáticamente al iniciar sesión y al recuperar conexión.</p>
 </section>
@@ -1457,6 +1457,40 @@ const panel=$c('consorte-cloud-panel');
 const status=t=>{$c('cloud-status').textContent=t;};
 let session=null, busy=false, syncing=false, manualSync=false;
 const syncButton=$c('cloud-sync-now');
+const folderRecoverButton=$c('consort-recover-cloud-folders');
+folderRecoverButton.onclick=async()=>{
+ if(!session){
+  status('Inicia sesión con la misma cuenta de la nube para recuperar las carpetas.');
+  panel?.scrollIntoView({behavior:'smooth',block:'center'});
+  return;
+ }
+ if(!db){status('El almacenamiento local todavía no está disponible.');return}
+ if(syncing||busy){status('Hay una sincronización en curso. Revisa su estado.');return}
+ folderRecoverButton.disabled=true;
+ try{
+  const rows=await remoteList();
+  const folders=rows.filter(row=>row.metadata?.type==='folder');
+  const existing=await allRecords();
+  const byId=new Map(existing.map(row=>[row.id,row]));
+  let recovered=0;
+  for(const row of folders){
+   if(byId.has(row.id))continue;
+   const data={...row.metadata,id:row.id,type:'folder',parent:row.metadata.parent??null};
+   await localPut(data);
+   byId.set(row.id,data);
+   recovered++;
+  }
+  state.folder=null;
+  $c('search').value='';
+  $c('instrumentFilter').value='';
+  $c('typeFilter').value='';
+  $c('songFilter').value='';
+  $c('categoryFilter').value='';
+  await refresh();
+  status('Carpetas en la nube: '+folders.length+'. Recuperadas en este dispositivo: '+recovered+'. Ningún archivo fue eliminado.');
+ }catch(e){status('Error al recuperar carpetas: '+e.message)}
+ finally{folderRecoverButton.disabled=false}
+};
 const initialStatus=$c('cloud-status');
 if(syncButton){syncButton.title='Comprueba y sincroniza archivos con la nube';syncButton.setAttribute('aria-live','polite')}
 if(initialStatus)initialStatus.setAttribute('role','status');
@@ -1523,7 +1557,15 @@ async function pull(){
    if(m.type==='folder')return candidates[0]||null;
    return candidates.find(item=>m.size!=null&&item.blob?.size===m.size)||null;
   }
+  let foldersShown=false;
   for(const row of ordered){
+   if(!foldersShown && row.metadata?.type!=='folder'){
+    foldersShown=true;
+    if(added||updated){
+      await refresh();
+      status('Carpetas de la nube recuperadas. Descargando archivos musicales…');
+    }
+   }
    const m=row.metadata||{},existing=byLocal.get(row.id),parent=m.parent?mapRemoteId.get(m.parent)||m.parent:null;
    const copy={...(existing||{}),...m,id:row.id,parent,type:m.type||'file'};
    const same=existing?null:equivalentLocal(copy,row.id);
