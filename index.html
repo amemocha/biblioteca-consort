@@ -1529,17 +1529,39 @@ async function api(path,options={}){if(!await validateSession())throw Error('Ini
 function pathFor(rec){return session.user.id+'/'+encodeURIComponent(rec.id)+'/'+encodeURIComponent(rec.name||'archivo');}
 function mimeFor(r){return r.blob?.type||({'pdf':'application/pdf','audio':'audio/mpeg','image':'image/png'})[r.kind]||'application/octet-stream'}
 async function cloudSave(r){if(!session||suppress)return;
-const meta={id:r.id,parent:r.parent??null,type:r.type,kind:r.kind||'',name:r.name||'',instrument:r.instrument||'',song:r.song||'',category:r.category||'',cover:r.cover||'',scoreId:r.scoreId||null,tabId:r.tabId||null,audioId:r.audioId||null,created:r.created||Date.now(),size:r.type==='file'?(r.blob?.size??r.size??null):null};
-let object_path=null;
-if(r.type==='file'&&r.blob){object_path=pathFor(r);await api('/storage/v1/object/'+BUCKET+'/'+object_path,{method:'POST',headers:{'Content-Type':mimeFor(r),'x-upsert':'true'},body:r.blob});}
-await api('/rest/v1/consorte_sync_items?on_conflict=owner_id,id',{method:'POST',headers:{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({id:r.id,owner_id:session.user.id,metadata:meta,object_path,updated_at:new Date().toISOString()})});
-mark(r.id);dirtyRemove(r.id);
+ // No sobrescribir una versión de otro dispositivo que aún no se haya revisado.
+ const query='/rest/v1/consorte_sync_items?select=id,updated_at,object_path&id=eq.'+encodeURIComponent(r.id)+'&limit=1';
+ const previousRes=await api(query,{headers:{Accept:'application/json'}});
+ const previousRows=await previousRes.json();
+ const previous=previousRows[0]||null;
+ const known=readRevisions()[r.id];
+ if(previous&&(!known||known!==previous.updated_at)){
+   throw Error('Conflicto de versión: existe una versión diferente en la nube. Se conserva tu copia local sin sobrescribirla.');
+ }
+ const meta={id:r.id,parent:r.parent??null,type:r.type,kind:r.kind||'',name:r.name||'',instrument:r.instrument||'',song:r.song||'',category:r.category||'',cover:r.cover||'',scoreId:r.scoreId||null,tabId:r.tabId||null,audioId:r.audioId||null,created:r.created||Date.now(),size:r.type==='file'?(r.blob?.size??r.size??null):null};
+ let object_path=previous?.object_path||null;
+ if(r.type==='file'&&r.blob){
+   object_path=pathFor(r);
+   await api('/storage/v1/object/'+BUCKET+'/'+object_path,{method:'POST',headers:{'Content-Type':mimeFor(r),'x-upsert':'true'},body:r.blob});
+ }
+ const updated_at=new Date().toISOString();
+ await api('/rest/v1/consorte_sync_items?on_conflict=owner_id,id',{method:'POST',headers:{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({id:r.id,owner_id:session.user.id,metadata:meta,object_path,updated_at})});
+ saveRevision(r.id,updated_at);
+ mark(r.id);dirtyRemove(r.id);
 }
 putRecord=async function(r){await localPut(r);if(session){dirtyAdd(r.id);try{await cloudSave(r);status('Documento guardado y sincronizado: '+r.name)}catch(e){status('Guardado local. Pendiente de subir: '+e.message)}}};
 delRecord=async function(id){await localDelete(id);if(session){try{await api('/rest/v1/consorte_sync_items?id=eq.'+encodeURIComponent(id),{method:'DELETE'});}catch(e){status('Eliminado localmente; fallo en nube: '+e.message)}}};
 async function remoteList(){
- const res=await api('/rest/v1/consorte_sync_items?select=id,metadata,object_path,updated_at&order=updated_at.asc&limit=1000',{headers:{Accept:'application/json'}});
- return await res.json();
+ // No dejar fuera archivos si la biblioteca supera 1000 registros.
+ const items=[];
+ for(let offset=0;offset<100000;offset+=1000){
+   const res=await api('/rest/v1/consorte_sync_items?select=id,metadata,object_path,updated_at&order=id.asc&limit=1000&offset='+offset,{headers:{Accept:'application/json'}});
+   const page=await res.json();
+   if(!Array.isArray(page))throw Error('Respuesta inesperada de la nube');
+   items.push(...page);
+   if(page.length<1000)return items;
+ }
+ throw Error('Límite de lectura de la biblioteca alcanzado; no se han borrado registros.');
 }
 async function pull(){
  if(!session||!db){if(manualSync)status('No se puede recibir: falta iniciar sesión o cargar la biblioteca.');return}
@@ -1594,10 +1616,10 @@ async function pull(){
    const m=row.metadata||{},existing=byLocal.get(row.id),parent=m.parent?mapRemoteId.get(m.parent)||m.parent:null;
    const copy={...(existing||{}),...m,id:row.id,parent,type:m.type||'file'};
    const same=existing?null:equivalentLocal(copy,row.id);
-   if(same){
-    mapRemoteId.set(row.id,same.id);equivalent++;
-    continue;
-   }
+   // Un identificador remoto diferente es un elemento independiente.
+   // No ocultar carpetas ni archivos solo porque compartan nombre.
+   // Si hay duplicados reales, se revisarán sin borrar registros.
+   if(same&&same.id===row.id){mapRemoteId.set(row.id,same.id);equivalent++;continue}
    mapRemoteId.set(row.id,row.id);
    if(existing&&pending.has(row.id))continue;
    if(existing&&versions[row.id]===row.updated_at&&existing.blob)continue;
@@ -1662,7 +1684,7 @@ async function pushExisting(){
  finally{busy=false}
 }
 async function login(signup){const email=$c('cloud-email').value.trim(),password=$c('cloud-password').value;if(!email||!password){status('Escribe tu correo y contraseña.');return}
-try{status('Conectando…');const v=await authFetch(signup?'signup':'token?grant_type=password',{email,password});if(!v.access_token){status('Revisa tu correo para confirmar la cuenta, luego pulsa Entrar.');return}saveSession(v);await pull();await pushExisting()}catch(e){status('No se pudo iniciar sesión: '+e.message)}}
+try{status('Conectando…');const v=await authFetch(signup?'signup':'token?grant_type=password',{email,password});if(!v.access_token){status('Revisa tu correo para confirmar la cuenta, luego pulsa Entrar.');return}saveSession(v);await synchronizeAll()}catch(e){status('No se pudo iniciar sesión: '+e.message)}}
 $c('cloud-login').onclick=()=>login(false);
 $c('cloud-signup').onclick=()=>login(true);
 
@@ -1675,18 +1697,8 @@ $c('cloud-sync-now').onclick=async()=>{
  try{
   if(!session){status('Inicia sesión con la misma cuenta del computador.');return}
   if(!navigator.onLine){status('No hay conexión a internet. Los archivos locales están conservados.');return}
-  // La sincronización automática puede estar ejecutándose simultáneamente.
-  // Mostrar su estado y no finalizar silenciosamente por las banderas busy/syncing.
-  const started=Date.now();
-  while((busy||syncing)&&Date.now()-started<25000){
-   status('Terminando la sincronización anterior antes de continuar…');
-   await new Promise(resolve=>setTimeout(resolve,350));
-  }
-  if(busy||syncing){status('La sincronización anterior sigue trabajando. Intenta nuevamente en unos momentos.');return}
-  status('1 de 2: subiendo archivos pendientes desde este dispositivo…');
-  await pushExisting();
-  status('2 de 2: recibiendo carpetas y archivos de la nube…');
-  await pull();
+  status('Sincronizando carpetas, partituras y audios sin ejecutar procesos superpuestos…');
+  await synchronizeAll();
   const local=await allRecords();
   status('Sincronización terminada · '+local.filter(x=>x.type==='folder').length+' carpetas y '+local.filter(x=>x.type==='file').length+' archivos en este dispositivo. Comprueba si faltan archivos; no se borró nada.');
  }catch(error){
@@ -1697,9 +1709,20 @@ $c('cloud-sync-now').onclick=async()=>{
 };
 $c('cloud-logout').onclick=()=>{saveSession(null);status('Sesión cerrada. Archivos locales conservados.')};
 saveSession(loadSession());
-setTimeout(async()=>{if(session){await pull();await pushExisting()}},1500);
-setInterval(async()=>{if(session){await pull();await pushExisting()}},25000);
-window.addEventListener('online',async()=>{if(session){await pull();await pushExisting()}});
+// Una sola sincronización a la vez, para no mezclar escrituras de dispositivos.
+let syncSequence=null;
+async function synchronizeAll(){
+ if(syncSequence)return syncSequence;
+ syncSequence=(async()=>{
+   await pull();
+   await pushExisting();
+ })();
+ try{return await syncSequence}
+ finally{syncSequence=null}
+}
+setTimeout(()=>{if(session)synchronizeAll().catch(e=>status('Error al sincronizar: '+e.message))},1500);
+setInterval(()=>{if(session)synchronizeAll().catch(e=>status('Error al sincronizar: '+e.message))},25000);
+window.addEventListener('online',()=>{if(session)synchronizeAll().catch(e=>status('Error al sincronizar: '+e.message))});
 })();
 </script>
 <script>
