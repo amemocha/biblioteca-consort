@@ -1622,7 +1622,7 @@ async function pull(){
    if(same&&same.id===row.id){mapRemoteId.set(row.id,same.id);equivalent++;continue}
    mapRemoteId.set(row.id,row.id);
    if(existing&&pending.has(row.id))continue;
-   if(existing&&versions[row.id]===row.updated_at&&existing.blob)continue;
+   if(existing&&versions[row.id]===row.updated_at&&(copy.type==='folder'||existing.blob))continue;
    // Older installations did not track remote revisions. Preserve the local file
    // when cloud data is incomplete, but apply new remote metadata and content.
    try{
