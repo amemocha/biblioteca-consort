@@ -1600,6 +1600,41 @@ async function pull(){
  try{
   status('Comprobando documentos de la nube…');
   const remote=await remoteList();
+  // Las carpetas auxiliares retiradas en la nube se reorganizan también
+  // en este dispositivo sin perder sus archivos ni enviarlos a Inicio.
+  const cloudIds=new Set(remote.map(r=>r.id));
+  const localSnapshot=await allRecords();
+  const localById=new Map(localSnapshot.map(r=>[r.id,r]));
+  const helpers=new Set(['audios','partituras','general']);
+  const helperFolder=r=>r?.type==='folder'&&helpers.has(norm(r.name));
+  function songAncestor(folder){
+    const seen=new Set([folder.id]);let parent=folder.parent;
+    while(parent&&!seen.has(parent)){
+      seen.add(parent);
+      const record=localById.get(parent);
+      if(!record||record.type!=='folder')return null;
+      if(!helperFolder(record))return record;
+      parent=record.parent;
+    }
+    return null;
+  }
+  const obsolete=localSnapshot.filter(r=>helperFolder(r)&&!cloudIds.has(r.id))
+    .map(r=>({folder:r,song:songAncestor(r)})).filter(x=>x.song);
+  if(obsolete.length){
+    const destination=new Map(obsolete.map(x=>[x.folder.id,x.song.id]));
+    let moved=0;
+    // Mover primero los hijos mientras existen los registros de sus carpetas.
+    for(const row of localSnapshot){
+      const target=destination.get(row.parent);
+      if(!target||destination.has(row.id))continue;
+      await localPut({...row,parent:target});
+      moved++;
+    }
+    for(const {folder} of obsolete)await localDelete(folder.id);
+    if(state.folder&&destination.has(state.folder))state.folder=destination.get(state.folder);
+    await refresh();
+    status('Organización de canciones: '+moved+' elementos reubicados y '+obsolete.length+' subdivisiones retiradas del dispositivo.');
+  }
   // Restore missing folder records by their original cloud IDs before files.
   // Do not overwrite or remove any local records.
   const localBefore=await allRecords();
@@ -1690,6 +1725,11 @@ async function pushExisting(){
   let saved=0,failed=0,duplicates=0,firstError='';
   // Prevent reinserting same named folders from different devices.
   for(const item of local){
+   // No recrear en la nube las antiguas subdivisiones Audios/Partituras/General
+   // que ya fueron retiradas. El contenido queda en su carpeta de canción.
+   if(item.type==='folder'&&['audios','partituras','general'].includes(norm(item.name))&&!remoteIds.has(item.id)){
+     continue;
+   }
    const isPending=pending.has(item.id);
    if(remoteIds.has(item.id)&&!isPending)continue;
    // An item already uploaded but now absent was removed on another device;
