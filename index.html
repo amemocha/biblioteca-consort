@@ -148,6 +148,20 @@ input,select,textarea{border-radius:12px!important;background:#fff!important;bor
 #tabView.consort-fullscreen-fallback>.scoreview{
  flex:1 1 auto;height:auto!important;min-height:0;max-height:none;overflow:auto;
 }
+</style><style id="consort-continuous-pdf-score-20261121">
+/* Lectura vertical: las páginas consecutivas tienen un espacio pequeño. */
+#scoreview .consort-continuous-score-page{
+ box-sizing:border-box;display:block;position:relative;
+ margin:0 auto 14px;padding:0;
+ background:#fff;color:#6b6075;
+ text-align:center;font-size:13px;
+ box-shadow:0 3px 16px #0002;
+}
+#scoreview .consort-continuous-score-page canvas{
+ display:block;width:100%;max-width:100%;height:auto;margin:0;
+ background:#fff;box-shadow:none;
+}
+#scoreview{overscroll-behavior-y:contain;scroll-behavior:auto}
 </style></head><body><div class="app"><aside class="sidebar"><div class="logos"><img id="logA"><img id="logB"></div><button class="nav active" data-page="library">▦ Biblioteca</button><button class="nav" data-page="study">♫ Partitura + audio</button><button class="nav" data-page="custom"> Personalizar</button><button class="nav" data-page="calendar">▣ Calendario</button><button class="nav" data-page="planner">✎ Notas</button><button class="nav" data-page="backup">⇩ Respaldo</button><button class="nav" data-page="tablaturas" type="button">♬ Convertir a tablatura</button><div class="sidefoot">Fundación Consorte · Orquesta Juvenil de Guitarras<br>Almacenamiento local en este navegador</div></aside><main class="main"><header class="top"><strong>Biblioteca Consorte · Orquesta Juvenil de Guitarras</strong><img id="headerLogo" alt="Logo Orquesta"></header><div class="content">
 <section class="page active" id="library"><h1>Tu biblioteca musical</h1><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 16px"><button id="printLibraryScore" type="button" style="background:#fff;color:#202020;border:2px solid #333;font-size:16px;font-weight:800;padding:13px 20px;box-shadow:0 2px 8px #0002">🖨 IMPRIMIR PARTITURA</button><span class="small">Selecciona cualquier partitura PDF o imagen para imprimirla completa.</span></div><p class="sub">Organiza canciones, carpetas, partituras y audios. Toca un archivo para abrirlo.</p><div class="card"><div class="flex"><input class="fill" id="search" placeholder="Buscar canción o archivo…" aria-label="Buscar"><select id="instrumentFilter" aria-label="Filtrar guitarra"><option value="">Todas las guitarras</option><option>Soprano</option><option>Alto</option><option>Tenor</option><option>Bajo</option><option>Contrabajo</option><option>General</option></select><select id="typeFilter"><option value="">Todos los archivos</option><option value="audio">Audios</option><option value="score">Partituras</option></select><select id="songFilter" aria-label="Filtrar por canción"><option value="">Todas las canciones</option></select><select id="categoryFilter" aria-label="Filtrar por categoría"><option value="">Todas las categorías</option></select><label class="small" style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="groupBySong"> Agrupar por canción</label></div><div id="folderLocation" role="status" style="font-weight:700;margin:8px 0"></div><div id="consort-folder-duplicate-report" hidden style="margin:8px 0;padding:12px;background:#f7f1ff;border:1px solid #bca4d9;border-radius:12px"></div><div id="consort-cloud-folder-info" style="margin:10px 0;padding:12px 14px;border:1px solid #b9a2db;background:#f7f3ff;color:#3b2862;border-radius:12px;font-size:14px"><strong>Carpetas de la nube</strong> · Se recuperan al iniciar sesión. <button type="button" id="consort-cloud-recovery-shortcut" style="margin-left:8px;background:#6745a1;color:white">Verificar y recuperar carpetas</button><span id="consort-cloud-folder-info-status" style="display:block;font-size:12px;margin-top:5px"></span></div><div class="flex" id="folderNavigation" hidden style="gap:10px;margin:12px 0;flex-wrap:wrap"><button class="primary" id="backToLibraryHome" type="button" style="background:#8b522e;color:white;font-weight:750;font-size:15px;padding:12px 18px">← Volver al inicio</button><button id="backToParentFolder" type="button" style="font-size:14px;padding:11px 16px">↑ Carpeta anterior</button></div><div class="tree" id="breadcrumbs"></div><div class="flex"><button id="undoLastLibraryAction" disabled type="button">↶ Deshacer última acción</button><button id="consort-check-duplicate-folders" type="button">Revisar carpetas duplicadas</button><button id="selectLibraryFolders" type="button">☑ Seleccionar archivos y carpetas</button><button id="selectAllLibraryFolders" type="button" hidden>☑ Seleccionar todos los visibles</button><button id="clearSelectedLibraryFolders" type="button" hidden>Deseleccionar todas</button><label id="folderSizeControls" hidden style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-weight:700">Tamaño de carpetas <select id="folderSizeChoice" aria-label="Tamaño de carpetas"><option value="small">Pequeño</option><option value="normal" selected>Normal</option><option value="large">Grande</option><option value="extra">Muy grande</option></select><button id="sizeSelectedFolders" type="button">Aplicar a seleccionadas</button><button id="sizeAllFolders" type="button">Aplicar a todas</button></label><button id="moveSelectedFolders" type="button" class="primary" hidden>Mover seleccionados (0)</button><button id="deleteSelectedFolders" type="button" class="danger" hidden>Eliminar seleccionados (0)</button><button id="cancelFolderSelection" type="button" hidden>Cancelar selección</button><button class="primary" id="newFolder">＋ Nueva carpeta</button><button class="primary" id="organizeSongs" type="button" style="background:#8b522e;color:#fff;font-weight:750">↪ Organizar canciones en carpetas</button><button id="pickFiles">↑ Elegir archivos</button><span class="small">PDF, imágenes, MP3, WAV, MusicXML</span></div><div class="drop" id="drop"> Arrastra archivos aquí o toca para seleccionarlos</div><input class="hidden" type="file" multiple id="fileInput" accept=".pdf,.mp3,.wav,.ogg,.m4a,.aac,.musicxml,.xml,.png,.jpg,.jpeg,.webp,audio/*,image/*,application/pdf"><p id="uploadStatus" class="status" role="status"></p></div><div class="library-view-toolbar" aria-label="Forma de mostrar los archivos">
  <span class="view-label">Ver archivos como:</span>
@@ -1017,9 +1031,147 @@ function fileAsData(file){return new Promise((res,rej)=>{const rd=new FileReader
 let pdfjsPromise;
 function loadJS(src){return new Promise((resolve,reject)=>{let s=document.createElement('script');s.src=src;s.onload=resolve;s.onerror=reject;document.head.append(s)})}
 async function pdfLib(){if(!pdfjsPromise)pdfjsPromise=(async()=>{await loadJS('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';return pdfjsLib})().catch(e=>{pdfjsPromise=null;throw e});return pdfjsPromise}
-function resetScore(){if(state.scoreUrl)URL.revokeObjectURL(state.scoreUrl);state.pdf=null;state.page=1;$('scoreview').replaceChildren();$('pdfNotice').hidden=true}
-async function chooseScore(r){$('tabView').hidden=true;$('scoreview').hidden=false;resetScore();state.score=r;state.scoreUrl=URL.createObjectURL(r.blob);$('scoreName').textContent=r.name;state.marks=JSON.parse(localStorage.getItem('consorte_marks_'+r.id)||'[]');renderMarks();await showPage(1)}
-async function showPage(p){if(!state.score)return;const view=$('scoreview');view.replaceChildren();let kind=state.score.kind;if(kind==='image'){let img=document.createElement('img');img.src=state.scoreUrl;img.alt=state.score.name;view.append(img);$('pageLabel').textContent='1 / 1';state.page=1;return}if(kind!=='pdf')return;try{if(!state.pdf){const lib=await pdfLib();state.pdf=await lib.getDocument({data:await state.score.blob.arrayBuffer()}).promise}p=Math.max(1,Math.min(state.pdf.numPages,p));state.page=p;$('pageLabel').textContent=p+' / '+state.pdf.numPages;const page=await state.pdf.getPage(p);const v=page.getViewport({scale:1.5});const canvas=document.createElement('canvas');canvas.width=Math.ceil(v.width);canvas.height=Math.ceil(v.height);view.append(canvas);await page.render({canvasContext:canvas.getContext('2d'),viewport:v}).promise;view.scrollTop=0}catch(e){$('pdfNotice').hidden=false;let frame=document.createElement('iframe');frame.src=state.scoreUrl+'#page='+p;view.append(frame);$('pageLabel').textContent='PDF · visor alternativo';console.error(e)}}
+// Las páginas del PDF se muestran una debajo de la otra. Solo se dibujan
+// las cercanas a la zona visible para limitar memoria y consumo en tabletas.
+let scoreViewerGeneration=0,scorePageElements=[],scorePageObserver=null;
+let scorePagesReady=null,scoreScrollFrame=0,scoreLastTimedMark=null;
+function resetScore(){
+ scoreViewerGeneration++;
+ if(scorePageObserver){scorePageObserver.disconnect();scorePageObserver=null}
+ if(scoreScrollFrame){cancelAnimationFrame(scoreScrollFrame);scoreScrollFrame=0}
+ scorePageElements=[];scorePagesReady=null;scoreLastTimedMark=null;
+ const view=$('scoreview');view.onscroll=null;view.replaceChildren();
+ if(state.scoreUrl)URL.revokeObjectURL(state.scoreUrl);
+ state.pdf=null;state.page=1;$('pdfNotice').hidden=true;
+}
+async function chooseScore(r){
+ $('tabView').hidden=true;$('scoreview').hidden=false;
+ resetScore();state.score=r;state.scoreUrl=URL.createObjectURL(r.blob);
+ $('scoreName').textContent=r.name;
+ state.marks=JSON.parse(localStorage.getItem('consorte_marks_'+r.id)||'[]');
+ renderMarks();await showPage(1);
+}
+function scorePageAtScroll(){
+ const view=$('scoreview'),edge=view.getBoundingClientRect().top+Math.min(65,view.clientHeight*.2);
+ let page=scorePageElements.length||1;
+ for(let i=0;i<scorePageElements.length;i++){
+  if(scorePageElements[i].getBoundingClientRect().bottom>edge){page=i+1;break}
+ }
+ if(page!==state.page)state.page=page;
+ if(state.pdf)$('pageLabel').textContent=page+' / '+state.pdf.numPages;
+}
+async function renderScorePdfPage(number){
+ const container=scorePageElements[number-1],pdf=state.pdf;
+ if(!container||!pdf||container.dataset.renderState)return;
+ const generation=scoreViewerGeneration;
+ container.dataset.renderState='loading';
+ try{
+  const page=await pdf.getPage(number);
+  if(generation!==scoreViewerGeneration)return;
+  const viewport=page.getViewport({scale:1.5});
+  container.style.width='min(100%, '+Math.ceil(viewport.width)+'px)';
+  container.style.aspectRatio=viewport.width+' / '+viewport.height;
+  const canvas=document.createElement('canvas');
+  canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
+  container.replaceChildren(canvas);
+  await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
+  if(generation===scoreViewerGeneration)container.dataset.renderState='done';
+ }catch(error){
+  if(generation!==scoreViewerGeneration)return;
+  console.error('Error al dibujar la página '+number,error);
+  container.dataset.renderState='error';
+  container.textContent='No se pudo mostrar la página '+number+'. Puedes abrir el PDF en otra pestaña.';
+ }
+}
+function renderScorePagesNearView(){
+ const view=$('scoreview'),rect=view.getBoundingClientRect();
+ for(let i=0;i<scorePageElements.length;i++){
+  const box=scorePageElements[i].getBoundingClientRect();
+  if(box.bottom>rect.top-700&&box.top<rect.bottom+700)renderScorePdfPage(i+1);
+ }
+}
+function scoreScrolled(){
+ if(scoreScrollFrame)return;
+ scoreScrollFrame=requestAnimationFrame(()=>{
+  scoreScrollFrame=0;
+  scorePageAtScroll();
+  if(!scorePageObserver)renderScorePagesNearView();
+ });
+}
+async function prepareScorePdfPages(){
+ if(scorePageElements.length)return;
+ if(scorePagesReady)return scorePagesReady;
+ const generation=scoreViewerGeneration;
+ scorePagesReady=(async()=>{
+  const lib=await pdfLib();
+  const pdf=await lib.getDocument({data:await state.score.blob.arrayBuffer()}).promise;
+  if(generation!==scoreViewerGeneration)return;
+  state.pdf=pdf;
+  const first=await pdf.getPage(1);
+  if(generation!==scoreViewerGeneration)return;
+  const size=first.getViewport({scale:1.5});
+  const view=$('scoreview'),fragment=document.createDocumentFragment();
+  view.replaceChildren();
+  for(let page=1;page<=pdf.numPages;page++){
+   const el=document.createElement('section');
+   el.className='consort-continuous-score-page';
+   el.setAttribute('aria-label','Página '+page+' de '+pdf.numPages);
+   el.style.width='min(100%, '+Math.ceil(size.width)+'px)';
+   el.style.aspectRatio=size.width+' / '+size.height;
+   el.textContent='Cargando página '+page+'…';
+   scorePageElements.push(el);fragment.append(el);
+  }
+  view.append(fragment);
+  view.onscroll=scoreScrolled;
+  if('IntersectionObserver' in window){
+   scorePageObserver=new IntersectionObserver(entries=>{
+    for(const entry of entries){
+     if(entry.isIntersecting)renderScorePdfPage(scorePageElements.indexOf(entry.target)+1);
+    }
+   },{root:view,rootMargin:'700px 0px',threshold:0});
+   for(const el of scorePageElements)scorePageObserver.observe(el);
+  }else renderScorePagesNearView();
+  $('pageLabel').textContent='1 / '+pdf.numPages;
+  renderScorePdfPage(1);
+ })().catch(error=>{if(generation===scoreViewerGeneration)scorePagesReady=null;throw error});
+ return scorePagesReady;
+}
+async function showPage(requested){
+ if(!state.score)return;
+ const view=$('scoreview'),kind=state.score.kind;
+ if(kind==='image'){
+  if(!view.querySelector('img')){
+   view.replaceChildren();
+   const img=document.createElement('img');img.src=state.scoreUrl;
+   img.alt=state.score.name;view.append(img);
+  }
+  state.page=1;$('pageLabel').textContent='1 / 1';return;
+ }
+ if(kind!=='pdf')return;
+ const generation=scoreViewerGeneration;
+ try{
+  await prepareScorePdfPages();
+  if(generation!==scoreViewerGeneration||!state.pdf)return;
+  const page=Math.max(1,Math.min(state.pdf.numPages,requested));
+  const target=scorePageElements[page-1];
+  state.page=page;$('pageLabel').textContent=page+' / '+state.pdf.numPages;
+  if(target){
+   const top=view.scrollTop+target.getBoundingClientRect().top-view.getBoundingClientRect().top;
+   view.scrollTop=Math.max(0,top-8);
+   renderScorePdfPage(page);
+  }
+ }catch(error){
+  if(generation!==scoreViewerGeneration)return;
+  $('pdfNotice').hidden=false;
+  $('pdfNotice').textContent='No se pudo cargar la vista continua. Se abrirá el visor PDF alternativo.';
+  console.error('Vista continua no disponible',error);
+  view.replaceChildren();scorePageElements=[];
+  const frame=document.createElement('iframe');
+  frame.src=state.scoreUrl+'#page='+Math.max(1,requested);
+  frame.title='Partitura PDF';view.append(frame);
+  $('pageLabel').textContent='PDF · visor alternativo';
+ }
+}
 $('scorePrev').onclick=()=>showPage(state.page-1);$('scoreNext').onclick=()=>showPage(state.page+1);$('openPDF').onclick=()=>{if(state.scoreUrl)window.open(state.scoreUrl,'_blank');else alert('Selecciona una partitura')};
 async function chooseAudio(r){if(state.audioUrl)URL.revokeObjectURL(state.audioUrl);state.audio=r;state.audioUrl=URL.createObjectURL(r.blob);$('player').src=state.audioUrl;$('audioName').textContent=r.name;$('player').load()}
 $('chooseScore').onclick=()=>pickExisting('score');$('chooseAudio').onclick=()=>pickExisting('audio');
@@ -1029,7 +1181,7 @@ function renderMarks(){const el=$('marks');el.replaceChildren();state.marks.sort
 const formatTime=n=>Math.floor(n/60)+':'+String(Math.floor(n%60)).padStart(2,'0');
 function storeMarks(){if(!state.score)return;localStorage.setItem('consorte_marks_'+state.score.id,JSON.stringify(state.marks));renderMarks()}
 $('addMark').onclick=()=>{if(!state.score||!state.audio)return alert('Selecciona una partitura y un audio.');state.marks=state.marks.filter(m=>m.page!==state.page);state.marks.push({time:$('player').currentTime,page:state.page});storeMarks()};$('clearMarks').onclick=()=>{if(confirm('¿Borrar todas las marcas de esta partitura?')){state.marks=[];storeMarks()}};
-$('player').ontimeupdate=()=>{if(!state.marks.length||!state.score)return;const t=$('player').currentTime;let mark=state.marks.filter(m=>m.time<=t+.15).at(-1);if(mark&&mark.page!==state.page)showPage(mark.page)};
+$('player').ontimeupdate=()=>{if(!state.marks.length||!state.score)return;const t=$('player').currentTime;let mark=state.marks.filter(m=>m.time<=t+.15).at(-1);if(!mark){scoreLastTimedMark=null;return}if(mark.time!==scoreLastTimedMark){scoreLastTimedMark=mark.time;if(mark.page!==state.page)showPage(mark.page)}};
 $('speed').oninput=()=>{$('speedText').textContent=$('speed').value+'%';$('player').playbackRate=Number($('speed').value)/100;try{$('player').preservesPitch=true}catch{}};
 let audioContext=null,meterTimer=null,meterCount=0;
 function tick(){if(!audioContext)return;let beats=Math.max(2,Number($('beats').value)),first=meterCount%beats===0;meterCount++;let osc=audioContext.createOscillator(),gain=audioContext.createGain();osc.type='sine';osc.frequency.value=first?1100:760;gain.gain.setValueAtTime(.14,audioContext.currentTime);gain.gain.exponentialRampToValueAtTime(.001,audioContext.currentTime+.065);osc.connect(gain).connect(audioContext.destination);osc.start();osc.stop(audioContext.currentTime+.07);$('meterLamp').classList.toggle('on',first)}
