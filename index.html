@@ -754,18 +754,22 @@ function renderLibrary(){
 $('search').oninput=renderLibrary;$('instrumentFilter').onchange=renderLibrary;$('typeFilter').onchange=renderLibrary;
 async function openRecord(r){if(r.type==='folder'){consortePushNavigation(consorteCurrentPage(),r.id);state.folder=r.id;$('search').value='';$('instrumentFilter').value='';$('typeFilter').value='';$('songFilter').value='';$('categoryFilter').value='';renderLibrary();return}if(r.scoreId||r.audioId||r.tabId){await openLinkedPiece(r)}else if(r.kind==='audio'||['pdf','image','other'].includes(r.kind)){await openLinkedPiece(r)}else downloadRecord(r)}
 function downloadBlob(blob,name){let url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)}
-function downloadRecord(r){if(r.type==='folder'){alert('Para descargar carpetas, utiliza «Respaldo» → Exportar biblioteca ZIP.');return}downloadBlob(r.blob,r.name)}
+async function downloadRecord(r){if(r.type==='folder'){alert('Para descargar carpetas, utiliza «Respaldo» → Exportar biblioteca ZIP.');return}try{const ready=await window.consorteEnsureCloudFile?.(r)||r;if(!(ready.blob instanceof Blob))throw Error('Archivo no disponible');downloadBlob(ready.blob,ready.name)}catch(e){alert('No se pudo descargar el archivo: '+e.message)}}
 // Imprimir el archivo original: todas las páginas del PDF, no solo la hoja mostrada en Estudio.
 // Abre inmediatamente una ventana propia y llama a la vista previa nativa de impresión.
 // Conservar los enlaces Blob originales mientras esté abierta la biblioteca.
 const scorePrintObjectUrls=[];
 window.addEventListener('pagehide',()=>{for(const u of scorePrintObjectUrls)URL.revokeObjectURL(u)});
-function printScoreRecord(record){
+async function printScoreRecord(record){
+ const openedWindow=!(record?.blob instanceof Blob)?window.open('','_blank'):null;
  if(record?.scoreId){
   const linked=rec(record.scoreId);
-  if(linked?.blob instanceof Blob)record=linked;
+  if(linked?.type==='file')record=linked;
  }
+ try{record=await window.consorteEnsureCloudFile?.(record)||record}
+ catch(error){if(openedWindow)openedWindow.close();alert('No se pudo cargar para imprimir: '+error.message);return}
  if(!record||!(record.blob instanceof Blob)){
+  if(openedWindow)openedWindow.close();
   alert('No hay una partitura PDF o imagen seleccionada para imprimir.');return;
  }
  const name=String(record.name||'Partitura');
@@ -781,8 +785,8 @@ function printScoreRecord(record){
    :record.blob;
  const url=URL.createObjectURL(printBlob);
  scorePrintObjectUrls.push(url);
- let printWindow=null;
- try{printWindow=window.open(url,'_blank')}catch(error){console.error('Impresión bloqueada:',error)}
+ let printWindow=openedWindow;
+ try{if(printWindow)printWindow.location.href=url;else printWindow=window.open(url,'_blank')}catch(error){console.error('Impresión bloqueada:',error)}
  if(!printWindow){
   alert('Chrome bloqueó la pestaña con la partitura. Permite las ventanas emergentes y vuelve a pulsar Imprimir.');
   return;
@@ -869,7 +873,7 @@ function selectRecordDialog(records,title){return new Promise(resolve=>{let dlg=
 async function openLinkedPiece(r){
  nav('study');
  if(!r||r.type!=='file')return;
- const valid=x=>x&&x.type==='file'&&x.blob instanceof Blob;
+ const valid=x=>x&&x.type==='file'&&(x.blob instanceof Blob||!!x.cloudObjectPath);
  const normalize=x=>String(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLocaleLowerCase('es');
  const fileStem=x=>normalize(x).replace(/\.(pdf|png|jpe?g|webp|mp3|wav|m4a|aac|ogg|xml|musicxml)$/,'').replace(/\b(soprano|alto|tenor|bajo|contrabajo|partitura|tablatura|audio|guitarra|voz|score|tab)\b/g,'').replace(/[_\-]+/g,' ').replace(/\s+/g,' ').trim();
  const sameSong=x=>r.song&&x.song&&normalize(r.song)===normalize(x.song);
@@ -891,10 +895,10 @@ async function openLinkedPiece(r){
  state.piece={...r,scoreId:score?.id||null,audioId:audio?.id||null,tabId:tablature?.id||null};
  // Cargar primero el audio para ver enseguida el reproductor al tocar un archivo.
  if(!audio){if(state.audioUrl)URL.revokeObjectURL(state.audioUrl);state.audioUrl=null;state.audio=null;$('player').pause();$('player').removeAttribute('src');$('player').load();$('audioName').textContent='Sin audio asociado'}
- else{try{await chooseAudio(audio)}catch(error){console.error('Error mostrando audio',error);$('audioName').textContent='No se pudo cargar el audio'}}
+ else{try{audio=await window.consorteEnsureCloudFile?.(audio)||audio;await chooseAudio(audio)}catch(error){console.error('Error mostrando audio',error);$('audioName').textContent='No se pudo cargar el audio'}}
  // Reiniciar el documento anterior cuando falta una asociación.
  if(!score){resetScore();state.score=null;state.scoreUrl=null;$('scoreName').textContent='Sin partitura asociada';$('scoreview').append(document.createTextNode('No hay partitura asociada a esta canción. Puedes vincularla con ⋯ → Editar.'));$('pageLabel').textContent='0 / 0'}
- else{try{await chooseScore(score)}catch(error){console.error('Error mostrando partitura',error);$('pdfNotice').hidden=false;$('pdfNotice').textContent='No se pudo mostrar la partitura: '+error.message}}
+ else{try{score=await window.consorteEnsureCloudFile?.(score)||score;await chooseScore(score)}catch(error){console.error('Error mostrando partitura',error);$('pdfNotice').hidden=false;$('pdfNotice').textContent='No se pudo mostrar la partitura: '+error.message}}
  updateTabButton();
 }
 
@@ -951,6 +955,7 @@ async function showTabPage(requestedPage){
  }
 }
 async function showLinkedTab(r){
+ r=await window.consorteEnsureCloudFile?.(r)||r;
  if(!(r.blob instanceof Blob)){alert('Este archivo no está descargado en el dispositivo. Sincroniza primero la biblioteca.');return}
  ++tabRenderGeneration;
  if(tabPdfDocument){try{await tabPdfDocument.destroy()}catch(e){}}
@@ -1045,6 +1050,7 @@ function resetScore(){
  state.pdf=null;state.page=1;$('pdfNotice').hidden=true;
 }
 async function chooseScore(r){
+ r=await window.consorteEnsureCloudFile?.(r)||r;
  $('tabView').hidden=true;$('scoreview').hidden=false;
  resetScore();state.score=r;state.scoreUrl=URL.createObjectURL(r.blob);
  $('scoreName').textContent=r.name;
@@ -1173,7 +1179,7 @@ async function showPage(requested){
  }
 }
 $('scorePrev').onclick=()=>showPage(state.page-1);$('scoreNext').onclick=()=>showPage(state.page+1);$('openPDF').onclick=()=>{if(state.scoreUrl)window.open(state.scoreUrl,'_blank');else alert('Selecciona una partitura')};
-async function chooseAudio(r){if(state.audioUrl)URL.revokeObjectURL(state.audioUrl);state.audio=r;state.audioUrl=URL.createObjectURL(r.blob);$('player').src=state.audioUrl;$('audioName').textContent=r.name;$('player').load()}
+async function chooseAudio(r){r=await window.consorteEnsureCloudFile?.(r)||r;if(state.audioUrl)URL.revokeObjectURL(state.audioUrl);state.audio=r;state.audioUrl=URL.createObjectURL(r.blob);$('player').src=state.audioUrl;$('audioName').textContent=r.name;$('player').load()}
 $('chooseScore').onclick=()=>pickExisting('score');$('chooseAudio').onclick=()=>pickExisting('audio');
 function pickExisting(kind){let rs=state.records.filter(r=>r.type==='file'&&(kind==='audio'?r.kind==='audio':['pdf','image'].includes(r.kind)));if(!rs.length){alert('No hay archivos de este tipo en la biblioteca. Usa el selector de abajo para elegir uno del dispositivo.');return}let names=rs.map((r,i)=>`${i+1}. ${r.name}`).join('\n');let v=prompt('Escribe el número del archivo:\n'+names);let n=Number(v);if(!Number.isInteger(n)||n<1||n>rs.length)return;kind==='audio'?chooseAudio(rs[n-1]):chooseScore(rs[n-1])}
 $('directScore').onchange=e=>{let f=e.target.files[0];if(f)chooseScore({id:'direct_'+f.name,name:f.name,blob:f,kind:getKind(f)});e.target.value=''};$('directAudio').onchange=e=>{let f=e.target.files[0];if(f)chooseAudio({id:'direct_'+f.name,name:f.name,blob:f,kind:'audio'});e.target.value=''};
@@ -1867,7 +1873,7 @@ async function cloudSave(r){if(!session||suppress)return;
  if(previous&&(!known||Date.parse(known)!==Date.parse(previous.updated_at))){
    throw Error('Conflicto de versión: existe una versión diferente en la nube. Se conserva tu copia local sin sobrescribirla.');
  }
- const meta={id:r.id,parent:r.parent??null,type:r.type,kind:r.kind||'',name:r.name||'',instrument:r.instrument||'',song:r.song||'',category:r.category||'',cover:r.cover||'',scoreId:r.scoreId||null,tabId:r.tabId||null,audioId:r.audioId||null,created:r.created||Date.now(),size:r.type==='file'?(r.blob?.size??r.size??null):null};
+ const meta={id:r.id,parent:r.parent??null,type:r.type,kind:r.kind||'',name:r.name||'',instrument:r.instrument||'',song:r.song||'',category:r.category||'',cover:r.cover||'',pinned:!!r.pinned,scoreId:r.scoreId||null,tabId:r.tabId||null,audioId:r.audioId||null,created:r.created||Date.now(),size:r.type==='file'?(r.blob?.size??r.size??null):null};
  let object_path=previous?.object_path||null;
  if(r.type==='file'&&r.blob){
    object_path=pathFor(r);
@@ -1892,137 +1898,103 @@ async function remoteList(){
  }
  throw Error('Límite de lectura de la biblioteca alcanzado; no se han borrado registros.');
 }
+const cloudFetchInFlight=new Map();
+async function ensureCloudFile(record){
+ if(!record||record.type!=='file')return record;
+ const mostRecent=state.records.find(x=>x.id===record.id)||record;
+ if(mostRecent.blob instanceof Blob&&!mostRecent.cloudNeedsDownload)return mostRecent;
+ if(!session){if(mostRecent.blob instanceof Blob)return mostRecent;throw Error('Inicia sesión en Documentos sincronizados para abrir '+mostRecent.name)}
+ const existingPromise=cloudFetchInFlight.get(mostRecent.id);
+ if(existingPromise)return existingPromise;
+ const task=(async()=>{
+  try{
+   let path=mostRecent.cloudObjectPath;
+   if(!path){
+    const res=await api('/rest/v1/consorte_sync_items?select=object_path,updated_at&id=eq.'+encodeURIComponent(mostRecent.id)+'&limit=1');
+    const rows=await res.json();path=rows[0]?.object_path;
+   }
+   if(!path)throw Error('Este archivo no tiene una copia identificable en la nube');
+   status('Abriendo desde la nube: '+mostRecent.name);
+   const response=await api('/storage/v1/object/'+BUCKET+'/'+path);
+   const blob=await response.blob();
+   if(blob.size===0&&Number(mostRecent.size)>0)throw Error('La descarga llegó vacía');
+   const latest=(await allRecords()).find(r=>r.id===mostRecent.id)||mostRecent;
+   if(readSet(dirtyKey()).has(latest.id)&&latest.blob instanceof Blob)return latest;
+   const loaded={...latest,blob,cloudObjectPath:path,cloudNeedsDownload:false};
+   await localPut(loaded); // Es caché: nunca registrar como cambio ni subir otra copia.
+   const index=state.records.findIndex(r=>r.id===loaded.id);
+   if(index>=0)state.records[index]=loaded;
+   status('Archivo disponible: '+loaded.name);
+   return loaded;
+  }catch(error){
+   status('No se pudo abrir '+mostRecent.name+': '+error.message);
+   if(mostRecent.blob instanceof Blob){console.warn('Usando la copia local anterior',error);return mostRecent}
+   throw error;
+  }
+ })();
+ cloudFetchInFlight.set(mostRecent.id,task);
+ try{return await task}finally{cloudFetchInFlight.delete(mostRecent.id)}
+}
+window.consorteEnsureCloudFile=ensureCloudFile;
 async function pull(){
- if(!session||!db){if(manualSync)status('No se puede recibir: falta iniciar sesión o cargar la biblioteca.');return}
- if(syncing){if(manualSync)status('Ya se están descargando archivos; se completará la operación en curso.');return}
+ if(!session||!db)return {error:'Inicia sesión y abre Biblioteca para sincronizar'};
+ if(syncing)return {busy:true};
  syncing=true;
  try{
-  status('Comprobando documentos de la nube…');
+  status('Comparando carpetas y archivos con la cuenta…');
   const remote=await remoteList();
-  // Las carpetas auxiliares retiradas en la nube se reorganizan también
-  // en este dispositivo sin perder sus archivos ni enviarlos a Inicio.
-  const cloudIds=new Set(remote.map(r=>r.id));
-  const localSnapshot=await allRecords();
-  const localById=new Map(localSnapshot.map(r=>[r.id,r]));
-  const helpers=new Set(['audios','partituras','general']);
-  const helperFolder=r=>r?.type==='folder'&&helpers.has(norm(r.name));
-  function songAncestor(folder){
-    const seen=new Set([folder.id]);let parent=folder.parent;
-    while(parent&&!seen.has(parent)){
-      seen.add(parent);
-      const record=localById.get(parent);
-      if(!record||record.type!=='folder')return null;
-      if(!helperFolder(record))return record;
-      parent=record.parent;
-    }
-    return null;
-  }
-  const obsolete=localSnapshot.filter(r=>helperFolder(r)&&!cloudIds.has(r.id))
-    .map(r=>({folder:r,song:songAncestor(r)})).filter(x=>x.song);
-  if(obsolete.length){
-    const destination=new Map(obsolete.map(x=>[x.folder.id,x.song.id]));
-    let moved=0;
-    // Mover primero los hijos mientras existen los registros de sus carpetas.
-    for(const row of localSnapshot){
-      const target=destination.get(row.parent);
-      if(!target||destination.has(row.id))continue;
-      await localPut({...row,parent:target});
-      moved++;
-    }
-    for(const {folder} of obsolete)await localDelete(folder.id);
-    if(state.folder&&destination.has(state.folder))state.folder=destination.get(state.folder);
-    await refresh();
-    status('Organización de canciones: '+moved+' elementos reubicados y '+obsolete.length+' subdivisiones retiradas del dispositivo.');
-  }
-  // Restore missing folder records by their original cloud IDs before files.
-  // Do not overwrite or remove any local records.
-  const localBefore=await allRecords();
-  const localIds=new Set(localBefore.map(r=>r.id));
-  let newlyRecoveredFolders=0;
-  for(const cloudRow of remote){
-    if(cloudRow.metadata?.type!=='folder'||localIds.has(cloudRow.id))continue;
-    const m=cloudRow.metadata;
-    try{
-      await localPut({...m,id:cloudRow.id,type:'folder',parent:m.parent??null});
-      localIds.add(cloudRow.id);
-      newlyRecoveredFolders++;
-    }catch(error){console.warn('Carpeta pendiente',cloudRow.id,error)}
-  }
-  if(newlyRecoveredFolders){
-    if(state.folder && !localIds.has(state.folder))state.folder=null;
-    await refresh();
-    status('Recuperadas '+newlyRecoveredFolders+' carpetas de la nube; recuperando archivos…');
-  }
-  const current=await allRecords(),byLocal=new Map(current.map(r=>[r.id,r]));
-  const byRemote=new Map(remote.map(r=>[r.id,{...(r.metadata||{}),id:r.id}]));
-  const canonical=new Map(),versions=readRevisions(),pending=readSet(dirtyKey());
-  const mapRemoteId=new Map();
-  // Primero resolver carpetas, incluso subcarpetas. Nunca se borran registros del servidor.
-  const folderRows=remote.filter(x=>x.metadata?.type==='folder');
-  // Priorizar archivos recientes. Los nuevos del computador aparecen en el
-  // celular sin esperar a que se descargue toda la biblioteca histórica.
-  const fileRows=remote.filter(x=>x.metadata?.type!=='folder').sort(
-    (a,b)=>Date.parse(b.updated_at||0)-Date.parse(a.updated_at||0)
+  const current=await allRecords();
+  const byLocal=new Map(current.map(item=>[item.id,item]));
+  const versions=readRevisions(),pending=readSet(dirtyKey());
+  const folderRows=remote.filter(row=>row.metadata?.type==='folder');
+  const fileRows=remote.filter(row=>row.metadata?.type!=='folder').sort(
+   (a,b)=>Date.parse(b.updated_at||0)-Date.parse(a.updated_at||0)
   );
-  const ordered=[...folderRows.sort((a,b)=>pathKey({...a.metadata,id:a.id},byRemote).split('/').length-pathKey({...b.metadata,id:b.id},byRemote).split('/').length),...fileRows];
-  let added=0,updated=0,equivalent=0,failed=0,firstError='';
-  function equivalentLocal(m,remoteId){
-   const parent=m.parent?mapRemoteId.get(m.parent)||m.parent:null;
-   const candidates=[...byLocal.values()].filter(item=>item.type===m.type&&norm(item.name)===norm(m.name)&&(item.parent||null)===parent);
-   if(m.type==='folder')return candidates[0]||null;
-   return candidates.find(item=>m.size!=null&&item.blob?.size===m.size)||null;
-  }
-  let foldersShown=false;
+  const ordered=[...folderRows,...fileRows];
+  let added=0,updated=0,skippedPending=0,failed=0,firstError='';
   for(const row of ordered){
-   if(!foldersShown && row.metadata?.type!=='folder'){
-    foldersShown=true;
-    if(added||updated){
-      await refresh();
-      status('Carpetas de la nube recuperadas. Descargando archivos musicales…');
+   const original=byLocal.get(row.id);
+   if(original&&pending.has(row.id)){skippedPending++;continue}
+   const remoteStamp=row.updated_at;
+   const stampKnown=versions[row.id]===remoteStamp;
+   if(original&&stampKnown&&(row.metadata?.type==='folder'||original.blob instanceof Blob||original.cloudObjectPath)){
+    // La metadata y la copia local ya corresponden a esta versión.
+    continue;
+   }
+   const meta=row.metadata||{};
+   const copy={...(original||{}),...meta,id:row.id,parent:meta.parent??null,type:meta.type||'file'};
+   if(copy.type==='file'){
+    copy.cloudObjectPath=row.object_path||original?.cloudObjectPath||null;
+    if(original?.blob instanceof Blob)copy.blob=original.blob;
+    // Conservar los archivos antiguos descargados; obtener una nueva versión
+    // al abrirla si cambió en otro dispositivo.
+    copy.cloudNeedsDownload=!(original?.blob instanceof Blob)||
+     Boolean(original?.cloudNeedsDownload)||
+     Boolean(original?.blob instanceof Blob&&versions[row.id]&&versions[row.id]!==remoteStamp);
+    if(!copy.cloudObjectPath&&!(copy.blob instanceof Blob)){
+     failed++;if(!firstError)firstError=copy.name+': falta la ruta en la nube';
     }
    }
-   const m=row.metadata||{},existing=byLocal.get(row.id),parent=m.parent?mapRemoteId.get(m.parent)||m.parent:null;
-   const copy={...(existing||{}),...m,id:row.id,parent,type:m.type||'file'};
-   const same=existing?null:equivalentLocal(copy,row.id);
-   // Un identificador remoto diferente es un elemento independiente.
-   // No ocultar carpetas ni archivos solo porque compartan nombre.
-   // Si hay duplicados reales, se revisarán sin borrar registros.
-   if(same&&same.id===row.id){mapRemoteId.set(row.id,same.id);equivalent++;continue}
-   mapRemoteId.set(row.id,row.id);
-   if(existing&&pending.has(row.id))continue;
-   if(existing&&versions[row.id]===row.updated_at&&(copy.type==='folder'||existing.blob))continue;
-   // Older installations did not track remote revisions. Preserve the local file
-   // when cloud data is incomplete, but apply new remote metadata and content.
    try{
-    if(row.object_path&&(copy.type==='file')&&(!existing||versions[row.id]!==row.updated_at||!existing.blob)){
-     const response=await api('/storage/v1/object/'+BUCKET+'/'+row.object_path);
-     copy.blob=await response.blob();
-    }else if(existing?.blob)copy.blob=existing.blob;
-    else if(copy.type==='file')throw Error('No hay archivo para descargar');
-    suppress=true;
-    try{await localPut(copy)}finally{suppress=false}
+    await localPut(copy);
     byLocal.set(copy.id,copy);
-    saveRevision(copy.id,row.updated_at);
-    if(existing)updated++;else added++;
-    // Mostrar los documentos por tandas en vez de retenerlos hasta el final
-    // de una descarga de cientos de megabytes.
-    if(copy.type==='file'&&(added+updated)%5===0){
-      await refresh();
-      status('Recibiendo archivos de la nube · '+added+' nuevos · '+updated+' actualizados'+
-        (failed?' · '+failed+' errores':''));
-    }
+    saveRevision(copy.id,remoteStamp);
+    if(original)updated++;else added++;
    }catch(error){
     failed++;if(!firstError)firstError=(copy.name||row.id)+': '+error.message;
    }
   }
   if(added||updated)await refresh();
-  const missingFiles=remote.filter(row=>row.metadata?.type==='file'&&!byLocal.get(row.id)?.blob).length;
-  status('Nube: '+remote.length+' elementos · recibidos '+added+' · actualizados '+updated+
-    (missingFiles?' · '+missingFiles+' archivos aún no disponibles':'')+
-    (equivalent?' · equivalentes omitidos '+equivalent:'')+
-    (failed?' · errores '+failed+': '+firstError:''));
-  return {added,updated,failed,missingFiles,remoteCount:remote.length,firstError};
- }catch(e){status('Error al recibir cambios: '+e.message);return {error:'Descarga: '+e.message}}
+  const files=remote.filter(row=>row.metadata?.type==='file');
+  const cloudOnly=files.filter(row=>!(byLocal.get(row.id)?.blob instanceof Blob)).length;
+  const orphan=remote.filter(row=>row.metadata?.parent&&!remote.some(p=>p.id===row.metadata.parent)).length;
+  status('Cuenta: '+fileRows.length+' archivos y '+folderRows.length+' carpetas · '+added+
+   ' nuevos en este dispositivo'+(updated?' · '+updated+' actualizados':'')+
+   (cloudOnly?' · '+cloudOnly+' archivos se descargarán al abrirlos':'')+
+   (orphan?' · '+orphan+' elementos sin carpeta original':'')+
+   (failed?' · '+failed+' errores: '+firstError:''));
+  return {added,updated,failed,cloudOnly,orphans:orphan,remoteCount:remote.length,firstError,skippedPending};
+ }catch(error){status('Error al recibir cambios: '+error.message);return {error:'Descarga: '+error.message}}
  finally{syncing=false}
 }
 async function pushExisting(){
@@ -2086,10 +2058,10 @@ $c('cloud-sync-now').onclick=async()=>{
   const local=await allRecords();
   const localCount=local.filter(x=>x.type==='file'&&x.blob).length;
   const localFolders=local.filter(x=>x.type==='folder').length;
-  const incomplete=result.pull?.error||result.push?.error||result.pull?.failed||result.push?.failed||result.pull?.missingFiles;
+  const incomplete=result.pull?.error||result.push?.error||result.pull?.failed||result.push?.failed;
   status((incomplete?'Sincronización incompleta':'Sincronización completada')+
     ' · '+localFolders+' carpetas y '+localCount+' archivos disponibles en este dispositivo'+
-    (result.pull?.missingFiles?' · faltan por descargar '+result.pull.missingFiles:'')+
+    (result.pull?.cloudOnly?' · '+result.pull.cloudOnly+' archivos en nube, se descargarán al abrir':'')+
     (result.pull?.failed?' · errores al descargar '+result.pull.failed:'')+
     (result.push?.failed?' · errores al subir '+result.push.failed:'')+
     (result.pull?.error?' · '+result.pull.error:'')+
@@ -2112,10 +2084,10 @@ async function synchronizeAll(){
    const received=await pull();
    const uploaded=await pushExisting();
    const result={pull:received||{},push:uploaded||{}};
-   const incomplete=result.pull.error||result.push.error||result.pull.failed||result.push.failed||result.pull.missingFiles;
+   const incomplete=result.pull.error||result.push.error||result.pull.failed||result.push.failed;
    if(incomplete){
     status('Sincronización incompleta'+
-      (result.pull.missingFiles?' · pendientes de descargar: '+result.pull.missingFiles:'')+
+      (result.pull.cloudOnly?' · '+result.pull.cloudOnly+' en nube para abrir cuando se necesiten':'')+
       (result.pull.failed?' · errores de descarga: '+result.pull.failed:'')+
       (result.push.failed?' · errores de subida: '+result.push.failed:'')+
       (result.pull.error?' · '+result.pull.error:'')+
@@ -2123,8 +2095,10 @@ async function synchronizeAll(){
       (result.pull.firstError?' · '+result.pull.firstError:'')+
       (result.push.firstError?' · '+result.push.firstError:''));
    }else{
-    status('Nube sincronizada · '+(result.pull.remoteCount??0)+' elementos verificados'+
-      ' · '+(result.pull.added??0)+' recibidos · '+(result.push.saved??0)+' subidos');
+    status('Cuenta sincronizada · '+(result.pull.remoteCount??0)+' elementos verificados'+
+      ' · '+(result.pull.added??0)+' agregados a este dispositivo · '+(result.push.saved??0)+' subidos'+
+      (result.pull.cloudOnly?' · '+result.pull.cloudOnly+' disponibles desde la nube':'')+
+      (result.pull.orphans?' · '+result.pull.orphans+' sin carpeta original':''));
    }
    return result;
  })();
