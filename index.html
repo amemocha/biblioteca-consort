@@ -125,7 +125,30 @@ input,select,textarea{border-radius:12px!important;background:#fff!important;bor
 .consorte-pinned-icon{display:inline-block;margin-right:7px;font-size:17px;line-height:1;filter:grayscale(1) sepia(1) saturate(8) hue-rotate(215deg);vertical-align:middle}
 </style>
 <link rel="stylesheet" href="./consorte-audio-sincronizado.css?v=20261115b">
-</head><body><div class="app"><aside class="sidebar"><div class="logos"><img id="logA"><img id="logB"></div><button class="nav active" data-page="library">▦ Biblioteca</button><button class="nav" data-page="study">♫ Partitura + audio</button><button class="nav" data-page="custom"> Personalizar</button><button class="nav" data-page="calendar">▣ Calendario</button><button class="nav" data-page="planner">✎ Notas</button><button class="nav" data-page="backup">⇩ Respaldo</button><button class="nav" data-page="tablaturas" type="button">♬ Convertir a tablatura</button><div class="sidefoot">Fundación Consorte · Orquesta Juvenil de Guitarras<br>Almacenamiento local en este navegador</div></aside><main class="main"><header class="top"><strong>Biblioteca Consorte · Orquesta Juvenil de Guitarras</strong><img id="headerLogo" alt="Logo Orquesta"></header><div class="content">
+<style id="consort-unified-score-tab-viewer">
+/* Mismo visor para partituras y tablaturas. */
+#tabDisplay.scoreview{height:min(69vh,730px);margin:0;padding:12px;text-align:center}
+#tabDisplay.scoreview canvas,#tabDisplay.scoreview img{max-width:100%;height:auto;display:block;margin:0 auto 12px;box-shadow:0 3px 16px #0002;background:white}
+#tabDisplay.scoreview iframe{width:100%;height:100%;min-height:50vh;border:0;background:white}
+#consort-score-fullscreen-area{min-width:0}
+#tabView>.flex{flex-wrap:wrap;gap:8px;align-items:center}
+#consort-score-fullscreen-area:fullscreen,
+#tabView:fullscreen,
+#consort-score-fullscreen-area.consort-fullscreen-fallback,
+#tabView.consort-fullscreen-fallback{
+ background:var(--paper,#fff);color:var(--ink,#24152e);box-sizing:border-box;
+ display:flex;flex-direction:column;width:100vw;height:100vh;height:100dvh;
+ padding:12px 16px;overflow:hidden;border:0;border-radius:0;
+}
+#consort-score-fullscreen-area.consort-fullscreen-fallback,
+#tabView.consort-fullscreen-fallback{position:fixed;inset:0;z-index:2147483000;margin:0}
+#consort-score-fullscreen-area:fullscreen>.scoreview,
+#tabView:fullscreen>.scoreview,
+#consort-score-fullscreen-area.consort-fullscreen-fallback>.scoreview,
+#tabView.consort-fullscreen-fallback>.scoreview{
+ flex:1 1 auto;height:auto!important;min-height:0;max-height:none;overflow:auto;
+}
+</style></head><body><div class="app"><aside class="sidebar"><div class="logos"><img id="logA"><img id="logB"></div><button class="nav active" data-page="library">▦ Biblioteca</button><button class="nav" data-page="study">♫ Partitura + audio</button><button class="nav" data-page="custom"> Personalizar</button><button class="nav" data-page="calendar">▣ Calendario</button><button class="nav" data-page="planner">✎ Notas</button><button class="nav" data-page="backup">⇩ Respaldo</button><button class="nav" data-page="tablaturas" type="button">♬ Convertir a tablatura</button><div class="sidefoot">Fundación Consorte · Orquesta Juvenil de Guitarras<br>Almacenamiento local en este navegador</div></aside><main class="main"><header class="top"><strong>Biblioteca Consorte · Orquesta Juvenil de Guitarras</strong><img id="headerLogo" alt="Logo Orquesta"></header><div class="content">
 <section class="page active" id="library"><h1>Tu biblioteca musical</h1><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 16px"><button id="printLibraryScore" type="button" style="background:#fff;color:#202020;border:2px solid #333;font-size:16px;font-weight:800;padding:13px 20px;box-shadow:0 2px 8px #0002">🖨 IMPRIMIR PARTITURA</button><span class="small">Selecciona cualquier partitura PDF o imagen para imprimirla completa.</span></div><p class="sub">Organiza canciones, carpetas, partituras y audios. Toca un archivo para abrirlo.</p><div class="card"><div class="flex"><input class="fill" id="search" placeholder="Buscar canción o archivo…" aria-label="Buscar"><select id="instrumentFilter" aria-label="Filtrar guitarra"><option value="">Todas las guitarras</option><option>Soprano</option><option>Alto</option><option>Tenor</option><option>Bajo</option><option>Contrabajo</option><option>General</option></select><select id="typeFilter"><option value="">Todos los archivos</option><option value="audio">Audios</option><option value="score">Partituras</option></select><select id="songFilter" aria-label="Filtrar por canción"><option value="">Todas las canciones</option></select><select id="categoryFilter" aria-label="Filtrar por categoría"><option value="">Todas las categorías</option></select><label class="small" style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="groupBySong"> Agrupar por canción</label></div><div id="folderLocation" role="status" style="font-weight:700;margin:8px 0"></div><div id="consort-folder-duplicate-report" hidden style="margin:8px 0;padding:12px;background:#f7f1ff;border:1px solid #bca4d9;border-radius:12px"></div><div id="consort-cloud-folder-info" style="margin:10px 0;padding:12px 14px;border:1px solid #b9a2db;background:#f7f3ff;color:#3b2862;border-radius:12px;font-size:14px"><strong>Carpetas de la nube</strong> · Se recuperan al iniciar sesión. <button type="button" id="consort-cloud-recovery-shortcut" style="margin-left:8px;background:#6745a1;color:white">Verificar y recuperar carpetas</button><span id="consort-cloud-folder-info-status" style="display:block;font-size:12px;margin-top:5px"></span></div><div class="flex" id="folderNavigation" hidden style="gap:10px;margin:12px 0;flex-wrap:wrap"><button class="primary" id="backToLibraryHome" type="button" style="background:#8b522e;color:white;font-weight:750;font-size:15px;padding:12px 18px">← Volver al inicio</button><button id="backToParentFolder" type="button" style="font-size:14px;padding:11px 16px">↑ Carpeta anterior</button></div><div class="tree" id="breadcrumbs"></div><div class="flex"><button id="undoLastLibraryAction" disabled type="button">↶ Deshacer última acción</button><button id="consort-check-duplicate-folders" type="button">Revisar carpetas duplicadas</button><button id="selectLibraryFolders" type="button">☑ Seleccionar archivos y carpetas</button><button id="selectAllLibraryFolders" type="button" hidden>☑ Seleccionar todos los visibles</button><button id="clearSelectedLibraryFolders" type="button" hidden>Deseleccionar todas</button><label id="folderSizeControls" hidden style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-weight:700">Tamaño de carpetas <select id="folderSizeChoice" aria-label="Tamaño de carpetas"><option value="small">Pequeño</option><option value="normal" selected>Normal</option><option value="large">Grande</option><option value="extra">Muy grande</option></select><button id="sizeSelectedFolders" type="button">Aplicar a seleccionadas</button><button id="sizeAllFolders" type="button">Aplicar a todas</button></label><button id="moveSelectedFolders" type="button" class="primary" hidden>Mover seleccionados (0)</button><button id="deleteSelectedFolders" type="button" class="danger" hidden>Eliminar seleccionados (0)</button><button id="cancelFolderSelection" type="button" hidden>Cancelar selección</button><button class="primary" id="newFolder">＋ Nueva carpeta</button><button class="primary" id="organizeSongs" type="button" style="background:#8b522e;color:#fff;font-weight:750">↪ Organizar canciones en carpetas</button><button id="pickFiles">↑ Elegir archivos</button><span class="small">PDF, imágenes, MP3, WAV, MusicXML</span></div><div class="drop" id="drop"> Arrastra archivos aquí o toca para seleccionarlos</div><input class="hidden" type="file" multiple id="fileInput" accept=".pdf,.mp3,.wav,.ogg,.m4a,.aac,.musicxml,.xml,.png,.jpg,.jpeg,.webp,audio/*,image/*,application/pdf"><p id="uploadStatus" class="status" role="status"></p></div><div class="library-view-toolbar" aria-label="Forma de mostrar los archivos">
  <span class="view-label">Ver archivos como:</span>
  <div class="view-switch" role="group" aria-label="Vista de biblioteca">
@@ -169,9 +192,9 @@ input,select,textarea{border-radius:12px!important;background:#fff!important;bor
 <h1>Convertir partitura a tablatura</h1>
 <p class="sub">Elige un MusicXML guardado en tu biblioteca, incluso dentro de carpetas o subcarpetas, sin salir de Biblioteca Consorte.</p>
 <iframe id="consorte-tablature-frame" src="./tablaturas.html?embedded=1" title="Conversor de tablaturas de Biblioteca Consorte" loading="eager" style="width:100%;height:calc(100dvh - 190px);min-height:760px;border:0;border-radius:16px;background:#f1e6d6"></iframe>
-</section><section class="page" id="study"><h1>Partitura + audio</h1><p class="sub">Escucha mientras lees, abre la tablatura asociada y utiliza el metrónomo sin salir de Estudio.</p><div class="view"><div class="card scorepane"><div class="flex" style="justify-content:space-between"><h2>Partitura</h2><span id="scoreName" class="small">Sin seleccionar</span></div><div class="flex" style="margin-bottom:12px"><button id="chooseScore"> Seleccionar partitura</button><button id="printScore" type="button" title="Imprimir el PDF completo o la imagen de esta partitura">🖨 Imprimir partitura</button><button id="scorePrev">◀ Página</button><span id="pageLabel" class="time">0 / 0</span><button id="scoreNext">Página ▶</button></div><div id="scoreview" class="scoreview"><p class="empty">Selecciona una partitura PDF o imagen.</p></div><div class="notice" id="pdfNotice" hidden>Si el PDF no aparece, usa Chrome actualizado y conexión a internet para cargar el visor. </div>
+</section><section class="page" id="study"><h1>Partitura + audio</h1><p class="sub">Escucha mientras lees, abre la tablatura asociada y utiliza el metrónomo sin salir de Estudio.</p><div class="view"><div class="card scorepane"><div class="flex" style="justify-content:space-between"><h2>Partitura</h2><span id="scoreName" class="small">Sin seleccionar</span></div><div id="consort-score-fullscreen-area"><div class="flex" style="margin-bottom:12px"><button id="chooseScore"> Seleccionar partitura</button><button id="printScore" type="button" title="Imprimir el PDF completo o la imagen de esta partitura">🖨 Imprimir partitura</button><button id="scorePrev">◀ Página</button><span id="pageLabel" class="time">0 / 0</span><button id="scoreNext">Página ▶</button><button id="scoreFullscreen" type="button" aria-label="Pantalla completa de partitura">⛶ Pantalla completa</button></div><div id="scoreview" class="scoreview"><p class="empty">Selecciona una partitura PDF o imagen.</p></div></div><div class="notice" id="pdfNotice" hidden>Si el PDF no aparece, usa Chrome actualizado y conexión a internet para cargar el visor. </div>
 <button id="openPDF" type="button" hidden style="display:none!important">Abrir partitura aparte</button><div class="tab-actions"><button class="primary" id="showTab"> Tablatura</button><span class="small" id="tabName">Sin tablatura asociada</span></div>
-<div id="tabView" class="tabview" hidden><div class="flex"><strong>Tablatura de esta pieza</strong><button id="tabBack">Volver a partitura</button><button id="tabOpen">Abrir en otra pestaña ↗</button></div><div id="tabDisplay"></div></div></div><div class="tools"><div class="card"><h2>Metrónomo</h2><div class="flex"><label>BPM <input id="bpm" type="number" min="30" max="260" value="100" style="width:90px"></label><label>Compás <select id="beats"><option value="2">2/4</option><option value="3">3/4</option><option value="4" selected>4/4</option><option value="6">6/8</option></select></label><span id="meterLamp"></span><button id="metronome" class="primary">▶ Iniciar</button></div><p class="small">El primer pulso lleva un acento.</p></div><div class="card stickyAudio"><h2>Audio</h2><div class="flex"><button id="chooseAudio"> Seleccionar audio</button><span id="audioName" class="small">Sin seleccionar</span></div><audio id="player" controls preload="metadata"></audio><div class="flex"><label for="speed">Velocidad</label><input class="fill" id="speed" type="range" min="50" max="150" value="100" step="5"><span id="speedText">100%</span></div><div class="small">El tono puede cambiar según el navegador y el formato del audio.</div></div><div class="card"><h2>Seguimiento por página</h2><p class="small">Pulsa «Marcar esta página» mientras suena el audio. La próxima vez la página cambiará automáticamente al llegar a ese segundo.</p><div class="flex"><button class="primary" id="addMark"> Marcar esta página</button><button id="clearMarks">Borrar marcas</button></div><div id="marks" class="notes"></div><p class="small">No es detección automática de notas; es sincronización manual por páginas.</p></div><div class="card"><h2>Archivos de la biblioteca</h2><p class="small">Puedes elegir archivos que ya subiste o seleccionar otros directamente del dispositivo.</p><input id="directScore" type="file" accept=".pdf,image/*" style="width:100%;margin-bottom:8px"><input id="directAudio" type="file" accept="audio/*,.mp3,.wav,.m4a,.ogg" style="width:100%"></div></div></div></section>
+<div id="tabView" class="tabview" hidden><div class="flex" style="margin-bottom:12px"><strong>Tablatura de esta pieza</strong><button id="tabBack" type="button">Volver a partitura</button><button id="tabPrev" type="button">◀ Página</button><span id="tabPageLabel" class="time">0 / 0</span><button id="tabNext" type="button">Página ▶</button><button id="tabFullscreen" type="button" aria-label="Pantalla completa de tablatura">⛶ Pantalla completa</button><button id="tabOpen" type="button">Abrir en otra pestaña ↗</button></div><div id="tabDisplay" class="scoreview" aria-label="Visor de tablatura"></div></div></div><div class="tools"><div class="card"><h2>Metrónomo</h2><div class="flex"><label>BPM <input id="bpm" type="number" min="30" max="260" value="100" style="width:90px"></label><label>Compás <select id="beats"><option value="2">2/4</option><option value="3">3/4</option><option value="4" selected>4/4</option><option value="6">6/8</option></select></label><span id="meterLamp"></span><button id="metronome" class="primary">▶ Iniciar</button></div><p class="small">El primer pulso lleva un acento.</p></div><div class="card stickyAudio"><h2>Audio</h2><div class="flex"><button id="chooseAudio"> Seleccionar audio</button><span id="audioName" class="small">Sin seleccionar</span></div><audio id="player" controls preload="metadata"></audio><div class="flex"><label for="speed">Velocidad</label><input class="fill" id="speed" type="range" min="50" max="150" value="100" step="5"><span id="speedText">100%</span></div><div class="small">El tono puede cambiar según el navegador y el formato del audio.</div></div><div class="card"><h2>Seguimiento por página</h2><p class="small">Pulsa «Marcar esta página» mientras suena el audio. La próxima vez la página cambiará automáticamente al llegar a ese segundo.</p><div class="flex"><button class="primary" id="addMark"> Marcar esta página</button><button id="clearMarks">Borrar marcas</button></div><div id="marks" class="notes"></div><p class="small">No es detección automática de notas; es sincronización manual por páginas.</p></div><div class="card"><h2>Archivos de la biblioteca</h2><p class="small">Puedes elegir archivos que ya subiste o seleccionar otros directamente del dispositivo.</p><input id="directScore" type="file" accept=".pdf,image/*" style="width:100%;margin-bottom:8px"><input id="directAudio" type="file" accept="audio/*,.mp3,.wav,.m4a,.ogg" style="width:100%"></div></div></div></section>
 <section class="page" id="custom"><h1>Personalizar diseño</h1><p class="sub">Tus cambios se guardan en este navegador.</p><div class="grid"><div class="card"><h2>Colores</h2><div class="flex"><label>Fondo<br><input id="bgColor" class="colorinput" type="color" value="#f1e6d6"></label><label>Principal<br><input id="darkColor" class="colorinput" type="color" value="#32221e"></label><label>Botones<br><input id="accentColor" class="colorinput" type="color" value="#b86b46"></label></div><button id="resetTheme" style="margin-top:12px">Restaurar colores originales</button></div><div class="card"><h2>Logos</h2><p class="small">Puedes sustituir los logos para tu versión personal.</p><label>Logo de la orquesta <input type="file" accept="image/*" id="replaceLogo" style="width:100%;margin:9px 0"></label><button id="resetLogo">Restaurar logo original</button></div>
 <div class="card"><h2>Editor visual</h2><p class="small">Cambia la forma y el tamaño de los botones, reordena el menú y coloca imágenes libremente. Cerrar el editor guarda el diseño.</p>
 <button class="primary" id="toggleVisualEditor">✎ Abrir editor</button><div id="visualEditor" hidden>
@@ -861,11 +884,135 @@ async function openLinkedPiece(r){
  updateTabButton();
 }
 
-let tabObjectUrl=null;
+let tabObjectUrl=null,tabPdfDocument=null,tabPdfLoad=null,tabPage=1,tabRenderGeneration=0;
 function updateTabButton(){let tab=state.piece&&rec(state.piece.tabId);$('tabName').textContent=tab?tab.name:'Sin tablatura asociada';$('showTab').hidden=!tab;$('showTab').style.display=tab?'':'none';}
-async function showLinkedTab(r){if(tabObjectUrl)URL.revokeObjectURL(tabObjectUrl);tabObjectUrl=URL.createObjectURL(r.blob);let display=$('tabDisplay');display.replaceChildren();if(r.kind==='image'){let img=document.createElement('img');img.src=tabObjectUrl;display.append(img)}else if(r.kind==='pdf'){let frame=document.createElement('iframe');frame.src=tabObjectUrl;frame.title='Tablatura';display.append(frame)}else{let link=document.createElement('a');link.href=tabObjectUrl;link.download=r.name;link.textContent='Descargar tablatura '+r.name;display.append(link)}$('tabView').hidden=false;$('scoreview').hidden=true;state.currentTab=r;}
-$('showTab').onclick=async()=>{let r=state.piece&&rec(state.piece.tabId);if(!r){let choices=state.records.filter(x=>x.type==='file'&&['pdf','image','other'].includes(x.kind));if(!choices.length){alert('Sube primero tu archivo de tablatura a la biblioteca.');return}r=await selectRecordDialog(choices,'Seleccionar tablatura');if(!r)return;if(state.piece?.type==='file'){state.piece.tabId=r.id;await putRecord(state.piece);await refresh()}}await showLinkedTab(r);updateTabButton()};
-$('tabBack').onclick=()=>{$('tabView').hidden=true;$('scoreview').hidden=false};$('tabOpen').onclick=()=>{if(tabObjectUrl)window.open(tabObjectUrl,'_blank')};
+// El mismo PDF.js y la misma escala usados en la partitura principal.
+async function showTabPage(requestedPage){
+ const r=state.currentTab;
+ if(!r||!tabObjectUrl)return;
+ const view=$('tabDisplay'),generation=++tabRenderGeneration;
+ view.replaceChildren();
+ const kind=r.kind==='pdf'||r.blob?.type==='application/pdf'?'pdf':r.kind;
+ if(kind==='image'){
+  const img=document.createElement('img');img.src=tabObjectUrl;img.alt=r.name||'Tablatura';view.append(img);
+  tabPage=1;$('tabPageLabel').textContent='1 / 1';return;
+ }
+ if(kind!=='pdf'){
+  const link=document.createElement('a');link.href=tabObjectUrl;link.download=r.name;link.textContent='Descargar tablatura '+r.name;view.append(link);
+  $('tabPageLabel').textContent='Archivo';return;
+ }
+ try{
+  if(!tabPdfDocument){
+   if(!tabPdfLoad){
+    tabPdfLoad=(async()=>{
+     const lib=await pdfLib();
+     return await lib.getDocument({data:await r.blob.arrayBuffer()}).promise;
+    })();
+   }
+   const loaded=await tabPdfLoad;
+   if(generation!==tabRenderGeneration)return;
+   tabPdfDocument=loaded;
+  }
+  const pdf=tabPdfDocument;
+  const p=Math.max(1,Math.min(pdf.numPages,requestedPage));
+  tabPage=p;
+  $('tabPageLabel').textContent=p+' / '+pdf.numPages;
+  const page=await pdf.getPage(p);
+  if(generation!==tabRenderGeneration)return;
+  const viewport=page.getViewport({scale:1.5});
+  const canvas=document.createElement('canvas');
+  canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
+  view.append(canvas);
+  await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
+  if(generation===tabRenderGeneration)view.scrollTop=0;
+ }catch(error){
+  if(generation!==tabRenderGeneration)return;
+  console.warn('Visor de tablatura alternativo:',error);
+  view.replaceChildren();
+  const frame=document.createElement('iframe');
+  frame.src=tabObjectUrl+'#page='+tabPage;
+  frame.title='Tablatura PDF (visor alternativo)';
+  view.append(frame);
+  $('tabPageLabel').textContent='PDF · visor alternativo';
+ }
+}
+async function showLinkedTab(r){
+ if(!(r.blob instanceof Blob)){alert('Este archivo no está descargado en el dispositivo. Sincroniza primero la biblioteca.');return}
+ ++tabRenderGeneration;
+ if(tabPdfDocument){try{await tabPdfDocument.destroy()}catch(e){}}
+ tabPdfDocument=null;tabPdfLoad=null;tabPage=1;
+ if(tabObjectUrl)URL.revokeObjectURL(tabObjectUrl);
+ tabObjectUrl=URL.createObjectURL(r.blob);
+ state.currentTab=r;
+ $('tabView').hidden=false;
+ $('scoreview').hidden=true;
+ await showTabPage(1);
+}
+$('showTab').onclick=async()=>{
+ let r=state.piece&&rec(state.piece.tabId);
+ if(!r){
+  let choices=state.records.filter(x=>x.type==='file'&&['pdf','image','other'].includes(x.kind));
+  if(!choices.length){alert('Sube primero tu archivo de tablatura a la biblioteca.');return}
+  r=await selectRecordDialog(choices,'Seleccionar tablatura');
+  if(!r)return;
+  if(state.piece?.type==='file'){state.piece.tabId=r.id;await putRecord(state.piece);await refresh()}
+ }
+ await showLinkedTab(r);
+ updateTabButton();
+};
+$('tabPrev').onclick=()=>showTabPage(tabPage-1);
+$('tabNext').onclick=()=>showTabPage(tabPage+1);
+$('tabBack').onclick=()=>{
+ $('tabView').hidden=true;$('scoreview').hidden=false;
+ if(document.fullscreenElement===$('tabView'))document.exitFullscreen().catch(()=>{});
+ if($('tabView').classList.contains('consort-fullscreen-fallback'))toggleConsortFullscreen($('tabView'));
+};
+$('tabOpen').onclick=()=>{if(tabObjectUrl)window.open(tabObjectUrl,'_blank')};
+
+// Los dos visores incluyen controles accesibles al entrar en pantalla completa.
+const consortScoreFullscreenArea=$('consort-score-fullscreen-area');
+const consortTabFullscreenArea=$('tabView');
+function isConsortFullscreen(el){
+ return document.fullscreenElement===el||el.classList.contains('consort-fullscreen-fallback');
+}
+async function toggleConsortFullscreen(el){
+ if(document.fullscreenElement===el){
+  try{await document.exitFullscreen()}catch(error){console.warn(error)}
+  return;
+ }
+ if(el.classList.contains('consort-fullscreen-fallback')){
+  el.classList.remove('consort-fullscreen-fallback');
+  document.body.style.overflow=el.dataset.oldBodyOverflow||'';
+  delete el.dataset.oldBodyOverflow;
+  return;
+ }
+ if(document.fullscreenElement){
+  try{await document.exitFullscreen()}catch(error){console.warn(error)}
+ }
+ if(typeof el.requestFullscreen==='function'){
+  try{await el.requestFullscreen();return}
+  catch(error){console.warn('Pantalla completa nativa no disponible',error)}
+ }
+ // En algunos dispositivos Apple el modo pantalla completa no está disponible
+ // para elementos HTML; presentar una vista a pantalla completa dentro de la app.
+ el.dataset.oldBodyOverflow=document.body.style.overflow;
+ el.classList.add('consort-fullscreen-fallback');
+ document.body.style.overflow='hidden';
+ updateConsortFullscreenButtons();
+}
+function updateConsortFullscreenButtons(){
+ $('scoreFullscreen').textContent=isConsortFullscreen(consortScoreFullscreenArea)?'⤢ Salir de pantalla completa':'⛶ Pantalla completa';
+ $('tabFullscreen').textContent=isConsortFullscreen(consortTabFullscreenArea)?'⤢ Salir de pantalla completa':'⛶ Pantalla completa';
+}
+$('scoreFullscreen').onclick=()=>toggleConsortFullscreen(consortScoreFullscreenArea);
+$('tabFullscreen').onclick=()=>toggleConsortFullscreen(consortTabFullscreenArea);
+document.addEventListener('fullscreenchange',updateConsortFullscreenButtons);
+document.addEventListener('keydown',event=>{
+ if(event.key!=='Escape')return;
+ for(const el of [consortScoreFullscreenArea,consortTabFullscreenArea]){
+  if(el.classList.contains('consort-fullscreen-fallback'))toggleConsortFullscreen(el);
+ }
+});
 function fileAsData(file){return new Promise((res,rej)=>{const rd=new FileReader();rd.onload=()=>res(rd.result);rd.onerror=()=>rej(rd.error);rd.readAsDataURL(file)})}
 let pdfjsPromise;
 function loadJS(src){return new Promise((resolve,reject)=>{let s=document.createElement('script');s.src=src;s.onload=resolve;s.onerror=reject;document.head.append(s)})}
