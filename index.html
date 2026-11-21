@@ -1949,6 +1949,113 @@ async function ensureCloudFile(record){
  try{return await task}finally{cloudFetchInFlight.delete(mostRecent.id)}
 }
 window.consorteEnsureCloudFile=ensureCloudFile;
+
+// Ajustes de la cuenta compartidos entre computador, celular y tablet.
+// No contienen contraseñas ni tokens; cada fila está protegida con RLS.
+const CONSORT_SHARED_SETTINGS=[
+ 'consorte_theme','consorte_logo','consorte_visual_design_v2',
+ 'consorte_freestyle_editor_v1','consorte_biblioteca_tipo_vista',
+ 'consorte_custom_categories_v1','consort-folder-sizes-v1',
+ 'consorte_agenda_v1'
+];
+let preferenceSyncInProgress=false,preferenceSeededThisSession=false;
+function sharedPrefKeys(remoteRows){
+ const keys=new Set(CONSORT_SHARED_SETTINGS);
+ for(let i=0;i<localStorage.length;i++){
+  const key=localStorage.key(i);
+  if(key?.startsWith('consorte_marks_'))keys.add(key);
+ }
+ for(const row of remoteRows||[]){
+  if(row.pref_key?.startsWith('consorte_marks_'))keys.add(row.pref_key);
+ }
+ return [...keys];
+}
+function prefFingerprint(raw){
+ if(raw===null||raw===undefined)return '_nulo_';
+ let n=2166136261;
+ for(let i=0;i<raw.length;i++)n=Math.imul(n^raw.charCodeAt(i),16777619);
+ return raw.length+':'+(n>>>0).toString(16);
+}
+function sharedPrefBaseKey(){return 'consorte_settings_base_'+session.user.id}
+function sharedPrefBase(){
+ try{return JSON.parse(localStorage.getItem(sharedPrefBaseKey())||'{}')}catch{return {}}
+}
+function rememberSharedPrefBase(base){
+ try{localStorage.setItem(sharedPrefBaseKey(),JSON.stringify(base))}catch(error){console.warn('No se pudo guardar el registro de preferencias',error)}
+}
+function preserveConflictingPref(key,localRaw){
+ if(localRaw===null)return;
+ try{
+  const backupKey='consorte_settings_saved_'+session.user.id;
+  const backup=JSON.parse(localStorage.getItem(backupKey)||'{}');
+  backup[key]={value:localRaw,savedAt:new Date().toISOString()};
+  localStorage.setItem(backupKey,JSON.stringify(backup));
+ }catch(error){console.warn('No se pudo respaldar un ajuste anterior',key,error)}
+}
+function notifySharedSettingsApplied(changed){
+ if(!changed)return;
+ let box=$c('consorte-settings-reload-alert');
+ if(!box){
+  box=document.createElement('div');box.id='consorte-settings-reload-alert';
+  box.style.cssText='margin-top:9px;font-size:13px;padding:9px;border:1px solid #d1af83;border-radius:8px';
+  const label=document.createElement('span');label.className='consorte-settings-message';
+  const button=document.createElement('button');button.type='button';button.textContent='Aplicar ajustes';
+  button.style.marginLeft='8px';button.onclick=()=>location.reload();
+  box.append(label,button);panel?.append(box);
+ }
+ box.querySelector('.consorte-settings-message').textContent=
+  'Se recibieron '+changed+' ajustes de tu cuenta. Pulsa «Aplicar ajustes» para actualizar diseño, agenda y preferencias.';
+}
+async function syncAccountPreferences(){
+ if(!session||preferenceSyncInProgress)return {skipped:true};
+ preferenceSyncInProgress=true;
+ try{
+  const response=await api('/rest/v1/consorte_sync_preferences?select=pref_key,pref_value,updated_at&order=pref_key.asc&limit=1000');
+  const remoteRows=await response.json();
+  if(!Array.isArray(remoteRows))throw Error('Respuesta de ajustes no válida');
+  const remoteMap=new Map(remoteRows.map(r=>[r.pref_key,r]));
+  const base=sharedPrefBase(),keys=sharedPrefKeys(remoteRows);
+  let received=0,uploaded=0,conflicts=0;
+  for(const key of keys){
+   const localRaw=localStorage.getItem(key),remote=remoteMap.get(key);
+   const remoteRaw=remote?typeof remote.pref_value==='string'||remote.pref_value===null
+     ?remote.pref_value:JSON.stringify(remote.pref_value):undefined;
+   const localHash=prefFingerprint(localRaw),remoteHash=prefFingerprint(remoteRaw);
+   const before=base[key];
+   if(!remote){
+    if(localRaw===null)continue;
+    // Primera cuenta/dispositivo que configura este ajuste conserva el valor.
+    await api('/rest/v1/consorte_sync_preferences?on_conflict=owner_id,pref_key',{
+     method:'POST',headers:{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
+     body:JSON.stringify({owner_id:session.user.id,pref_key:key,pref_value:localRaw,updated_at:new Date().toISOString()})
+    });
+    base[key]=localHash;uploaded++;continue;
+   }
+   if(localHash===remoteHash){base[key]=remoteHash;continue}
+   if(before!==undefined&&localHash!==before&&remoteHash===before){
+    // Solo cambió este dispositivo: publicar su nueva versión.
+    await api('/rest/v1/consorte_sync_preferences?on_conflict=owner_id,pref_key',{
+     method:'POST',headers:{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
+     body:JSON.stringify({owner_id:session.user.id,pref_key:key,pref_value:localRaw,updated_at:new Date().toISOString()})
+    });
+    base[key]=localHash;uploaded++;continue;
+   }
+   // La nube es la fuente de verdad en un dispositivo recién conectado.
+   // Si ambos dispositivos cambiaron un valor se guarda copia local.
+   if(localHash!==remoteHash&&localRaw!==null){preserveConflictingPref(key,localRaw);if(before!==undefined)conflicts++}
+   if(remoteRaw===null)localStorage.removeItem(key);
+   else localStorage.setItem(key,remoteRaw);
+   base[key]=remoteHash;received++;
+  }
+  rememberSharedPrefBase(base);
+  if(received)notifySharedSettingsApplied(received);
+  return {received,uploaded,conflicts};
+ }catch(error){
+  console.warn('Sincronización de ajustes pendiente',error);
+  return {error:'Ajustes: '+error.message};
+ }finally{preferenceSyncInProgress=false}
+}
+
 async function pull(){
  if(!session||!db)return {error:'Inicia sesión y abre Biblioteca para sincronizar'};
  if(syncing)return {busy:true};
@@ -2071,7 +2178,7 @@ $c('cloud-sync-now').onclick=async()=>{
   const local=await allRecords();
   const localCount=local.filter(x=>x.type==='file'&&x.blob).length;
   const localFolders=local.filter(x=>x.type==='folder').length;
-  const incomplete=result.pull?.error||result.push?.error||result.pull?.failed||result.push?.failed;
+  const incomplete=result.pull?.error||result.push?.error||result.settings?.error||result.pull?.failed||result.push?.failed;
   status((incomplete?'Sincronización incompleta':'Sincronización completada')+
     ' · '+localFolders+' carpetas y '+localCount+' archivos disponibles en este dispositivo'+
     (result.pull?.cloudOnly?' · '+result.pull.cloudOnly+' archivos en nube, se descargarán al abrir':'')+
@@ -2079,6 +2186,9 @@ $c('cloud-sync-now').onclick=async()=>{
     (result.push?.failed?' · errores al subir '+result.push.failed:'')+
     (result.pull?.error?' · '+result.pull.error:'')+
     (result.push?.error?' · '+result.push.error:'')+
+    (result.settings?.error?' · '+result.settings.error:'')+
+    (result.settings?.received?' · '+result.settings.received+' ajustes desde la cuenta':'')+
+    (result.settings?.uploaded?' · '+result.settings.uploaded+' ajustes subidos':'')+
     (result.pull?.firstError?' · '+result.pull.firstError:'')+
     (result.push?.firstError?' · '+result.push.firstError:''));
  }catch(error){
@@ -2096,8 +2206,9 @@ async function synchronizeAll(){
  syncSequence=(async()=>{
    const received=await pull();
    const uploaded=await pushExisting();
-   const result={pull:received||{},push:uploaded||{}};
-   const incomplete=result.pull.error||result.push.error||result.pull.failed||result.push.failed;
+   const settings=await syncAccountPreferences();
+   const result={pull:received||{},push:uploaded||{},settings:settings||{}};
+   const incomplete=result.pull.error||result.push.error||result.settings.error||result.pull.failed||result.push.failed;
    if(incomplete){
     status('Sincronización incompleta'+
       (result.pull.cloudOnly?' · '+result.pull.cloudOnly+' en nube para abrir cuando se necesiten':'')+
@@ -2105,13 +2216,16 @@ async function synchronizeAll(){
       (result.push.failed?' · errores de subida: '+result.push.failed:'')+
       (result.pull.error?' · '+result.pull.error:'')+
       (result.push.error?' · '+result.push.error:'')+
+      (result.settings.error?' · '+result.settings.error:'')+
       (result.pull.firstError?' · '+result.pull.firstError:'')+
       (result.push.firstError?' · '+result.push.firstError:''));
    }else{
     status('Cuenta sincronizada · '+(result.pull.remoteCount??0)+' elementos verificados'+
       ' · '+(result.pull.added??0)+' agregados a este dispositivo · '+(result.push.saved??0)+' subidos'+
       (result.pull.cloudOnly?' · '+result.pull.cloudOnly+' disponibles desde la nube':'')+
-      (result.pull.orphans?' · '+result.pull.orphans+' sin carpeta original':''));
+      (result.pull.orphans?' · '+result.pull.orphans+' sin carpeta original':'')+
+      (result.settings.received?' · '+result.settings.received+' ajustes recibidos':'')+
+      (result.settings.uploaded?' · '+result.settings.uploaded+' ajustes guardados':''));
    }
    return result;
  })();
