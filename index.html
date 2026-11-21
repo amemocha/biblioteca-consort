@@ -1959,7 +1959,11 @@ async function pull(){
   const mapRemoteId=new Map();
   // Primero resolver carpetas, incluso subcarpetas. Nunca se borran registros del servidor.
   const folderRows=remote.filter(x=>x.metadata?.type==='folder');
-  const fileRows=remote.filter(x=>x.metadata?.type!=='folder');
+  // Priorizar archivos recientes. Los nuevos del computador aparecen en el
+  // celular sin esperar a que se descargue toda la biblioteca histórica.
+  const fileRows=remote.filter(x=>x.metadata?.type!=='folder').sort(
+    (a,b)=>Date.parse(b.updated_at||0)-Date.parse(a.updated_at||0)
+  );
   const ordered=[...folderRows.sort((a,b)=>pathKey({...a.metadata,id:a.id},byRemote).split('/').length-pathKey({...b.metadata,id:b.id},byRemote).split('/').length),...fileRows];
   let added=0,updated=0,equivalent=0,failed=0,firstError='';
   function equivalentLocal(m,remoteId){
@@ -2000,15 +2004,25 @@ async function pull(){
     byLocal.set(copy.id,copy);
     saveRevision(copy.id,row.updated_at);
     if(existing)updated++;else added++;
+    // Mostrar los documentos por tandas en vez de retenerlos hasta el final
+    // de una descarga de cientos de megabytes.
+    if(copy.type==='file'&&(added+updated)%5===0){
+      await refresh();
+      status('Recibiendo archivos de la nube · '+added+' nuevos · '+updated+' actualizados'+
+        (failed?' · '+failed+' errores':''));
+    }
    }catch(error){
     failed++;if(!firstError)firstError=(copy.name||row.id)+': '+error.message;
    }
   }
   if(added||updated)await refresh();
+  const missingFiles=remote.filter(row=>row.metadata?.type==='file'&&!byLocal.get(row.id)?.blob).length;
   status('Nube: '+remote.length+' elementos · recibidos '+added+' · actualizados '+updated+
-    (equivalent?' · duplicados equivalentes omitidos '+equivalent:'')+
+    (missingFiles?' · '+missingFiles+' archivos aún no disponibles':'')+
+    (equivalent?' · equivalentes omitidos '+equivalent:'')+
     (failed?' · errores '+failed+': '+firstError:''));
- }catch(e){status('Error al recibir cambios: '+e.message)}
+  return {added,updated,failed,missingFiles,remoteCount:remote.length,firstError};
+ }catch(e){status('Error al recibir cambios: '+e.message);return {error:'Descarga: '+e.message}}
  finally{syncing=false}
 }
 async function pushExisting(){
@@ -2049,7 +2063,8 @@ async function pushExisting(){
   }
   status('Sincronización: '+saved+' pendientes subidos'+(duplicates?' · equivalentes ya presentes '+duplicates:'')+
     (failed?' · '+failed+' pendientes por error: '+firstError:''));
- }catch(e){status('Error al subir documentos: '+e.message)}
+  return {saved,failed,duplicates,firstError};
+ }catch(e){status('Error al subir documentos: '+e.message);return {error:'Subida: '+e.message}}
  finally{busy=false}
 }
 async function login(signup){const email=$c('cloud-email').value.trim(),password=$c('cloud-password').value;if(!email||!password){status('Escribe tu correo y contraseña.');return}
@@ -2067,9 +2082,20 @@ $c('cloud-sync-now').onclick=async()=>{
   if(!session){status('Inicia sesión con la misma cuenta del computador.');return}
   if(!navigator.onLine){status('No hay conexión a internet. Los archivos locales están conservados.');return}
   status('Sincronizando carpetas, partituras y audios sin ejecutar procesos superpuestos…');
-  await synchronizeAll();
+  const result=await synchronizeAll();
   const local=await allRecords();
-  status('Sincronización terminada · '+local.filter(x=>x.type==='folder').length+' carpetas y '+local.filter(x=>x.type==='file').length+' archivos en este dispositivo. Comprueba si faltan archivos; no se borró nada.');
+  const localCount=local.filter(x=>x.type==='file'&&x.blob).length;
+  const localFolders=local.filter(x=>x.type==='folder').length;
+  const incomplete=result.pull?.error||result.push?.error||result.pull?.failed||result.push?.failed||result.pull?.missingFiles;
+  status((incomplete?'Sincronización incompleta':'Sincronización completada')+
+    ' · '+localFolders+' carpetas y '+localCount+' archivos disponibles en este dispositivo'+
+    (result.pull?.missingFiles?' · faltan por descargar '+result.pull.missingFiles:'')+
+    (result.pull?.failed?' · errores al descargar '+result.pull.failed:'')+
+    (result.push?.failed?' · errores al subir '+result.push.failed:'')+
+    (result.pull?.error?' · '+result.pull.error:'')+
+    (result.push?.error?' · '+result.push.error:'')+
+    (result.pull?.firstError?' · '+result.pull.firstError:'')+
+    (result.push?.firstError?' · '+result.push.firstError:''));
  }catch(error){
   status('Error de sincronización: '+(error?.message||String(error)));
  }finally{
@@ -2083,8 +2109,24 @@ let syncSequence=null;
 async function synchronizeAll(){
  if(syncSequence)return syncSequence;
  syncSequence=(async()=>{
-   await pull();
-   await pushExisting();
+   const received=await pull();
+   const uploaded=await pushExisting();
+   const result={pull:received||{},push:uploaded||{}};
+   const incomplete=result.pull.error||result.push.error||result.pull.failed||result.push.failed||result.pull.missingFiles;
+   if(incomplete){
+    status('Sincronización incompleta'+
+      (result.pull.missingFiles?' · pendientes de descargar: '+result.pull.missingFiles:'')+
+      (result.pull.failed?' · errores de descarga: '+result.pull.failed:'')+
+      (result.push.failed?' · errores de subida: '+result.push.failed:'')+
+      (result.pull.error?' · '+result.pull.error:'')+
+      (result.push.error?' · '+result.push.error:'')+
+      (result.pull.firstError?' · '+result.pull.firstError:'')+
+      (result.push.firstError?' · '+result.push.firstError:''));
+   }else{
+    status('Nube sincronizada · '+(result.pull.remoteCount??0)+' elementos verificados'+
+      ' · '+(result.pull.added??0)+' recibidos · '+(result.push.saved??0)+' subidos');
+   }
+   return result;
  })();
  try{return await syncSequence}
  finally{syncSequence=null}
