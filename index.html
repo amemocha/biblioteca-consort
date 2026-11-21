@@ -201,7 +201,7 @@ input,select,textarea{border-radius:12px!important;background:#fff!important;bor
 <div class="note-editor-bottom"><span class="small" id="note-status">Se guarda en este dispositivo.</span><button id="agenda-note-save" type="button" class="primary">Guardar nota</button></div></dialog>
 <dialog id="note-drawing-dialog" aria-label="Dibujo"><div class="note-editor-top"><strong>Dibujar</strong><button id="note-draw-close" type="button">Cerrar</button></div><div class="flex"><label>Color <input id="note-ink-color" type="color" value="#242424"></label><label>Grosor <input id="note-ink-width" type="range" min="1" max="24" value="4"></label><button type="button" id="note-ink-erase">Borrar trazos</button><button type="button" id="note-ink-clear">Limpiar todo</button></div><canvas id="note-drawing-canvas" width="900" height="450" aria-label="Dibuja con el dedo o mouse"></canvas><button class="primary" id="note-drawing-insert" type="button">Insertar dibujo en nota</button></dialog>
 <dialog id="note-song-dialog" aria-label="Elegir canciones"><div class="note-editor-top"><strong>Agregar canciones</strong><button type="button" id="note-song-close">Cerrar</button></div><input id="note-song-search" placeholder="Buscar canción o partitura…" style="width:100%"><div id="note-song-results" class="note-song-results"></div></dialog>
-<div class="card"><div class="flex"><button id="agenda-export" type="button">Descargar respaldo de agenda</button><label>Importar respaldo <input id="agenda-import" type="file" accept=".json,application/json"></label></div><p class="small">La agenda se guarda en este dispositivo. El calendario y las notas todavía no tienen sincronización entre dispositivos; conserva un respaldo si cambias de equipo.</p></div>
+<div class="card"><div class="flex"><button id="agenda-export" type="button">Descargar respaldo de agenda</button><label>Importar respaldo <input id="agenda-import" type="file" accept=".json,application/json"></label></div><p class="small">La agenda y las notas se sincronizan con tu cuenta; si recibes cambios en otro dispositivo, pulsa «Aplicar ajustes» en Documentos sincronizados.</p></div>
 </section><section class="page" id="tablaturas">
 <h1>Convertir partitura a tablatura</h1>
 <p class="sub">Elige un MusicXML guardado en tu biblioteca, incluso dentro de carpetas o subcarpetas, sin salir de Biblioteca Consorte.</p>
@@ -774,11 +774,12 @@ async function downloadRecord(r){if(r.type==='folder'){alert('Para descargar car
 const scorePrintObjectUrls=[];
 window.addEventListener('pagehide',()=>{for(const u of scorePrintObjectUrls)URL.revokeObjectURL(u)});
 async function printScoreRecord(record){
- const openedWindow=!(record?.blob instanceof Blob)?window.open('','_blank'):null;
  if(record?.scoreId){
   const linked=rec(record.scoreId);
   if(linked?.type==='file')record=linked;
  }
+ const openedWindow=!(record?.blob instanceof Blob)||record?.cloudNeedsDownload
+  ?window.open('','_blank'):null;
  try{record=await window.consorteEnsureCloudFile?.(record)||record}
  catch(error){if(openedWindow)openedWindow.close();alert('No se pudo cargar para imprimir: '+error.message);return}
  if(!record||!(record.blob instanceof Blob)){
@@ -809,7 +810,7 @@ async function printScoreRecord(record){
  try{printWindow.focus()}catch{}
 }
 $('printLibraryScore').onclick=()=>{
- const options=state.records.filter(r=>r.type==='file'&&r.blob instanceof Blob&&(
+ const options=state.records.filter(r=>r.type==='file'&&(r.blob instanceof Blob||r.cloudObjectPath)&&(
  ['pdf','image'].includes(r.kind)||/\.(pdf|png|jpe?g|webp)$/i.test(r.name||'')
  )).sort((a,b)=>a.name.localeCompare(b.name,'es'));
  if(!options.length){alert('Todavía no hay partituras PDF ni imágenes en tu biblioteca. Primero sube una partitura.');return}
@@ -1222,7 +1223,21 @@ $('editorImage').onchange=async e=>{let f=e.target.files[0];if(!f)return;if(f.si
 $('removeDecorations').onclick=()=>{if(confirm('¿Eliminar todas las imágenes decorativas?')){designData.images=[];saveVisual();applyVisual()}};
 applyVisual();
 $('importFolder').onclick=()=>$('folderInput').click();$('folderInput').onchange=async e=>{let files=[...e.target.files];for(const f of files){let parts=(f.webkitRelativePath||f.name).split('/');let parent=null;for(const segment of parts.slice(0,-1)){let existing=state.records.find(r=>r.type==='folder'&&r.parent===parent&&r.name===segment);if(!existing){existing={id:uid(),type:'folder',parent,name:segment,created:Date.now()};await putRecord(existing);state.records.push(existing)}parent=existing.id}await upload([f],parent)}await refresh();e.target.value=''};
-$('export').onclick=async()=>{try{if(!window.JSZip)throw new Error('Compresor ZIP no disponible');let zip=new JSZip();let byId=new Map(state.records.map(r=>[r.id,r]));function path(r){let parts=[safeName(r.name)],node=r,k=0;while(node.parent&&k++<100){node=byId.get(node.parent);if(!node)break;parts.unshift(safeName(node.name))}return parts.join('/')}for(const r of state.records){if(r.type==='folder')zip.folder(path(r));else zip.file(path(r),r.blob)}let blob=await zip.generateAsync({type:'blob',compression:'DEFLATE'});downloadBlob(blob,'Biblioteca_Consorte_Respaldo.zip')}catch(e){alert('No se pudo exportar: '+e.message+'. Comprueba la conexión a internet.')}};
+$('export').onclick=async()=>{try{
+ if(!window.JSZip)throw Error('Compresor ZIP no disponible');
+ const records=state.records,files=records.filter(r=>r.type==='file');
+ if(!confirm('Se descargarán '+files.length+' archivos para crear un respaldo ZIP completo. En un teléfono puede requerir mucho espacio. ¿Continuar?'))return;
+ let zip=new JSZip(),byId=new Map(records.map(r=>[r.id,r]));
+ function path(r){let parts=[safeName(r.name)],node=r,k=0;while(node.parent&&k++<100){node=byId.get(node.parent);if(!node)break;parts.unshift(safeName(node.name))}return parts.join('/')}
+ for(const r of records){
+  if(r.type==='folder'){zip.folder(path(r));continue}
+  const ready=await window.consorteEnsureCloudFile?.(r)||r;
+  if(!(ready.blob instanceof Blob))throw Error('No se encontró en la nube: '+r.name);
+  zip.file(path(r),ready.blob);
+ }
+ downloadBlob(await zip.generateAsync({type:'blob',compression:'DEFLATE'}),'Biblioteca_Consorte_Respaldo.zip');
+ }catch(error){alert('No se pudo crear el respaldo completo: '+error.message)}
+};
 (async()=>{try{db=await openDB();applyDesign();await refresh();await importSharedFiles();notify('Listo para subir archivos.')}catch(e){notify('Error al iniciar el almacenamiento: '+e.message);alert('No se pudo iniciar la biblioteca en este navegador. Intenta abrirla desde un servidor HTTPS o Chrome actualizado.')}})();
 </script><script>/*!
 
@@ -1261,12 +1276,25 @@ window.addEventListener('error',e=>{const t=$x('uploadStatus');if(t)t.textConten
 function selectedPath(r,lookup){let names=[r.name],cur=r,count=0;while(cur.parent&&count++<80){cur=lookup.get(cur.parent);if(!cur)break;names.unshift(cur.name)}return names.join('/')}
 async function getZip(){if(window.JSZip)return window.JSZip;throw Error('El compresor ZIP no está disponible')}
 window.downloadRecord=async function(r){
- if(r.type==='file'){downloadBlob(r.blob,r.name);return}
+ if(r.type==='file'){
+  try{
+   const ready=await window.consorteEnsureCloudFile?.(r)||r;
+   if(!(ready.blob instanceof Blob))throw Error('Archivo no disponible');
+   downloadBlob(ready.blob,ready.name);
+  }catch(error){alert('No se pudo descargar '+r.name+': '+error.message)}
+  return;
+ }
  try{
   let zip=new (await getZip())(),all=state.records,allowed=new Set([r.id]);let changed=true;
   while(changed){changed=false;for(const c of all)if(allowed.has(c.parent)&&!allowed.has(c.id)){allowed.add(c.id);changed=true}}
   const lookup=new Map(all.map(x=>[x.id,x]));
-  for(const v of all.filter(v=>allowed.has(v.id))){const path=selectedPath(v,lookup);if(v.type==='folder')zip.folder(path);else zip.file(path,v.blob)}
+  for(const v of all.filter(v=>allowed.has(v.id))){
+   const path=selectedPath(v,lookup);
+   if(v.type==='folder'){zip.folder(path);continue}
+   const ready=await window.consorteEnsureCloudFile?.(v)||v;
+   if(!(ready.blob instanceof Blob))throw Error('No se encontró en la nube: '+v.name);
+   zip.file(path,ready.blob);
+  }
   const data=await zip.generateAsync({type:'blob',compression:'DEFLATE'});
   downloadBlob(data,r.name+'.zip');
  }catch(e){alert('No fue posible descargar la carpeta: '+e.message)}
@@ -1274,7 +1302,13 @@ window.downloadRecord=async function(r){
 $x('export').onclick=async()=>{
  try{const zip=new (await getZip())(),all=state.records,byId=new Map(all.map(x=>[x.id,x]));
   zip.file('consorte_manifest.json',JSON.stringify({version:1,files:all.map(({id,parent,type,kind,name,instrument,cover,created,song,category,scoreId,tabId,audioId})=>({id,parent,type,kind,name,instrument,cover,created,song,category,scoreId,tabId,audioId}))}));
-  for(const r of all){const name='Biblioteca/'+selectedPath(r,byId);if(r.type==='folder')zip.folder(name);else zip.file(name,r.blob)}
+  for(const r of all){
+   const name='Biblioteca/'+selectedPath(r,byId);
+   if(r.type==='folder'){zip.folder(name);continue}
+   const ready=await window.consorteEnsureCloudFile?.(r)||r;
+   if(!(ready.blob instanceof Blob))throw Error('No se encontró en la nube: '+r.name);
+   zip.file(name,ready.blob);
+  }
   downloadBlob(await zip.generateAsync({type:'blob',compression:'DEFLATE'}),'Biblioteca_Consorte_Respaldo.zip');
  }catch(e){alert('Error al crear respaldo: '+e.message)}
 };
