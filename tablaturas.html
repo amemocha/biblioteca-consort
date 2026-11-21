@@ -315,7 +315,7 @@ function libraryRecords(){
 function refreshTabLibraryFiles(){
  const selector=$('libraryChoice'),old=selector.value;
  const records=libraryRecords(),byId=new Map(records.map(record=>[record.id,record]));
- const eligible=records.filter(record=>record.type==='file'&&/\.(mxl|musicxml|xml)$/i.test(record.name||'')&&record.blob);
+ const eligible=records.filter(record=>record.type==='file'&&/\.(mxl|musicxml|xml)$/i.test(record.name||'')&&(record.blob||record.cloudObjectPath));
  selector.replaceChildren(new Option('Selecciona un archivo guardado...', ''));
  for(const record of eligible.sort((a,b)=>a.name.localeCompare(b.name,'es'))){
   const dirs=[],seen=new Set([record.id]);let folder=record.parent;
@@ -333,7 +333,12 @@ $('file').onchange=()=>{if($('file').files.length)$('libraryChoice').value=''};
 refreshTabLibraryFiles();
 $('convert').onclick=async()=>{try{const selectedId=$('libraryChoice').value;
  const chosen=libraryRecords().find(record=>record.id===selectedId);
- const f=chosen?new File([chosen.blob],chosen.name,{type:chosen.blob.type||'application/octet-stream'}):$('file').files[0];
+ let ready=chosen;
+ if(chosen&&window.parent!==window&&typeof window.parent.consorteEnsureCloudFile==='function'){
+  $('feedback').textContent='Obteniendo MusicXML de tu cuenta…';
+  ready=await window.parent.consorteEnsureCloudFile(chosen);
+ }
+ const f=ready?new File([ready.blob],ready.name,{type:ready.blob.type||'application/octet-stream'}):$('file').files[0];
  if(!f)throw Error('Selecciona un MusicXML guardado en la biblioteca o sube un archivo.');let xml;
 if(/\.pdf$/i.test(f.name)){
  if(f.size>12*1024*1024)throw Error('El PDF debe pesar menos de 12 MB.');
