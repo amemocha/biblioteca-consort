@@ -2147,7 +2147,7 @@ async function pull(){
    (cloudOnly?' · '+cloudOnly+' archivos se descargarán al abrirlos':'')+
    (orphan?' · '+orphan+' elementos sin carpeta original':'')+
    (failed?' · '+failed+' errores: '+firstError:''));
-  return {added,updated,failed,cloudOnly,orphans:orphan,remoteCount:remote.length,firstError,skippedPending};
+  return {added,updated,failed,cloudOnly,orphans:orphan,remoteCount:remote.length,remoteFiles:fileRows.length,remoteFolders:folderRows.length,firstError,skippedPending};
  }catch(error){status('Error al recibir cambios: '+error.message);return {error:'Descarga: '+error.message}}
  finally{syncing=false}
 }
@@ -2213,8 +2213,9 @@ $c('cloud-sync-now').onclick=async()=>{
   const localCount=local.filter(x=>x.type==='file'&&x.blob).length;
   const localFolders=local.filter(x=>x.type==='folder').length;
   const incomplete=result.pull?.error||result.push?.error||result.settings?.error||result.pull?.failed||result.push?.failed;
-  status((incomplete?'Sincronización incompleta':'Sincronización completada')+
-    ' · '+localFolders+' carpetas y '+localCount+' archivos disponibles en este dispositivo'+
+  status((incomplete?'Sincronización incompleta':'Biblioteca de la cuenta actualizada')+
+    ' · '+(result.pull?.remoteFiles??localCount)+' archivos y '+(result.pull?.remoteFolders??localFolders)+' carpetas visibles en la cuenta'+
+    ' · '+localCount+' archivos guardados en este dispositivo'+
     (result.pull?.cloudOnly?' · '+result.pull.cloudOnly+' archivos en nube, se descargarán al abrir':'')+
     (result.pull?.failed?' · errores al descargar '+result.pull.failed:'')+
     (result.push?.failed?' · errores al subir '+result.push.failed:'')+
