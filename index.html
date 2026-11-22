@@ -766,7 +766,7 @@ function renderLibrary(){
  item.append(actions);list.append(item)}}
 $('search').oninput=renderLibrary;$('instrumentFilter').onchange=renderLibrary;$('typeFilter').onchange=renderLibrary;
 async function openRecord(r){if(r?.virtual){consortePushNavigation(consorteCurrentPage(),CONSORT_UNLINKED_FOLDER_ID);state.folder=CONSORT_UNLINKED_FOLDER_ID;$('search').value='';renderLibrary();return}if(r.type==='folder'){consortePushNavigation(consorteCurrentPage(),r.id);state.folder=r.id;$('search').value='';$('instrumentFilter').value='';$('typeFilter').value='';$('songFilter').value='';$('categoryFilter').value='';renderLibrary();return}if(r.scoreId||r.audioId||r.tabId){await openLinkedPiece(r)}else if(r.kind==='audio'||['pdf','image','other'].includes(r.kind)){await openLinkedPiece(r)}else downloadRecord(r)}
-function downloadBlob(blob,name){let url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)}
+function downloadBlob(blob,name){let url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),120000)}
 async function downloadRecord(r){if(r.type==='folder'){alert('Para descargar carpetas, utiliza «Respaldo» → Exportar biblioteca ZIP.');return}try{const ready=await window.consorteEnsureCloudFile?.(r)||r;if(!(ready.blob instanceof Blob))throw Error('Archivo no disponible');downloadBlob(ready.blob,ready.name)}catch(e){alert('No se pudo descargar el archivo: '+e.message)}}
 // Imprimir el archivo original: todas las páginas del PDF, no solo la hoja mostrada en Estudio.
 // Abre inmediatamente una ventana propia y llama a la vista previa nativa de impresión.
@@ -1333,7 +1333,7 @@ $x('export').onclick=async()=>{
     used.add(segment.toLocaleLowerCase('es'));segments.set(item.id,segment);
    }
   }
-  const cachedPaths=new Map();
+  const cachedPaths=new Map(),usedPaths=new Set();
   function pathForBackup(record,seen=new Set()){
    if(cachedPaths.has(record.id))return cachedPaths.get(record.id);
    const name=segments.get(record.id)||safeSegment(record.name);
@@ -1346,6 +1346,14 @@ $x('export').onclick=async()=>{
      ?pathForBackup(parent,seen)+'/'+name
      :'Archivos sin carpeta original/'+name;
    }
+   const basePath=pathname;
+   let counter=2;
+   while(usedPaths.has(pathname.toLocaleLowerCase('es'))){
+    const split=basePath.lastIndexOf('/');
+    const prefix=split<0?'':basePath.slice(0,split+1),base=basePath.slice(split+1);
+    pathname=prefix+uniqueSiblingName(base,counter++,record.type==='folder');
+   }
+   usedPaths.add(pathname.toLocaleLowerCase('es'));
    cachedPaths.set(record.id,pathname);
    return pathname;
   }
@@ -1495,7 +1503,7 @@ $x('backupFile').onchange=async e=>{
   const remap=new Map(obj.files.map(r=>[r.id,uid()]));let imported=0;
   for(const r of obj.files){if(!r||!r.id||!['file','folder'].includes(r.type))continue;
    const parent=r.parent?remap.get(r.parent)||null:null;
-   const entry={id:remap.get(r.id),parent,type:r.type,kind:r.kind||'other',name:safeName(r.name||'Sin nombre'),instrument:r.instrument||'',song:r.song||'',category:r.category||'',scoreId:r.scoreId?remap.get(r.scoreId)||null:null,tabId:r.tabId?remap.get(r.tabId)||null:null,audioId:r.audioId?remap.get(r.audioId)||null:null,cover:r.cover||'',created:r.created||Date.now()};
+   const entry={id:remap.get(r.id),parent,type:r.type,kind:r.kind||'other',name:safeName(r.name||'Sin nombre'),instrument:r.instrument||'',song:r.song||'',category:r.category||'',scoreId:r.scoreId?remap.get(r.scoreId)||null:null,tabId:r.tabId?remap.get(r.tabId)||null:null,audioId:r.audioId?remap.get(r.audioId)||null:null,cover:r.cover||'',pinned:!!r.pinned,size:r.size||null,created:r.created||Date.now()};
    if(r.type==='file'){
     const segments=[],lookup=new Map(obj.files.map(x=>[x.id,x]));let cursor=r,k=0;segments.unshift(r.name);
     while(cursor.parent&&k++<80){cursor=lookup.get(cursor.parent);if(!cursor)break;segments.unshift(cursor.name)}
