@@ -2218,7 +2218,7 @@ async function pull(){
   const remote=await remoteList();
   const current=await allRecords();
   const byLocal=new Map(current.map(item=>[item.id,item]));
-  const versions=readRevisions(),pending=new Set(Object.keys(pendingOperations()));
+  const versions=readRevisions();
   const folderRows=remote.filter(row=>row.metadata?.type==='folder');
   const fileRows=remote.filter(row=>row.metadata?.type!=='folder').sort(
    (a,b)=>Date.parse(b.updated_at||0)-Date.parse(a.updated_at||0)
@@ -2227,7 +2227,7 @@ async function pull(){
   let added=0,updated=0,removed=0,skippedPending=0,failed=0,firstError='';
   for(const row of ordered){
    const original=byLocal.get(row.id);
-   if(pending.has(row.id)){skippedPending++;continue}
+   if(pendingOperations()[row.id]){skippedPending++;continue}
    const remoteStamp=row.updated_at;
    if(row.metadata?.deleted){
     if(original){try{await localDelete(row.id);byLocal.delete(row.id);removed++}
@@ -2275,6 +2275,23 @@ async function pull(){
  }catch(error){status('Error al recibir cambios: '+error.message);return {error:'Descarga: '+error.message}}
  finally{syncing=false}
 }
+async function preserveConflictingFile(item,operation){
+ if(item.type!=='file'||(!(item.blob instanceof Blob)&&!item.cloudObjectPath))return false;
+ const current=pendingOperations()[item.id];
+ if(current&&current.token!==operation?.token)return false;
+ const newId=crypto.randomUUID?crypto.randomUUID():String(Date.now())+'_'+Math.random();
+ const name=String(item.name||'Archivo'),dot=name.lastIndexOf('.');
+ const suffix=' (copia local recuperada)';
+ const recoveredName=dot>0?name.slice(0,dot)+suffix+name.slice(dot):name+suffix;
+ const copy={...item,id:newId,name:recoveredName,created:Date.now(),
+  cloudNeedsDownload:!(item.blob instanceof Blob),cloudObjectPath:
+   item.blob instanceof Blob?null:item.cloudObjectPath};
+ await localPut(copy);
+ queueOperation(newId,'put');
+ completedOperation(item.id,operation?.token||null);
+ await refresh();
+ return true;
+}
 async function pushExisting(){
  if(!session||!db||!navigator.onLine)return {error:'No hay sesión, conexión o biblioteca local'};
  if(busy)return {error:'Ya existe una subida activa'};
@@ -2283,7 +2300,7 @@ async function pushExisting(){
   const local=await allRecords(),remote=await remoteList();
   const remoteMap=new Map(remote.map(row=>[row.id,row]));
   const pending=pendingOperations(),uploaded=marked();
-  let saved=0,deleted=0,failed=0,firstError='';
+  let saved=0,deleted=0,recovered=0,failed=0,firstError='';
   for(const [id,operation] of Object.entries(pending)){
    if(operation.kind!=='delete')continue;
    try{await cloudDelete(id,operation);deleted++}
@@ -2296,13 +2313,20 @@ async function pushExisting(){
    if(remoteMap.has(item.id)&&!operation)continue;
    if(!remoteMap.has(item.id)&&uploaded.has(item.id)&&!operation)continue;
    try{await cloudSave(item,operation);saved++}
-   catch(error){failed++;dirtyAdd(item.id);if(!firstError)firstError=error.message}
+   catch(error){
+    if(error.code==='SYNC_CONFLICT'&&operation?.kind==='put'){
+     try{if(await preserveConflictingFile(item,operation)){recovered++;continue}}
+     catch(recoveryError){console.error('No se pudo proteger la versión local',recoveryError)}
+    }
+    failed++;dirtyAdd(item.id);if(!firstError)firstError=error.message
+   }
   }
   const remaining=Object.keys(pendingOperations()).length;
   status('Sincronización: '+saved+' subidos · '+deleted+' eliminaciones transmitidas'+
+   (recovered?' · '+recovered+' copias locales rescatadas por conflicto':'')+
    (remaining?' · '+remaining+' cambios pendientes':'')+
    (failed?' · '+failed+' errores: '+firstError:''));
-  return {saved,deleted,failed,pending:remaining,firstError};
+  return {saved,deleted,recovered,failed,pending:remaining,firstError};
  }catch(error){status('Error al subir documentos: '+error.message);return {error:'Subida: '+error.message}}
  finally{busy=false}
 }
@@ -2361,7 +2385,7 @@ async function synchronizeAll(){
     status('Sincronización incompleta'+
       (result.pull.cloudOnly?' · '+result.pull.cloudOnly+' en nube para abrir cuando se necesiten':'')+
       (result.pull.failed?' · errores de descarga: '+result.pull.failed:'')+
-      (result.push.failed?' · errores de subida: '+result.push.failed:'')+(result.push.pending?' · pendientes: '+result.push.pending:'')+
+      (result.push.failed?' · errores de subida: '+result.push.failed:'')+(result.push.pending?' · pendientes: '+result.push.pending:'')+(result.push.recovered?' · versiones recuperadas: '+result.push.recovered:'')+
       (result.pull.error?' · '+result.pull.error:'')+
       (result.push.error?' · '+result.push.error:'')+
       (result.settings.error?' · '+result.settings.error:'')+
