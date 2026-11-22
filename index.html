@@ -1287,6 +1287,7 @@ window.downloadRecord=async function(r){
 };
 
 let consorteBackupPlan=null;
+const CONSORTE_EXPORT_LABEL='↓ Exportar biblioteca (ZIP)';
 async function streamZipToSelectedFile(zip,handle,onProgress){
  const writable=await handle.createWritable();
  try{
@@ -1408,7 +1409,7 @@ $x('export').onclick=async()=>{
     if(selected.error?.name==='AbortError'){status('Exportación cancelada.',0);return}
     handle=selected.handle||null;
    }
-   const bytes=files.reduce((n,r)=>n+Math.max(Number(r.blob?.size||r.size||0),0),0);
+   const bytes=files.reduce((n,r)=>n+Math.max(Number(r.blob?.size||r.size||2*1024*1024),0),0);
    // Los móviles no suelen admitir guardar ZIPs de cientos de MB sin quedarse sin memoria.
    const threshold=65*1024*1024;
    const parts=handle?[files]:bytes>threshold?consorteBackupParts(files,45*1024*1024):[files];
@@ -1420,6 +1421,7 @@ $x('export').onclick=async()=>{
     if(!confirm(notice+'\n¿Comenzar la exportación?')){status('Exportación cancelada.',0);return}
    }
    consorteBackupPlan={all,files,folders,paths:filePaths,parts,part:0,handle,sync,
+    completedFiles:0,failedFiles:0,partialParts:0,
     backupId:crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random()};
   }
   const plan=consorteBackupPlan,partNumber=plan.part+1,partsCount=plan.parts.length;
@@ -1471,14 +1473,17 @@ $x('export').onclick=async()=>{
    const suffix=partsCount>1?'_Parte_'+String(partNumber).padStart(2,'0')+'_de_'+String(partsCount).padStart(2,'0'):'';
    downloadBlob(generated,'Biblioteca_Consorte_Respaldo'+suffix+'.zip');
   }
+  plan.completedFiles+=included;
+  plan.failedFiles+=unavailable.length;
+  if(unavailable.length)plan.partialParts++;
   plan.part++;
   if(plan.part===partsCount){
-   status('Respaldo terminado: '+plan.files.length+' archivos en '+partsCount+
+   status('Respaldo terminado: '+plan.completedFiles+' de '+plan.files.length+' archivos en '+partsCount+
     ' ZIP'+(partsCount>1?'s':'')+
     (plan.sync?.push?.pending?' · '+plan.sync.push.pending+' cambios sin subir a la nube':'')+
     '. Comprueba la carpeta de descargas.'+
-    (unavailable.length?' Esta parte está incompleta; revisa ARCHIVOS_NO_INCLUIDOS.txt.':''),100);
-   consorteBackupPlan=null;button.textContent=originalLabel;
+    (plan.failedFiles?' ATENCIÓN: '+plan.failedFiles+' archivos no incluidos; revisa los informes de cada parte.':''),100);
+   consorteBackupPlan=null;button.textContent=CONSORTE_EXPORT_LABEL;
   }else{
    status('Descargada parte '+partNumber+' de '+partsCount+'. Pulsa «Descargar parte '+
     (partNumber+1)+'» para continuar.',100);
@@ -1490,7 +1495,7 @@ $x('export').onclick=async()=>{
    (consorteBackupPlan?' Puedes pulsar de nuevo para reintentar esta parte.':''));
  }finally{
   button.disabled=false;
-  if(!consorteBackupPlan)button.textContent=originalLabel;
+  if(!consorteBackupPlan)button.textContent=CONSORTE_EXPORT_LABEL;
  }
 };
 
