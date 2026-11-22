@@ -106,8 +106,6 @@ body:has(#consorteEditDock.active) #resizeHandle{z-index:11999!important;bottom:
 </style><!-- El antiguo tema violeta fue sustituido por Paleta 1. --><style id="consort-deep-purple-folders">
 .folder-circle{background:#eee6ff!important;border-color:#d5c4f6!important;box-shadow:inset 0 0 0 2px #f8f5ff!important}
 .folder-circle::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='24' viewBox='0 0 28 24'%3E%3Cpath d='M3 6V4.5Q3 3 4.5 3H11l3 3h9.5Q25 6 25 7.5v12Q25 21 23.5 21h-19Q3 21 3 19.5Z' fill='%237a3ec2' stroke='%235b2da2' stroke-width='1.8' stroke-linejoin='round'/%3E%3C/svg%3E")!important}
-</style><style>
-.consorte-pinned-icon{display:inline-block;margin-right:7px;font-size:17px;line-height:1;filter:grayscale(1) sepia(1) saturate(8) hue-rotate(215deg);vertical-align:middle}
 </style>
 <link rel="stylesheet" href="./consorte-audio-sincronizado.css?v=20261122c">
 <style id="consort-unified-score-tab-viewer">
@@ -706,7 +704,7 @@ function renderLibrary(){
    const button=createButton(label,()=>{menu.open=false;action()},isDanger?'danger':'');
    button.type='button';options.append(button);
  }
- option(r.pinned?'📌 Desfijar':'📌 Fijar al principio',async()=>{try{await putRecord({...r,pinned:!r.pinned});await refresh()}catch(error){alert('No se pudo cambiar la fijación: '+error.message)}});
+ option(r.pinned?'Desfijar':'Fijar al principio',async()=>{try{await putRecord({...r,pinned:!r.pinned});await refresh()}catch(error){alert('No se pudo cambiar la fijación: '+error.message)}});
  option('✎ Editar',()=>editRecord(r));
  option('↪ Mover a carpeta',()=>moveRecordToFolder(r));
  if(r.type==='file'&&r.parent!=null)option('↑ Sacar de carpeta',()=>takeFileOutOfFolder(r));
