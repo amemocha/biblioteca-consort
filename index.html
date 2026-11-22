@@ -223,7 +223,7 @@ input,select,textarea{border-radius:12px!important;background:#fff!important;bor
 <p class="small">Arrastra la imagen para moverla por la pantalla (también puedes hacerlo con el dedo). Toca dos veces para eliminarla.</p>
 <div class="flex"><button id="removeDecorations">Eliminar imágenes añadidas</button><button class="primary" id="closeVisualEditor">Guardar y cerrar editor</button></div>
 </div></div></div></section>
-<section class="page" id="backup"><h1>Respaldo y datos</h1><div class="card"><h2>Protege tu repertorio</h2><p>Esta versión guarda los archivos en el navegador del dispositivo con IndexedDB. No están en Google Drive ni se sincronizan automáticamente. Si borras los datos del navegador puedes perder la biblioteca.</p><button class="primary" id="export">↓ Exportar biblioteca (ZIP)</button><p class="small">El ZIP incluirá los archivos y sus carpetas organizadas. Requiere internet para cargar el generador ZIP.</p><button id="importFolder">Subir carpeta del computador</button><button id="restoreBackup">↥ Restaurar respaldo ZIP</button><button class="primary" id="importConsorteZip" type="button">Importar ZIP de partituras y audios (organizar por canción)</button><input type="file" id="consorteZipFile" class="hidden" accept=".zip,application/zip"><p id="consorteZipStatus" class="small" role="status"></p><input id="backupFile" class="hidden" type="file" accept=".zip,application/zip"><input type="file" id="folderInput" class="hidden" webkitdirectory directory multiple></div></section>
+<section class="page" id="backup"><h1>Respaldo y datos</h1><div class="card"><h2>Protege tu repertorio</h2><p>Los archivos se guardan en este dispositivo y se sincronizan con tu cuenta de Biblioteca Consort al iniciar sesión. Exporta un ZIP para conservar una copia independiente. No borres los datos del navegador si quedan cambios pendientes de subir.</p><button class="primary" id="export" type="button">↓ Exportar biblioteca (ZIP)</button><p id="consorte-export-status" class="small" role="status" aria-live="polite">El ZIP incluye los archivos y carpetas del repertorio; las copias de la nube se descargarán si es necesario.</p><progress id="consorte-export-progress" max="100" value="0" hidden style="width:100%;height:13px;margin:5px 0"></progress><button id="importFolder">Subir carpeta del computador</button><button id="restoreBackup">↥ Restaurar respaldo ZIP</button><button class="primary" id="importConsorteZip" type="button">Importar ZIP de partituras y audios (organizar por canción)</button><input type="file" id="consorteZipFile" class="hidden" accept=".zip,application/zip"><p id="consorteZipStatus" class="small" role="status"></p><input id="backupFile" class="hidden" type="file" accept=".zip,application/zip"><input type="file" id="folderInput" class="hidden" webkitdirectory directory multiple></div></section>
 </div></main></div><nav class="bottomnav"><button data-page="library" class="active">▦<br>Biblioteca</button><button data-page="study">♫<br>Estudio</button><button data-page="custom"><br>Diseño</button><button data-page="planner">Agenda<br>y notas</button><button data-page="backup">⇩<br>Respaldo</button></nav>
 <div id="consorteEditDock" aria-label="Editor de diseño global">
 <div class="dockNav" role="navigation" aria-label="Cambiar sección mientras editas">
@@ -1223,21 +1223,7 @@ $('editorImage').onchange=async e=>{let f=e.target.files[0];if(!f)return;if(f.si
 $('removeDecorations').onclick=()=>{if(confirm('¿Eliminar todas las imágenes decorativas?')){designData.images=[];saveVisual();applyVisual()}};
 applyVisual();
 $('importFolder').onclick=()=>$('folderInput').click();$('folderInput').onchange=async e=>{let files=[...e.target.files];for(const f of files){let parts=(f.webkitRelativePath||f.name).split('/');let parent=null;for(const segment of parts.slice(0,-1)){let existing=state.records.find(r=>r.type==='folder'&&r.parent===parent&&r.name===segment);if(!existing){existing={id:uid(),type:'folder',parent,name:segment,created:Date.now()};await putRecord(existing);state.records.push(existing)}parent=existing.id}await upload([f],parent)}await refresh();e.target.value=''};
-$('export').onclick=async()=>{try{
- if(!window.JSZip)throw Error('Compresor ZIP no disponible');
- const records=state.records,files=records.filter(r=>r.type==='file');
- if(!confirm('Se descargarán '+files.length+' archivos para crear un respaldo ZIP completo. En un teléfono puede requerir mucho espacio. ¿Continuar?'))return;
- let zip=new JSZip(),byId=new Map(records.map(r=>[r.id,r]));
- function path(r){let parts=[safeName(r.name)],node=r,k=0;while(node.parent&&k++<100){node=byId.get(node.parent);if(!node)break;parts.unshift(safeName(node.name))}return parts.join('/')}
- for(const r of records){
-  if(r.type==='folder'){zip.folder(path(r));continue}
-  const ready=await window.consorteEnsureCloudFile?.(r)||r;
-  if(!(ready.blob instanceof Blob))throw Error('No se encontró en la nube: '+r.name);
-  zip.file(path(r),ready.blob);
- }
- downloadBlob(await zip.generateAsync({type:'blob',compression:'DEFLATE'}),'Biblioteca_Consorte_Respaldo.zip');
- }catch(error){alert('No se pudo crear el respaldo completo: '+error.message)}
-};
+// El exportador ZIP completo se registra después de cargar JSZip (consorte-patches).
 (async()=>{try{db=await openDB();applyDesign();await refresh();await importSharedFiles();notify('Listo para subir archivos.')}catch(e){notify('Error al iniciar el almacenamiento: '+e.message);alert('No se pudo iniciar la biblioteca en este navegador. Intenta abrirla desde un servidor HTTPS o Chrome actualizado.')}})();
 </script><script>/*!
 
@@ -1300,17 +1286,129 @@ window.downloadRecord=async function(r){
  }catch(e){alert('No fue posible descargar la carpeta: '+e.message)}
 };
 $x('export').onclick=async()=>{
- try{const zip=new (await getZip())(),all=state.records,byId=new Map(all.map(x=>[x.id,x]));
-  zip.file('consorte_manifest.json',JSON.stringify({version:1,files:all.map(({id,parent,type,kind,name,instrument,cover,created,song,category,scoreId,tabId,audioId})=>({id,parent,type,kind,name,instrument,cover,created,song,category,scoreId,tabId,audioId}))}));
-  for(const r of all){
-   const name='Biblioteca/'+selectedPath(r,byId);
-   if(r.type==='folder'){zip.folder(name);continue}
-   const ready=await window.consorteEnsureCloudFile?.(r)||r;
-   if(!(ready.blob instanceof Blob))throw Error('No se encontró en la nube: '+r.name);
-   zip.file(name,ready.blob);
+ const button=$x('export'),display=$x('consorte-export-status'),progress=$x('consorte-export-progress');
+ if(button.disabled)return;
+ const zipName='Biblioteca_Consorte_Respaldo.zip';
+ const status=(message,value)=>{
+  display.textContent=message;
+  if(Number.isFinite(value)){progress.hidden=false;progress.value=Math.max(0,Math.min(100,value))}
+ };
+ // Los permisos de guardar archivos y la generación del ZIP nunca modifican la biblioteca.
+ let succeeded=false;
+ button.disabled=true;const originalLabel=button.textContent;
+ button.textContent='Preparando respaldo…';progress.hidden=false;progress.value=0;
+ try{
+  const JSZipClass=await getZip();
+  if(!JSZipClass.support.blob)throw Error('Este navegador no permite crear archivos ZIP; prueba con Chrome o Firefox actualizado.');
+  status('Comprobando los archivos de la biblioteca…',1);
+  const sync=await window.consortePrepareCloudBackup?.();
+  const all=await allRecords(),files=all.filter(r=>r.type==='file');
+  if(!all.length)throw Error('La biblioteca está vacía; no hay archivos que exportar.');
+  if(!confirm('Crear respaldo ZIP de '+files.length+' archivos y '+(all.length-files.length)+
+    ' carpetas. Se descargarán los documentos que solo estén en la nube. ¿Continuar?')){
+    status('Exportación cancelada.',0);return;
   }
-  downloadBlob(await zip.generateAsync({type:'blob',compression:'DEFLATE'}),'Biblioteca_Consorte_Respaldo.zip');
- }catch(e){alert('Error al crear respaldo: '+e.message)}
+  const byId=new Map(all.map(r=>[r.id,r]));
+  const siblings=new Map();
+  for(const item of all){
+   const key=item.parent??'__raiz__';
+   if(!siblings.has(key))siblings.set(key,[]);
+   siblings.get(key).push(item);
+  }
+  const segments=new Map();
+  const safeSegment=name=>String(name||'Sin nombre')
+   .replace(/[/\\\u0000-\u001f\u007f]/g,'_').replace(/^\.+$/,'_').trim().slice(0,180)||'Sin nombre';
+  function uniqueSiblingName(name,n,folder){
+   const dot=!folder?name.lastIndexOf('.'):-1;
+   return dot>0?name.slice(0,dot)+' ('+n+')'+name.slice(dot):name+' ('+n+')';
+  }
+  for(const group of siblings.values()){
+   const used=new Set();
+   group.sort((a,b)=>String(a.id).localeCompare(String(b.id)));
+   for(const item of group){
+    const base=safeSegment(item.name);let segment=base,number=2;
+    while(used.has(segment.toLocaleLowerCase('es'))){
+     segment=uniqueSiblingName(base,number++,item.type==='folder');
+    }
+    used.add(segment.toLocaleLowerCase('es'));segments.set(item.id,segment);
+   }
+  }
+  const cachedPaths=new Map();
+  function pathForBackup(record,seen=new Set()){
+   if(cachedPaths.has(record.id))return cachedPaths.get(record.id);
+   const name=segments.get(record.id)||safeSegment(record.name);
+   if(seen.has(record.id))return 'Archivos sin carpeta original/'+name;
+   seen.add(record.id);
+   let pathname=name;
+   if(record.parent){
+    const parent=byId.get(record.parent);
+    pathname=parent?.type==='folder'
+     ?pathForBackup(parent,seen)+'/'+name
+     :'Archivos sin carpeta original/'+name;
+   }
+   cachedPaths.set(record.id,pathname);
+   return pathname;
+  }
+  const zip=new JSZipClass(),manifestFiles=[],unavailable=[];
+  for(const folder of all.filter(r=>r.type==='folder')){
+   const archivePath=pathForBackup(folder);
+   zip.folder('Biblioteca/'+archivePath);
+   manifestFiles.push({...backupMeta(folder),archivePath});
+  }
+  let included=0;
+  for(let i=0;i<files.length;i++){
+   const file=files[i],archivePath=pathForBackup(file);
+   status('Preparando '+(i+1)+' de '+files.length+': '+file.name,
+    5+Math.floor((i/Math.max(1,files.length))*65));
+   try{
+    const blob=await (window.consorteReadFileForBackup?.(file)||Promise.resolve(file.blob));
+    if(!(blob instanceof Blob))throw Error('No se pudo obtener su contenido');
+    zip.file('Biblioteca/'+archivePath,blob,{binary:true,compression:'STORE'});
+    manifestFiles.push({...backupMeta(file),archivePath});included++;
+   }catch(error){
+    unavailable.push(file.name+' · '+(error?.message||String(error)));
+   }
+  }
+  if(unavailable.length){
+   if(included===0)throw Error('No se pudo descargar ninguno de los '+files.length+' archivos. '+unavailable[0]);
+   if(!confirm('ATENCIÓN: '+unavailable.length+' de '+files.length+
+      ' archivos no se pudieron incluir. ¿Descargar un ZIP PARCIAL con '+
+      included+' archivos y un informe de los que faltan?')){
+    status('Respaldo incompleto cancelado. '+unavailable.length+' archivos pendientes.',0);
+    return;
+   }
+   zip.file('ARCHIVOS_NO_INCLUIDOS.txt',
+     'RESPALDO PARCIAL DE BIBLIOTECA CONSORT\nNo es una copia completa.\n\n'+unavailable.join('\n')+'\n');
+  }
+  function backupMeta(r){
+   const {id,parent,type,kind,name,instrument,cover,created,song,category,scoreId,tabId,audioId,pinned,size}=r;
+   return {id,parent,type,kind,name,instrument,cover,created,song,category,scoreId,tabId,audioId,pinned,size};
+  }
+  zip.file('consorte_manifest.json',JSON.stringify({
+    version:2,exportedAt:new Date().toISOString(),complete:unavailable.length===0,
+    fileCount:included,folderCount:all.length-files.length,files:manifestFiles
+  },null,2));
+  status('Creando el ZIP: '+included+' archivos…',70);
+  let lastPercent=-1;
+  const result=await zip.generateAsync({type:'blob',compression:'STORE',streamFiles:true},meta=>{
+   const percent=Math.max(0,Math.min(100,Math.round(meta.percent||0)));
+   if(percent!==lastPercent){lastPercent=percent;progress.value=70+percent*.30;
+    display.textContent='Comprimiendo el respaldo… '+percent+' %'}
+  });
+  if(!result.size)throw Error('El ZIP generado está vacío');
+  downloadBlob(result,zipName);
+  succeeded=true;
+  status('ZIP generado: '+included+' archivos y '+(all.length-files.length)+' carpetas'+
+   (unavailable.length?' · RESPALDO PARCIAL: '+unavailable.length+' archivos no incluidos':'')+
+   (sync?.push?.pending?' · '+sync.push.pending+' cambios pendientes en la nube':'')+
+   '. Revisa las descargas de tu navegador.',100);
+ }catch(error){
+  status('Error al exportar: '+(error?.message||String(error)),0);
+  alert('No se pudo exportar la biblioteca: '+(error?.message||String(error)));
+ }finally{
+  button.disabled=false;button.textContent=originalLabel;
+  if(!succeeded&&progress.value===100)progress.value=0;
+ }
 };
 
 const zipStatus=msg=>{$x('consorteZipStatus').textContent=msg;};
@@ -1401,7 +1499,7 @@ $x('backupFile').onchange=async e=>{
    if(r.type==='file'){
     const segments=[],lookup=new Map(obj.files.map(x=>[x.id,x]));let cursor=r,k=0;segments.unshift(r.name);
     while(cursor.parent&&k++<80){cursor=lookup.get(cursor.parent);if(!cursor)break;segments.unshift(cursor.name)}
-    const f=z.file('Biblioteca/'+segments.join('/'));if(!f)continue;entry.blob=new Blob([await f.async('arraybuffer')]);
+    const f=z.file('Biblioteca/'+(r.archivePath||segments.join('/')));if(!f)continue;entry.blob=new Blob([await f.async('arraybuffer')]);
    }
    await putRecord(entry);imported++;
   }
@@ -2120,6 +2218,34 @@ async function ensureCloudFile(record){
  try{return await task}finally{cloudFetchInFlight.delete(mostRecent.id)}
 }
 window.consorteEnsureCloudFile=ensureCloudFile;
+// Lectura temporal para respaldos: evita agotar IndexedDB guardando cientos de
+// archivos descargados solo para construir un ZIP en un teléfono.
+window.consorteReadFileForBackup=async function(record){
+ if(!record||record.type!=='file')throw Error('No es un archivo');
+ const fresh=state.records.find(x=>x.id===record.id)||record;
+ if(fresh.blob instanceof Blob&&!fresh.cloudNeedsDownload)return fresh.blob;
+ if(!session){
+  if(fresh.blob instanceof Blob)return fresh.blob;
+  throw Error('Debes iniciar sesión para descargar '+fresh.name+' desde la nube');
+ }
+ let objectPath=fresh.cloudObjectPath;
+ if(!objectPath){
+  const r=await api('/rest/v1/consorte_sync_items?select=object_path&id=eq.'+encodeURIComponent(fresh.id)+'&limit=1');
+  objectPath=(await r.json())[0]?.object_path;
+ }
+ if(!objectPath){
+  if(fresh.blob instanceof Blob)return fresh.blob;
+  throw Error('No existe una ruta de descarga para '+fresh.name);
+ }
+ const answer=await api('/storage/v1/object/'+BUCKET+'/'+objectPath);
+ const blob=await answer.blob();
+ if(blob.size===0&&Number(fresh.size)>0)throw Error('La nube devolvió un archivo vacío: '+fresh.name);
+ return blob;
+};
+window.consortePrepareCloudBackup=async function(){
+ if(session?.access_token&&navigator.onLine)return synchronizeAll();
+ return {offline:!navigator.onLine,notSignedIn:!session};
+};
 
 // Ajustes de la cuenta compartidos entre computador, celular y tablet.
 // No contienen contraseñas ni tokens; cada fila está protegida con RLS.
