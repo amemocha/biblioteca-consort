@@ -38,3 +38,20 @@
 #study>.cp-top-audio .consorte-player-plus{margin:10px 0}
 #study>.cp-top-audio .cp-meter-card{position:static!important;bottom:auto!important;z-index:auto!important}
 @media(max-width:850px){#study>.cp-top-audio{position:relative!important;bottom:auto!important;padding:10px!important;margin:10px 0 15px!important}#study>.cp-top-audio .consorte-player-plus{padding:14px!important}}
+
+
+/* Professional player palette aligned with Biblioteca Consort. */
+#study .consorte-player-plus{background:#172b46!important;color:#fff!important;border-radius:14px;box-shadow:0 6px 22px #172b4619;border:1px solid #284563}
+#study .consorte-player-plus button{background:#ffffff16!important;border:1px solid #ffffff38!important;color:#fff!important;border-radius:10px!important}
+#study .consorte-player-plus button:hover{background:#ffffff2b!important}
+#study .consorte-player-plus .cp-play{background:#2563eb!important;color:#fff!important;border:1px solid #3b82f6!important;border-radius:13px!important;box-shadow:0 5px 13px #081e3c40}
+#study .cp-disc{background:#2563eb!important;color:#fff!important;border-radius:13px!important}
+#study .cp-row input,#study .cp-timeline input{accent-color:#60a5fa!important}
+#study .cp-meter-card{background:#f8fbff!important;border-color:#dae5f2!important}
+#study .cp-meter-card h2{color:#243e5e!important}
+#study .cp-meter-card .cp-meter-info{color:#496078!important}
+#study .cp-beat-indicator .cp-beat-lit{color:#2563eb!important}
+#study .cp-meter-card #metronome.cp-click-on{background:#2563eb!important;color:#fff!important}
+#study>.cp-top-audio{background:#fff!important;border:1px solid #dce5ef!important;box-shadow:0 5px 22px #172b4610!important;max-width:1200px}
+#study>.cp-top-audio>h2{color:#172b46!important}
+#study .cp-speed-shortcuts button{border-radius:9px!important}
