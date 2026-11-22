@@ -27,6 +27,8 @@ panel.innerHTML=[
 '<div class="ce-status" id="ce-status" role="status" aria-live="polite"></div>'
 ].join('');
 host.append(panel);
+const playerUI=document.getElementById('consorte-player-plus');
+if(playerUI)playerUI.after(toggle,panel);
 const el=id=>panel.querySelector('#'+id);
 const canvas=el('ce-wave');
 let original=null,working=null,record=null,dirty=false,busy=false,undo=null,previewUrl=null,markData=[];
@@ -103,7 +105,7 @@ async function edit(fn,msg,move){if(!working||busy)return;try{
  syncSliders();await refreshPreview();status(msg)
  }catch(e){status('Error al editar: '+e.message)}finally{busy=false}}
 el('ce-cut').onclick=()=>{const a=start,b=end;edit(buf=>sliceBuffer(buf,a,b),'Se conservó el tramo seleccionado.',t=>t-a)};
-el('ce-remove').onclick=()=>{const a=start,b=end;edit(buf=>{if(b-a>=buf.duration)throw Error('No puedes eliminar todo el audio');return joinBuffers(sliceBuffer(buf,0,a),sliceBuffer(buf,b,buf.duration))},'Tramo eliminado.',t=>t>=b?t-(b-a):t>=a?-1:t)};
+el('ce-remove').onclick=()=>{const a=start,b=end;edit(buf=>{if(b-a>=buf.duration)throw Error('No puedes eliminar todo el audio');if(a<=0)return sliceBuffer(buf,b,buf.duration);if(b>=buf.duration)return sliceBuffer(buf,0,a);return joinBuffers(sliceBuffer(buf,0,a),sliceBuffer(buf,b,buf.duration))},'Tramo eliminado.',t=>t>=b?t-(b-a):t>=a?-1:t)};
 el('ce-silence').onclick=()=>{const a=start,b=end;edit(buf=>{const out=copyBuffer(buf);for(let c=0;c<out.numberOfChannels;c++)out.getChannelData(c).fill(0,Math.floor(a*out.sampleRate),Math.ceil(b*out.sampleRate));return out},'Tramo silenciado.')};
 el('ce-fade').onclick=()=>{const a=start,b=end;edit(buf=>{const out=copyBuffer(buf),i0=Math.floor(a*out.sampleRate),i1=Math.ceil(b*out.sampleRate),len=i1-i0;for(let c=0;c<out.numberOfChannels;c++){const d=out.getChannelData(c);for(let i=i0;i<i1;i++){const x=(i-i0)/Math.max(1,len-1);d[i]*=Math.min(1,4*x,4*(1-x))}}return out},'Fundido de entrada y salida aplicado.')};
 el('ce-normalize').onclick=()=>edit(buf=>{const out=copyBuffer(buf);let max=0;for(let c=0;c<out.numberOfChannels;c++)for(const v of out.getChannelData(c))max=Math.max(max,Math.abs(v));if(max>0)for(let c=0;c<out.numberOfChannels;c++){const d=out.getChannelData(c);for(let i=0;i<d.length;i++)d[i]*=.95/max}return out},'Volumen normalizado.');
