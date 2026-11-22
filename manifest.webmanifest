@@ -2,21 +2,21 @@
   "name": "Biblioteca Consorte",
   "short_name": "Consorte",
   "description": "Biblioteca de partituras y audios de la orquesta",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f4f7fb",
   "theme_color": "#172b46",
   "icons": [
     {
-      "src": "/consorte-icon.svg",
+      "src": "./consorte-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
     }
   ],
   "share_target": {
-    "action": "/share-target",
+    "action": "./share-target",
     "method": "POST",
     "enctype": "multipart/form-data",
     "params": {
