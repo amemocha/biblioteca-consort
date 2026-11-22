@@ -1929,7 +1929,10 @@ async function cloudSave(r){if(!session||suppress)return;
  const meta={id:r.id,parent:r.parent??null,type:r.type,kind:r.kind||'',name:r.name||'',instrument:r.instrument||'',song:r.song||'',category:r.category||'',cover:r.cover||'',pinned:!!r.pinned,scoreId:r.scoreId||null,tabId:r.tabId||null,audioId:r.audioId||null,created:r.created||Date.now(),size:r.type==='file'?(r.blob?.size??r.size??null):null};
  let object_path=previous?.object_path||null;
  if(r.type==='file'&&r.blob){
-   object_path=previous?.object_path||pathFor(r);
+   // Una actualización nunca debe reutilizar una ruta antigua con Unicode o %.
+   // Escribir en ruta segura y cambiar la referencia solo tras la subida correcta.
+   // La antigua copia de Storage permanece intacta como respaldo.
+   object_path=pathFor(r);
    await api('/storage/v1/object/'+BUCKET+'/'+object_path,{method:'POST',headers:{'Content-Type':mimeFor(r),'x-upsert':'true'},body:r.blob});
  }
  const updated_at=new Date().toISOString();
