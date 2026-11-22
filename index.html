@@ -1889,7 +1889,16 @@ const dirtyKey=()=>session?.user?.id?'consorte_pending_uploads_'+session.user.id
 function readSet(key){try{return new Set(JSON.parse(localStorage.getItem(key)||'[]'))}catch{return new Set()}}
 function writeSet(key,set){try{if(key)localStorage.setItem(key,JSON.stringify([...set]))}catch{}}
 function readRevisions(){try{return JSON.parse(localStorage.getItem(revisionKey())||'{}')}catch{return {}}}
-function saveRevision(id,stamp){if(!revisionKey())return;const versions=readRevisions();versions[id]=stamp;try{localStorage.setItem(revisionKey(),JSON.stringify(versions))}catch{}}
+const revisionTokenKey=()=>session?.user?.id?'consorte_remote_tokens_v3_'+session.user.id:null;
+function readRevisionTokens(){try{return JSON.parse(localStorage.getItem(revisionTokenKey())||'{}')}catch{return {}}}
+function saveRevision(id,stamp,revision){
+ if(!revisionKey())return;
+ const versions=readRevisions();versions[id]=stamp;
+ const tokens=readRevisionTokens();
+ if(revision)tokens[id]=revision;else delete tokens[id];
+ try{localStorage.setItem(revisionKey(),JSON.stringify(versions));
+  localStorage.setItem(revisionTokenKey(),JSON.stringify(tokens))}catch{}
+}
 function dirtyAdd(id){const xs=readSet(dirtyKey());xs.add(id);writeSet(dirtyKey(),xs)}
 
 function dirtyRemove(id){const xs=readSet(dirtyKey());xs.delete(id);writeSet(dirtyKey(),xs)}
@@ -1904,7 +1913,7 @@ function saveOperations(rows,key=operationKey()){
 }
 function pendingOperations(){
  const ops=readOperations();
- if(session)for(const id of readSet(dirtyKey()))if(!ops[id])ops[id]={kind:'put',base:readRevisions()[id]||null,token:'anterior-'+id};
+ if(session)for(const id of readSet(dirtyKey()))if(!ops[id])ops[id]={kind:'put',base:readRevisions()[id]||null,baseRev:readRevisionTokens()[id]||null,token:'anterior-'+id};
  return ops;
 }
 function adoptUnboundOperations(){
@@ -1912,7 +1921,7 @@ function adoptUnboundOperations(){
  const unbound=readOperations(UNBOUND_QUEUE);
  if(!Object.keys(unbound).length)return;
  const current=readOperations();
- for(const [id,item] of Object.entries(unbound))if(!current[id])current[id]={...item,base:item.base||readRevisions()[id]||null};
+ for(const [id,item] of Object.entries(unbound))if(!current[id])current[id]={...item,base:item.base||readRevisions()[id]||null,baseRev:item.baseRev||readRevisionTokens()[id]||null};
  saveOperations(current);localStorage.removeItem(UNBOUND_QUEUE);
 }
 let queuedSyncTimer=null,needsResync=false;
@@ -1925,24 +1934,25 @@ function queueCloudSync(){
 function queueOperation(id,kind,previous){
  const ops=readOperations(),initial=ops[id];
  const base=initial?.base??(session?readRevisions()[id]||null:null);
+ const baseRev=initial?.baseRev??(session?readRevisionTokens()[id]||null:null);
  const token=crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random();
- ops[id]={kind,base,token,at:Date.now(),...(kind==='delete'?{meta:previous?{
+ ops[id]={kind,base,baseRev,token,at:Date.now(),...(kind==='delete'?{meta:previous?{
   id,name:previous.name||'',type:previous.type||'file',parent:previous.parent??null}:null}:{})};
  saveOperations(ops);
  if(session)dirtyAdd(id);
  queueCloudSync();
  return ops[id];
 }
-function completedOperation(id,token,stamp){
+function completedOperation(id,token,stamp,revision){
  const ops=readOperations(),current=ops[id];
  // El usuario pudo realizar otro cambio mientras el anterior estaba subiendo.
  // La operación nueva debe conservarse y partir de la versión recién confirmada.
  if(current&&current.token!==token){
-  if(stamp){current.base=stamp;ops[id]=current;saveOperations(ops);saveRevision(id,stamp)}
+  if(stamp){current.base=stamp;current.baseRev=revision||null;ops[id]=current;saveOperations(ops);saveRevision(id,stamp,revision)}
   return false;
  }
  delete ops[id];saveOperations(ops);
- if(session){dirtyRemove(id);mark(id);if(stamp)saveRevision(id,stamp)}
+ if(session){dirtyRemove(id);mark(id);if(stamp)saveRevision(id,stamp,revision)}
  return true;
 }
 
@@ -1976,14 +1986,17 @@ async function cloudSave(r,operation=pendingOperations()[r.id]){
   {headers:{Accept:'application/json'}});
  const existing=(await res.json())[0]||null;
  const base=operation?.base??readRevisions()[r.id]??null;
- if(existing&&(!base||Date.parse(base)!==Date.parse(existing.updated_at))){
+ const baseRev=operation?.baseRev??readRevisionTokens()[r.id]??null;
+ if(existing&&(!base||Date.parse(base)!==Date.parse(existing.updated_at)||
+    (baseRev&&baseRev!==existing.metadata?.sync_rev))){
   const e=new Error('Otra versión cambió en otro dispositivo: '+(r.name||r.id)+'. Se conserva tu copia local.');
   e.code='SYNC_CONFLICT';throw e;
  }
- const meta={id:r.id,parent:r.parent??null,type:r.type,kind:r.kind||'',name:r.name||'',
+ const newRev=crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random();
+ const meta={id:r.id,sync_rev:newRev,parent:r.parent??null,type:r.type,kind:r.kind||'',name:r.name||'',
   instrument:r.instrument||'',song:r.song||'',category:r.category||'',cover:r.cover||'',
   pinned:!!r.pinned,scoreId:r.scoreId||null,tabId:r.tabId||null,audioId:r.audioId||null,
-  created:r.created||Date.now(),size:r.type==='file'?(r.blob?.size??r.size??null):null};
+  created:r.created||Date.now(),size:r.type==='file'?(r.cloudNeedsDownload?(existing?.metadata?.size??r.size??null):(r.blob?.size??r.size??null)):null};
  let object_path=existing?.object_path||r.cloudObjectPath||null;
  if(r.type==='file'){
   if(r.blob instanceof Blob&&!r.cloudNeedsDownload&&(!existing||!object_path||
@@ -2003,7 +2016,8 @@ async function cloudSave(r,operation=pendingOperations()[r.id]){
  let write;
  if(existing){
   const url='/rest/v1/consorte_sync_items?id=eq.'+encodeURIComponent(r.id)+
-   '&updated_at=eq.'+encodeURIComponent(existing.updated_at);
+   '&updated_at=eq.'+encodeURIComponent(existing.updated_at)+
+   '&metadata->>sync_rev='+(existing.metadata?.sync_rev?'eq.'+encodeURIComponent(existing.metadata.sync_rev):'is.null');
   write=await api(url,{method:'PATCH',headers:{'Content-Type':'application/json','Prefer':'return=representation'},
    body:JSON.stringify(body)});
  }else{
@@ -2017,7 +2031,7 @@ async function cloudSave(r,operation=pendingOperations()[r.id]){
   const e=new Error('El archivo cambió durante la subida: '+r.name+'. La copia externa no fue sobrescrita.');
   e.code='SYNC_CONFLICT';throw e;
  }
- completedOperation(r.id,token,saved[0].updated_at||updated_at);
+ completedOperation(r.id,token,saved[0].updated_at||updated_at,saved[0].metadata?.sync_rev||newRev);
 }
 putRecord=async function(r){
  await localPut(r);
@@ -2036,21 +2050,24 @@ async function cloudDelete(id,operation){
  const res=await api('/rest/v1/consorte_sync_items?select=id,updated_at,metadata,object_path&id=eq.'+encodeURIComponent(id)+'&limit=1');
  const remote=(await res.json())[0]||null;
  if(!remote){completedOperation(id,token);return}
- if(remote.metadata?.deleted){completedOperation(id,token,remote.updated_at);return}
+ if(remote.metadata?.deleted){completedOperation(id,token,remote.updated_at,remote.metadata?.sync_rev);return}
  const base=operation?.base??readRevisions()[id]??null;
- if(!base||Date.parse(base)!==Date.parse(remote.updated_at)){
+ const baseRev=operation?.baseRev??readRevisionTokens()[id]??null;
+ if(!base||Date.parse(base)!==Date.parse(remote.updated_at)||
+   (baseRev&&baseRev!==remote.metadata?.sync_rev)){
   const e=new Error('La eliminación de '+(operation?.meta?.name||id)+' entró en conflicto con cambios de otro dispositivo.');
   e.code='SYNC_CONFLICT';throw e;
  }
- const newStamp=new Date().toISOString();
+ const newStamp=new Date().toISOString(),newRev=crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random();
  const patch=await api('/rest/v1/consorte_sync_items?id=eq.'+encodeURIComponent(id)+
-  '&updated_at=eq.'+encodeURIComponent(remote.updated_at),{
+  '&updated_at=eq.'+encodeURIComponent(remote.updated_at)+
+  '&metadata->>sync_rev='+(remote.metadata?.sync_rev?'eq.'+encodeURIComponent(remote.metadata.sync_rev):'is.null'),{
   method:'PATCH',headers:{'Content-Type':'application/json','Prefer':'return=representation'},
-  body:JSON.stringify({metadata:{...(remote.metadata||{}),deleted:true,deleted_at:newStamp},updated_at:newStamp})
+  body:JSON.stringify({metadata:{...(remote.metadata||{}),sync_rev:newRev,deleted:true,deleted_at:newStamp},updated_at:newStamp})
  });
  const rows=await patch.json();
  if(!Array.isArray(rows)||rows.length!==1)throw Error('Eliminación en conflicto; se conserva la copia remota');
- completedOperation(id,token,rows[0].updated_at||newStamp);
+ completedOperation(id,token,rows[0].updated_at||newStamp,rows[0].metadata?.sync_rev||newRev);
  // No se borra Storage; los datos sobreviven a posibles errores.
 }
 async function remoteList(){
@@ -2219,7 +2236,7 @@ async function pull(){
   const remote=await remoteList();
   const current=await allRecords();
   const byLocal=new Map(current.map(item=>[item.id,item]));
-  const versions=readRevisions();
+  const versions=readRevisions(),revisionTokens=readRevisionTokens();
   const folderRows=remote.filter(row=>row.metadata?.type==='folder');
   const fileRows=remote.filter(row=>row.metadata?.type!=='folder').sort(
    (a,b)=>Date.parse(b.updated_at||0)-Date.parse(a.updated_at||0)
@@ -2233,9 +2250,10 @@ async function pull(){
    if(row.metadata?.deleted){
     if(original){try{await localDelete(row.id);byLocal.delete(row.id);removed++}
      catch(error){failed++;if(!firstError)firstError='Eliminación: '+error.message}}
-    saveRevision(row.id,remoteStamp);mark(row.id);continue;
+    saveRevision(row.id,remoteStamp,row.metadata?.sync_rev);mark(row.id);continue;
    }
-   const stampKnown=Boolean(versions[row.id]&&Date.parse(versions[row.id])===Date.parse(remoteStamp));
+   const stampKnown=Boolean(versions[row.id]&&Date.parse(versions[row.id])===Date.parse(remoteStamp)&&
+    (!row.metadata?.sync_rev||revisionTokens[row.id]===row.metadata.sync_rev));
    if(original&&stampKnown&&(row.metadata?.type==='folder'||original.blob instanceof Blob||original.cloudObjectPath)){
     // La metadata y la copia local ya corresponden a esta versión.
     continue;
@@ -2249,7 +2267,9 @@ async function pull(){
     // al abrirla si cambió en otro dispositivo.
     copy.cloudNeedsDownload=!(original?.blob instanceof Blob)||
      Boolean(original?.cloudNeedsDownload)||
-     Boolean(original?.blob instanceof Blob&&versions[row.id]&&versions[row.id]!==remoteStamp);
+     Boolean(original?.blob instanceof Blob&&versions[row.id]&&
+       (Date.parse(versions[row.id])!==Date.parse(remoteStamp)||
+         Boolean(row.metadata?.sync_rev&&revisionTokens[row.id]!==row.metadata.sync_rev)));
     if(!copy.cloudObjectPath&&!(copy.blob instanceof Blob)){
      failed++;if(!firstError)firstError=copy.name+': falta la ruta en la nube';
     }
@@ -2257,7 +2277,7 @@ async function pull(){
    try{
     await localPut(copy);
     byLocal.set(copy.id,copy);
-    saveRevision(copy.id,remoteStamp);
+    saveRevision(copy.id,remoteStamp,row.metadata?.sync_rev);
     if(original)updated++;else added++;
    }catch(error){
     failed++;if(!firstError)firstError=(copy.name||row.id)+': '+error.message;
