@@ -1285,137 +1285,212 @@ window.downloadRecord=async function(r){
   downloadBlob(data,r.name+'.zip');
  }catch(e){alert('No fue posible descargar la carpeta: '+e.message)}
 };
+
+let consorteBackupPlan=null;
+async function streamZipToSelectedFile(zip,handle,onProgress){
+ const writable=await handle.createWritable();
+ try{
+  await new Promise((resolve,reject)=>{
+   let failed=false;
+   const stream=zip.generateInternalStream({type:'uint8array',compression:'STORE',streamFiles:true});
+   const fail=e=>{if(failed)return;failed=true;reject(e)};
+   stream.on('data',(chunk,meta)=>{
+    if(failed)return;
+    stream.pause();
+    Promise.resolve(writable.write(chunk)).then(()=>{
+     if(!failed){onProgress?.(meta.percent||0);stream.resume()}
+    },fail);
+   });
+   stream.on('error',fail);
+   stream.on('end',()=>{if(!failed)resolve()});
+   stream.resume();
+  });
+  await writable.close();
+ }catch(error){
+  try{await writable.abort()}catch{}
+  throw error;
+ }
+}
+function consorteBackupMeta(r){
+ const {id,parent,type,kind,name,instrument,cover,created,song,category,scoreId,tabId,audioId,pinned,size}=r;
+ return {id,parent,type,kind,name,instrument,cover,created,song,category,scoreId,tabId,audioId,pinned,size};
+}
+function consorteBuildBackupPaths(all){
+ const byId=new Map(all.map(r=>[r.id,r])),siblings=new Map();
+ for(const item of all){
+  const key=item.parent??'__raiz__';
+  if(!siblings.has(key))siblings.set(key,[]);
+  siblings.get(key).push(item);
+ }
+ const segments=new Map();
+ const safeSegment=name=>String(name||'Sin nombre')
+  .replace(/[/\\\u0000-\u001f\u007f]/g,'_').replace(/^\.+$/,'_').trim().slice(0,180)||'Sin nombre';
+ const uniqueName=(name,n,folder)=>{
+  const dot=!folder?name.lastIndexOf('.'):-1;
+  return dot>0?name.slice(0,dot)+' ('+n+')'+name.slice(dot):name+' ('+n+')';
+ };
+ for(const group of siblings.values()){
+  const used=new Set();
+  group.sort((a,b)=>String(a.id).localeCompare(String(b.id)));
+  for(const item of group){
+   const base=safeSegment(item.name);let chosen=base,n=2;
+   while(used.has(chosen.toLocaleLowerCase('es')))chosen=uniqueName(base,n++,item.type==='folder');
+   used.add(chosen.toLocaleLowerCase('es'));segments.set(item.id,chosen);
+  }
+ }
+ const cached=new Map(),usedPaths=new Set();
+ const pathOf=(r,seen=new Set())=>{
+  if(cached.has(r.id))return cached.get(r.id);
+  const name=segments.get(r.id)||safeSegment(r.name);
+  if(seen.has(r.id))return 'Archivos sin carpeta original/'+name;
+  seen.add(r.id);
+  const parent=r.parent&&byId.get(r.parent);
+  const raw=parent?.type==='folder'?pathOf(parent,seen)+'/'+name:
+   r.parent?'Archivos sin carpeta original/'+name:name;
+  let unique=raw,n=2;
+  while(usedPaths.has(unique.toLocaleLowerCase('es'))){
+   const x=raw.lastIndexOf('/'),prefix=x<0?'':raw.slice(0,x+1),base=raw.slice(x+1);
+   unique=prefix+uniqueName(base,n++,r.type==='folder');
+  }
+  usedPaths.add(unique.toLocaleLowerCase('es'));cached.set(r.id,unique);
+  return unique;
+ };
+ // Generar primero todas las rutas de carpeta para que las de sus hijos sean estables.
+ for(const folder of all.filter(x=>x.type==='folder'))pathOf(folder);
+ for(const item of all.filter(x=>x.type==='file'))pathOf(item);
+ return cached;
+}
+function consorteBackupParts(files,maxBytes){
+ const parts=[];let current=[],size=0;
+ for(const item of files){
+  const known=Number(item.blob?.size||item.size||0),expected=known>0?known:2*1024*1024;
+  if(current.length&&size+expected>maxBytes){parts.push(current);current=[];size=0}
+  current.push(item);size+=expected;
+ }
+ if(current.length||!parts.length)parts.push(current);
+ return parts;
+}
 $x('export').onclick=async()=>{
  const button=$x('export'),display=$x('consorte-export-status'),progress=$x('consorte-export-progress');
  if(button.disabled)return;
- const zipName='Biblioteca_Consorte_Respaldo.zip';
  const status=(message,value)=>{
   display.textContent=message;
   if(Number.isFinite(value)){progress.hidden=false;progress.value=Math.max(0,Math.min(100,value))}
  };
- // Los permisos de guardar archivos y la generación del ZIP nunca modifican la biblioteca.
- let succeeded=false;
- button.disabled=true;const originalLabel=button.textContent;
- button.textContent='Preparando respaldo…';progress.hidden=false;progress.value=0;
+ // Abrir el selector antes de la primera espera asíncrona para preservar el gesto del usuario.
+ // En Chrome de escritorio, una escritura en streaming permite exportar un ZIP grande.
+ let pickerTask=null;
+ if(!consorteBackupPlan&&typeof window.showSaveFilePicker==='function'){
+  try{
+   pickerTask=Promise.resolve(window.showSaveFilePicker({
+    suggestedName:'Biblioteca_Consorte_Respaldo.zip',
+    types:[{description:'Respaldo ZIP',accept:{'application/zip':['.zip']}}]
+   })).then(handle=>({handle}),error=>({error}));
+  }catch(error){pickerTask=Promise.resolve({error})}
+ }
+ button.disabled=true;progress.hidden=false;progress.value=0;
+ const originalLabel=button.textContent;
+ button.textContent='Preparando respaldo…';
  try{
   const JSZipClass=await getZip();
-  if(!JSZipClass.support.blob)throw Error('Este navegador no permite crear archivos ZIP; prueba con Chrome o Firefox actualizado.');
-  status('Comprobando los archivos de la biblioteca…',1);
-  const sync=await window.consortePrepareCloudBackup?.();
-  const all=await allRecords(),files=all.filter(r=>r.type==='file');
-  if(!all.length)throw Error('La biblioteca está vacía; no hay archivos que exportar.');
-  if(!confirm('Crear respaldo ZIP de '+files.length+' archivos y '+(all.length-files.length)+
-    ' carpetas. Se descargarán los documentos que solo estén en la nube. ¿Continuar?')){
-    status('Exportación cancelada.',0);return;
-  }
-  const byId=new Map(all.map(r=>[r.id,r]));
-  const siblings=new Map();
-  for(const item of all){
-   const key=item.parent??'__raiz__';
-   if(!siblings.has(key))siblings.set(key,[]);
-   siblings.get(key).push(item);
-  }
-  const segments=new Map();
-  const safeSegment=name=>String(name||'Sin nombre')
-   .replace(/[/\\\u0000-\u001f\u007f]/g,'_').replace(/^\.+$/,'_').trim().slice(0,180)||'Sin nombre';
-  function uniqueSiblingName(name,n,folder){
-   const dot=!folder?name.lastIndexOf('.'):-1;
-   return dot>0?name.slice(0,dot)+' ('+n+')'+name.slice(dot):name+' ('+n+')';
-  }
-  for(const group of siblings.values()){
-   const used=new Set();
-   group.sort((a,b)=>String(a.id).localeCompare(String(b.id)));
-   for(const item of group){
-    const base=safeSegment(item.name);let segment=base,number=2;
-    while(used.has(segment.toLocaleLowerCase('es'))){
-     segment=uniqueSiblingName(base,number++,item.type==='folder');
-    }
-    used.add(segment.toLocaleLowerCase('es'));segments.set(item.id,segment);
+  if(!JSZipClass.support.blob)throw Error('El navegador no puede crear ZIPs; actualízalo o utiliza Chrome/Firefox.');
+  if(!consorteBackupPlan){
+   status('Comprobando archivos y sincronización…',1);
+   const sync=await window.consortePrepareCloudBackup?.();
+   const all=await allRecords();
+   if(!all.length)throw Error('La biblioteca está vacía.');
+   const files=all.filter(r=>r.type==='file');
+   const folders=all.filter(r=>r.type==='folder');
+   const filePaths=consorteBuildBackupPaths(all);
+   let handle=null;
+   if(pickerTask){
+    const selected=await pickerTask;
+    if(selected.error?.name==='AbortError'){status('Exportación cancelada.',0);return}
+    handle=selected.handle||null;
    }
-  }
-  const cachedPaths=new Map(),usedPaths=new Set();
-  function pathForBackup(record,seen=new Set()){
-   if(cachedPaths.has(record.id))return cachedPaths.get(record.id);
-   const name=segments.get(record.id)||safeSegment(record.name);
-   if(seen.has(record.id))return 'Archivos sin carpeta original/'+name;
-   seen.add(record.id);
-   let pathname=name;
-   if(record.parent){
-    const parent=byId.get(record.parent);
-    pathname=parent?.type==='folder'
-     ?pathForBackup(parent,seen)+'/'+name
-     :'Archivos sin carpeta original/'+name;
+   const bytes=files.reduce((n,r)=>n+Math.max(Number(r.blob?.size||r.size||0),0),0);
+   // Los móviles no suelen admitir guardar ZIPs de cientos de MB sin quedarse sin memoria.
+   const threshold=65*1024*1024;
+   const parts=handle?[files]:bytes>threshold?consorteBackupParts(files,45*1024*1024):[files];
+   if(!handle){
+    const notice=parts.length>1
+      ?'La biblioteca tiene aproximadamente '+Math.round(bytes/1048576)+' MB. Se descargará en '+
+       parts.length+' archivos ZIP. Debes pulsar el botón una vez por cada parte para evitar bloqueos del navegador.'
+      :'Se preparará un ZIP con '+files.length+' archivos y '+folders.length+' carpetas.';
+    if(!confirm(notice+'\n¿Comenzar la exportación?')){status('Exportación cancelada.',0);return}
    }
-   const basePath=pathname;
-   let counter=2;
-   while(usedPaths.has(pathname.toLocaleLowerCase('es'))){
-    const split=basePath.lastIndexOf('/');
-    const prefix=split<0?'':basePath.slice(0,split+1),base=basePath.slice(split+1);
-    pathname=prefix+uniqueSiblingName(base,counter++,record.type==='folder');
-   }
-   usedPaths.add(pathname.toLocaleLowerCase('es'));
-   cachedPaths.set(record.id,pathname);
-   return pathname;
+   consorteBackupPlan={all,files,folders,paths:filePaths,parts,part:0,handle,sync,
+    backupId:crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random()};
   }
+  const plan=consorteBackupPlan,partNumber=plan.part+1,partsCount=plan.parts.length;
+  const current=plan.parts[plan.part];
   const zip=new JSZipClass(),manifestFiles=[],unavailable=[];
-  for(const folder of all.filter(r=>r.type==='folder')){
-   const archivePath=pathForBackup(folder);
+  const label=partsCount>1?'Parte '+partNumber+' de '+partsCount+' · ':'';
+  for(const folder of plan.folders){
+   const archivePath=plan.paths.get(folder.id);
    zip.folder('Biblioteca/'+archivePath);
-   manifestFiles.push({...backupMeta(folder),archivePath});
+   manifestFiles.push({...consorteBackupMeta(folder),archivePath});
   }
   let included=0;
-  for(let i=0;i<files.length;i++){
-   const file=files[i],archivePath=pathForBackup(file);
-   status('Preparando '+(i+1)+' de '+files.length+': '+file.name,
-    5+Math.floor((i/Math.max(1,files.length))*65));
+  for(let index=0;index<current.length;index++){
+   const file=current[index],archivePath=plan.paths.get(file.id);
+   status(label+'Preparando '+(index+1)+' de '+current.length+': '+file.name,
+    5+Math.floor(index/Math.max(1,current.length)*65));
    try{
     const blob=await (window.consorteReadFileForBackup?.(file)||Promise.resolve(file.blob));
-    if(!(blob instanceof Blob))throw Error('No se pudo obtener su contenido');
+    if(!(blob instanceof Blob))throw Error('Archivo no disponible');
     zip.file('Biblioteca/'+archivePath,blob,{binary:true,compression:'STORE'});
-    manifestFiles.push({...backupMeta(file),archivePath});included++;
-   }catch(error){
-    unavailable.push(file.name+' · '+(error?.message||String(error)));
-   }
+    manifestFiles.push({...consorteBackupMeta(file),archivePath});included++;
+   }catch(error){unavailable.push(file.name+' · '+(error?.message||String(error)))}
   }
   if(unavailable.length){
-   if(included===0)throw Error('No se pudo descargar ninguno de los '+files.length+' archivos. '+unavailable[0]);
-   if(!confirm('ATENCIÓN: '+unavailable.length+' de '+files.length+
-      ' archivos no se pudieron incluir. ¿Descargar un ZIP PARCIAL con '+
-      included+' archivos y un informe de los que faltan?')){
-    status('Respaldo incompleto cancelado. '+unavailable.length+' archivos pendientes.',0);
-    return;
+   if(!included&&current.length)throw Error('No se pudo leer ningún archivo de esta parte: '+unavailable[0]);
+   if(!confirm(label+unavailable.length+' archivos no se pudieron incluir. ¿Crear ZIP PARCIAL de esta parte con informe de errores?')){
+    status('Exportación parcial cancelada; no se han borrado archivos.',0);return;
    }
    zip.file('ARCHIVOS_NO_INCLUIDOS.txt',
-     'RESPALDO PARCIAL DE BIBLIOTECA CONSORT\nNo es una copia completa.\n\n'+unavailable.join('\n')+'\n');
-  }
-  function backupMeta(r){
-   const {id,parent,type,kind,name,instrument,cover,created,song,category,scoreId,tabId,audioId,pinned,size}=r;
-   return {id,parent,type,kind,name,instrument,cover,created,song,category,scoreId,tabId,audioId,pinned,size};
+    'RESPALDO PARCIAL\nParte '+partNumber+' de '+partsCount+'\n\n'+unavailable.join('\n')+'\n');
   }
   zip.file('consorte_manifest.json',JSON.stringify({
-    version:2,exportedAt:new Date().toISOString(),complete:unavailable.length===0,
-    fileCount:included,folderCount:all.length-files.length,files:manifestFiles
+   version:3,backupId:plan.backupId,part:partNumber,partCount:partsCount,
+   exportedAt:new Date().toISOString(),complete:unavailable.length===0,
+   fileCount:included,folderCount:plan.folders.length,
+   index:plan.all.map(r=>r.id),files:manifestFiles
   },null,2));
-  status('Creando el ZIP: '+included+' archivos…',70);
-  let lastPercent=-1;
-  const result=await zip.generateAsync({type:'blob',compression:'STORE',streamFiles:true},meta=>{
-   const percent=Math.max(0,Math.min(100,Math.round(meta.percent||0)));
-   if(percent!==lastPercent){lastPercent=percent;progress.value=70+percent*.30;
-    display.textContent='Comprimiendo el respaldo… '+percent+' %'}
-  });
-  if(!result.size)throw Error('El ZIP generado está vacío');
-  downloadBlob(result,zipName);
-  succeeded=true;
-  status('ZIP generado: '+included+' archivos y '+(all.length-files.length)+' carpetas'+
-   (unavailable.length?' · RESPALDO PARCIAL: '+unavailable.length+' archivos no incluidos':'')+
-   (sync?.push?.pending?' · '+sync.push.pending+' cambios pendientes en la nube':'')+
-   '. Revisa las descargas de tu navegador.',100);
+  status(label+'Creando ZIP con '+included+' archivos…',70);
+  const onPercent=percent=>{
+   progress.value=70+Math.max(0,Math.min(100,percent))*.30;
+   display.textContent=label+'Escribiendo ZIP… '+Math.round(percent)+' %';
+  };
+  if(plan.handle){
+   await streamZipToSelectedFile(zip,plan.handle,onPercent);
+  }else{
+   const generated=await zip.generateAsync({type:'blob',compression:'STORE',streamFiles:true},
+    meta=>onPercent(meta.percent||0));
+   if(!generated.size)throw Error('El ZIP generado está vacío');
+   const suffix=partsCount>1?'_Parte_'+String(partNumber).padStart(2,'0')+'_de_'+String(partsCount).padStart(2,'0'):'';
+   downloadBlob(generated,'Biblioteca_Consorte_Respaldo'+suffix+'.zip');
+  }
+  plan.part++;
+  if(plan.part===partsCount){
+   status('Respaldo terminado: '+plan.files.length+' archivos en '+partsCount+
+    ' ZIP'+(partsCount>1?'s':'')+
+    (plan.sync?.push?.pending?' · '+plan.sync.push.pending+' cambios sin subir a la nube':'')+
+    '. Comprueba la carpeta de descargas.'+
+    (unavailable.length?' Esta parte está incompleta; revisa ARCHIVOS_NO_INCLUIDOS.txt.':''),100);
+   consorteBackupPlan=null;button.textContent=originalLabel;
+  }else{
+   status('Descargada parte '+partNumber+' de '+partsCount+'. Pulsa «Descargar parte '+
+    (partNumber+1)+'» para continuar.',100);
+   button.textContent='↓ Descargar parte '+(partNumber+1)+' de '+partsCount;
+  }
  }catch(error){
-  status('Error al exportar: '+(error?.message||String(error)),0);
-  alert('No se pudo exportar la biblioteca: '+(error?.message||String(error)));
+  status('Error de respaldo: '+(error?.message||String(error)),0);
+  alert('No se pudo exportar la biblioteca: '+(error?.message||String(error))+
+   (consorteBackupPlan?' Puedes pulsar de nuevo para reintentar esta parte.':''));
  }finally{
-  button.disabled=false;button.textContent=originalLabel;
-  if(!succeeded&&progress.value===100)progress.value=0;
+  button.disabled=false;
+  if(!consorteBackupPlan)button.textContent=originalLabel;
  }
 };
 
