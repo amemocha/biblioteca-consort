@@ -5,8 +5,8 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f1e6d6",
-  "theme_color": "#32221e",
+  "background_color": "#f4f7fb",
+  "theme_color": "#172b46",
   "icons": [
     {
       "src": "/consorte-icon.svg",
