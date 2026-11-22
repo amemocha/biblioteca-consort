@@ -1575,18 +1575,36 @@ $x('backupFile').onchange=async e=>{
   const obj=JSON.parse(await meta.async('string'));
   if(!Array.isArray(obj.files)||obj.files.length>20000)throw Error('Listado inválido');
   if(!confirm('¿Importar '+obj.files.length+' elementos a tu biblioteca? Se agregarán sin borrar los existentes.'))return;
-  const remap=new Map(obj.files.map(r=>[r.id,uid()]));let imported=0;
+  // Las partes del mismo ZIP comparten un mapa de identificadores persistente:
+  // restaurarlas en distinto orden no duplica carpetas ni rompe vínculos.
+  const mapKey=obj.version>=3&&obj.backupId?
+   'consorte_zip_restore_mapping_v3_'+String(obj.backupId).replace(/[^a-zA-Z0-9_-]/g,'') :null;
+  let stored={};
+  if(mapKey){try{stored=JSON.parse(localStorage.getItem(mapKey)||'{}')}catch{stored={}}}
+  const remap=new Map(Object.entries(stored));
+  const sourceIds=Array.isArray(obj.index)?obj.index:obj.files.map(r=>r.id);
+  if(sourceIds.length>20000)throw Error('Índice del respaldo demasiado grande');
+  for(const id of sourceIds)if(typeof id==='string'&&!remap.has(id))remap.set(id,uid());
+  for(const row of obj.files)if(row?.id&&!remap.has(row.id))remap.set(row.id,uid());
+  if(mapKey)localStorage.setItem(mapKey,JSON.stringify(Object.fromEntries(remap)));
+  const existing=new Set((await allRecords()).map(r=>r.id));
+  let imported=0,skipped=0,missing=0;
   for(const r of obj.files){if(!r||!r.id||!['file','folder'].includes(r.type))continue;
+   if(existing.has(remap.get(r.id))){skipped++;continue}
    const parent=r.parent?remap.get(r.parent)||null:null;
    const entry={id:remap.get(r.id),parent,type:r.type,kind:r.kind||'other',name:safeName(r.name||'Sin nombre'),instrument:r.instrument||'',song:r.song||'',category:r.category||'',scoreId:r.scoreId?remap.get(r.scoreId)||null:null,tabId:r.tabId?remap.get(r.tabId)||null:null,audioId:r.audioId?remap.get(r.audioId)||null:null,cover:r.cover||'',pinned:!!r.pinned,size:r.size||null,created:r.created||Date.now()};
    if(r.type==='file'){
     const segments=[],lookup=new Map(obj.files.map(x=>[x.id,x]));let cursor=r,k=0;segments.unshift(r.name);
     while(cursor.parent&&k++<80){cursor=lookup.get(cursor.parent);if(!cursor)break;segments.unshift(cursor.name)}
-    const f=z.file('Biblioteca/'+(r.archivePath||segments.join('/')));if(!f)continue;entry.blob=new Blob([await f.async('arraybuffer')]);
+    const f=z.file('Biblioteca/'+(r.archivePath||segments.join('/')));if(!f){missing++;continue}entry.blob=new Blob([await f.async('arraybuffer')]);
    }
-   await putRecord(entry);imported++;
+   await putRecord(entry);existing.add(entry.id);imported++;
   }
-  await refresh();notify('Se recuperaron '+imported+' elementos del respaldo.');alert('Respaldo importado: '+imported+' elementos.');
+  await refresh();
+  const suffix=obj.version>=3?' · parte '+(obj.part||1)+' de '+(obj.partCount||1):'';
+  const summary='Respaldo importado'+suffix+': '+imported+' elementos nuevos'+
+    (skipped?' · '+skipped+' ya existentes':'')+(missing?' · '+missing+' archivos no encontrados dentro del ZIP':'')+'.';
+  notify(summary);alert(summary);
  }catch(ex){alert('No se pudo restaurar el respaldo: '+ex.message)}
 };
 // Los botones de marcas se habilitan con el estado cargado. Se mantienen las limitaciones reales.
