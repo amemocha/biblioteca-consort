@@ -2036,6 +2036,7 @@ async function cloudDelete(id,operation){
  const res=await api('/rest/v1/consorte_sync_items?select=id,updated_at,metadata,object_path&id=eq.'+encodeURIComponent(id)+'&limit=1');
  const remote=(await res.json())[0]||null;
  if(!remote){completedOperation(id,token);return}
+ if(remote.metadata?.deleted){completedOperation(id,token,remote.updated_at);return}
  const base=operation?.base??readRevisions()[id]??null;
  if(!base||Date.parse(base)!==Date.parse(remote.updated_at)){
   const e=new Error('La eliminación de '+(operation?.meta?.name||id)+' entró en conflicto con cambios de otro dispositivo.');
@@ -2271,7 +2272,7 @@ async function pull(){
    (cloudOnly?' · '+cloudOnly+' archivos se descargarán al abrirlos':'')+
    (orphan?' · '+orphan+' elementos sin carpeta original':'')+
    (failed?' · '+failed+' errores: '+firstError:''));
-  return {added,updated,removed,failed,cloudOnly,orphans:orphan,remoteCount:remote.length,remoteFiles:files.length,remoteFolders:folderRows.filter(x=>!x.metadata?.deleted).length,firstError,skippedPending};
+  return {added,updated,removed,failed,cloudOnly,orphans:orphan,remoteCount:remote.filter(row=>!row.metadata?.deleted).length,remoteFiles:files.length,remoteFolders:folderRows.filter(x=>!x.metadata?.deleted).length,firstError,skippedPending};
  }catch(error){status('Error al recibir cambios: '+error.message);return {error:'Descarga: '+error.message}}
  finally{syncing=false}
 }
@@ -2376,8 +2377,10 @@ let syncSequence=null;
 async function synchronizeAll(){
  if(syncSequence)return syncSequence;
  syncSequence=(async()=>{
-   const received=await pull();
+   // Primero publicar cambios locales; después recuperar el estado definitivo.
+   // Así los totales mostrados incluyen las subidas y eliminaciones recién confirmadas.
    const uploaded=await pushExisting();
+   const received=await pull();
    const settings=await syncAccountPreferences();
    const result={pull:received||{},push:uploaded||{},settings:settings||{}};
    const incomplete=result.pull.error||result.push.error||result.settings.error||result.pull.failed||result.push.failed||result.push.pending;
