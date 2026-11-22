@@ -1908,7 +1908,13 @@ function showSession(){const on=!!session?.access_token;$c('cloud-login').style.
 async function authFetch(path,payload){const res=await fetch(SUPABASE_URL+'/auth/v1/'+path,{method:'POST',headers:{'apikey':PUB_KEY,'Content-Type':'application/json'},body:JSON.stringify(payload)});const data=await res.json().catch(()=>({}));if(!res.ok)throw Error(data.msg||data.error_description||data.message||data.error||('Error '+res.status));return data;}
 async function validateSession(){if(!session)return false;if((session.expires_at||0)>Math.floor(Date.now()/1000)+90)return true;if(!session.refresh_token){saveSession(null);return false;}try{const v=await authFetch('token?grant_type=refresh_token',{refresh_token:session.refresh_token});saveSession(v);return true}catch(e){saveSession(null);status('La sesión expiró: entra nuevamente.');return false}}
 async function api(path,options={}){if(!await validateSession())throw Error('Inicia sesión para sincronizar');const hdr={'apikey':PUB_KEY,'Authorization':'Bearer '+session.access_token,...(options.headers||{})};const res=await fetch(SUPABASE_URL+path,{...options,headers:hdr});if(!res.ok){const body=await res.text();throw Error('Nube '+res.status+': '+body.slice(0,200))}return res}
-function pathFor(rec){return session.user.id+'/'+encodeURIComponent(rec.id)+'/'+encodeURIComponent(rec.name||'archivo');}
+function pathFor(rec){
+ // Storage puede rechazar tildes, caracteres Unicode y nombres con %.
+ // El nombre visible permanece intacto en metadata; la ruta física es ASCII estable.
+ const id=String(rec.id).replace(/[^A-Za-z0-9_-]/g,'_');
+ const extension=String(rec.name||'').match(/\.([A-Za-z0-9]{1,12})$/);
+ return session.user.id+'/'+id+'/archivo'+(extension?'.'+extension[1].toLowerCase():'.bin');
+}
 function mimeFor(r){return r.blob?.type||({'pdf':'application/pdf','audio':'audio/mpeg','image':'image/png'})[r.kind]||'application/octet-stream'}
 async function cloudSave(r){if(!session||suppress)return;
  // No sobrescribir una versión de otro dispositivo que aún no se haya revisado.
@@ -1923,7 +1929,7 @@ async function cloudSave(r){if(!session||suppress)return;
  const meta={id:r.id,parent:r.parent??null,type:r.type,kind:r.kind||'',name:r.name||'',instrument:r.instrument||'',song:r.song||'',category:r.category||'',cover:r.cover||'',pinned:!!r.pinned,scoreId:r.scoreId||null,tabId:r.tabId||null,audioId:r.audioId||null,created:r.created||Date.now(),size:r.type==='file'?(r.blob?.size??r.size??null):null};
  let object_path=previous?.object_path||null;
  if(r.type==='file'&&r.blob){
-   object_path=pathFor(r);
+   object_path=previous?.object_path||pathFor(r);
    await api('/storage/v1/object/'+BUCKET+'/'+object_path,{method:'POST',headers:{'Content-Type':mimeFor(r),'x-upsert':'true'},body:r.blob});
  }
  const updated_at=new Date().toISOString();
