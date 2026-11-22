@@ -32,7 +32,6 @@
       '<div class="cp-transport"><button type="button" id="cp-back" aria-label="Retroceder 10 segundos">↶ 10s</button><button type="button" id="cp-play" class="cp-play" aria-label="Reproducir">▶</button><button type="button" id="cp-forward" aria-label="Adelantar 10 segundos">10s ↷</button></div>'+
       '<div class="cp-timeline"><span id="cp-current">0:00</span><input id="cp-progress" type="range" min="0" max="1000" value="0" aria-label="Posición de reproducción"><span id="cp-duration">0:00</span></div>'+
       '<div class="cp-row"><label>Volumen canción <input id="cp-volume" type="range" min="0" max="100" value="100"></label><button id="cp-mute" type="button">🔊 Audio</button></div>'+
-      '<div class="cp-group"><span>Sonido</span><div class="cp-presets" role="group" aria-label="Ecualización"><button type="button" data-eq="warm">Cálido</button><button type="button" data-eq="natural" class="cp-selected">Natural</button><button type="button" data-eq="bright">Brillante</button></div></div>'+
       '<div class="cp-row cp-speed-shortcuts"><span>Velocidad rápida</span><button type="button" data-speed="0.75">0,75×</button><button type="button" data-speed="1">1×</button><button type="button" data-speed="1.25">1,25×</button></div>';
     const originalAudioRow=audio.previousElementSibling;
     if(originalAudioRow&&originalAudioRow.classList.contains('flex'))originalAudioRow.after(ui);
