@@ -124,7 +124,7 @@ input,select,textarea{border-radius:12px!important;background:#fff!important;bor
 </style><style>
 .consorte-pinned-icon{display:inline-block;margin-right:7px;font-size:17px;line-height:1;filter:grayscale(1) sepia(1) saturate(8) hue-rotate(215deg);vertical-align:middle}
 </style>
-<link rel="stylesheet" href="./consorte-audio-sincronizado.css?v=20261115b">
+<link rel="stylesheet" href="./consorte-audio-sincronizado.css?v=20261122c">
 <style id="consort-unified-score-tab-viewer">
 /* Mismo visor para partituras y tablaturas. */
 #tabDisplay.scoreview{height:min(69vh,730px);margin:0;padding:12px;text-align:center}
@@ -3025,6 +3025,6 @@ function apply(value){if(!/^#[0-9a-fA-F]{6}$/.test(value))return;document.docume
 function init(){let saved;try{saved=localStorage.getItem(key)}catch(e){}apply(saved||'#7e3fb5');controls.forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('input',e=>apply(e.target.value))})}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
-</script><script defer src="./consorte-audio-sincronizado.js?v=20261115b"></script>
-<link rel="stylesheet" href="./consorte-audio-editor.css?v=1"><script defer src="./consorte-audio-editor.js?v=1"></script>
+</script><script defer src="./consorte-audio-sincronizado.js?v=20261122c"></script>
+<link rel="stylesheet" href="./consorte-audio-editor.css?v=2"><script defer src="./consorte-audio-editor.js?v=2"></script>
 </body></html>
