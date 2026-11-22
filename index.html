@@ -3033,4 +3033,66 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 #library .item.folder-item.consorte-folder-size-large .consorte-music-folder-icon{width:78px;height:78px}
 #library .item.folder-item.consorte-folder-size-extra .consorte-music-folder-icon{width:110px;height:110px}
 </style>
+
+<!-- Consort palette 1 navigation -->
+<style id="consorte-palette-1-navigation">
+/* Paleta 1: navegación — azul marino, azul, blanco, gris claro.
+   Overrides legacy violet/pink inline rules without changing navigation behavior. */
+html body .app .sidebar{
+ background:#172B46!important;
+ background-image:none!important;
+ color:#EFF5FC!important;
+ border-right:1px solid #29415C!important;
+ box-shadow:3px 0 20px rgba(23,43,70,.08)!important;
+}
+html body .app .sidebar .nav{
+ background:transparent!important;
+ background-image:none!important;
+ color:#D9E5F3!important;
+ border:1px solid transparent!important;
+ box-shadow:none!important;
+ border-radius:10px!important;
+ font-weight:650!important;
+}
+html body .app .sidebar .nav:hover{
+ background:#284765!important;
+ color:#FFFFFF!important;
+ border-color:#385878!important;
+}
+html body .app .sidebar .nav.active,
+html body .app .sidebar .nav[aria-current="page"]{
+ background:#2563EB!important;
+ color:#FFFFFF!important;
+ border-color:#3B82F6!important;
+ box-shadow:0 3px 10px rgba(0,0,0,.13)!important;
+}
+html body .app .sidebar .sidefoot{color:#BDCBDB!important}
+html body .app .bottomnav{
+ background:#FFFFFF!important;
+ background-image:none!important;
+ border-top:1px solid #DDE6F0!important;
+ box-shadow:0 -4px 16px rgba(23,43,70,.10)!important;
+ border-radius:0!important;
+}
+html body .app .bottomnav button{
+ background:transparent!important;
+ background-image:none!important;
+ color:#52677F!important;
+ border:0!important;
+ box-shadow:none!important;
+ border-radius:10px!important;
+ font-weight:650!important;
+}
+html body .app .bottomnav button.active,
+html body .app .bottomnav button[aria-current="page"]{
+ background:#EAF1FE!important;
+ background-image:none!important;
+ color:#1D4ED8!important;
+ box-shadow:inset 0 0 0 1px #C8DBFA!important;
+}
+html body .app .bottomnav button:hover{background:#F3F7FD!important}
+html body .app .bottomnav button.active:hover{background:#DDEAFE!important}
+html body .app .sidebar .nav:focus-visible,
+html body .app .bottomnav button:focus-visible{outline:3px solid #93C5FD!important;outline-offset:2px!important}
+</style>
 </body></html>
