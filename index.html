@@ -1194,6 +1194,25 @@ async function showPage(requested){
 }
 $('scorePrev').onclick=()=>showPage(state.page-1);$('scoreNext').onclick=()=>showPage(state.page+1);$('openPDF').onclick=()=>{if(state.scoreUrl)window.open(state.scoreUrl,'_blank');else alert('Selecciona una partitura')};
 async function chooseAudio(r){r=await window.consorteEnsureCloudFile?.(r)||r;if(state.audioUrl)URL.revokeObjectURL(state.audioUrl);state.audio=r;state.audioUrl=URL.createObjectURL(r.blob);$('player').src=state.audioUrl;$('audioName').textContent=r.name;$('player').load()}
+
+// Audio editor integration: expose only controlled library operations.
+window.consorteAudioEditorBridge={
+ current:()=>state.audio,
+ async saveCopy(blob,name){
+   const original=state.audio;
+   const record={id:uid(),parent:original?.parent??state.folder??null,type:'file',kind:'audio',name:safeName(name),blob,created:Date.now(),song:original?.song||'',instrument:original?.instrument||'',category:original?.category||''};
+   await putRecord(record);await refresh();return record;
+ },
+ async replace(blob,name){
+   const original=state.audio;
+   if(!original||String(original.id).startsWith('direct_'))throw new Error('El audio no está guardado en la biblioteca. Guarda una copia primero.');
+   const record={...original,blob,name:safeName(name),kind:'audio',modified:Date.now()};
+   await putRecord(record);await refresh();
+   await chooseAudio(record);return record;
+ },
+ async load(record){await chooseAudio(record)}
+};
+
 $('chooseScore').onclick=()=>pickExisting('score');$('chooseAudio').onclick=()=>pickExisting('audio');
 function pickExisting(kind){let rs=state.records.filter(r=>r.type==='file'&&(kind==='audio'?r.kind==='audio':['pdf','image'].includes(r.kind)));if(!rs.length){alert('No hay archivos de este tipo en la biblioteca. Usa el selector de abajo para elegir uno del dispositivo.');return}let names=rs.map((r,i)=>`${i+1}. ${r.name}`).join('\n');let v=prompt('Escribe el número del archivo:\n'+names);let n=Number(v);if(!Number.isInteger(n)||n<1||n>rs.length)return;kind==='audio'?chooseAudio(rs[n-1]):chooseScore(rs[n-1])}
 $('directScore').onchange=e=>{let f=e.target.files[0];if(f)chooseScore({id:'direct_'+f.name,name:f.name,blob:f,kind:getKind(f)});e.target.value=''};$('directAudio').onchange=e=>{let f=e.target.files[0];if(f)chooseAudio({id:'direct_'+f.name,name:f.name,blob:f,kind:'audio'});e.target.value=''};
@@ -3007,4 +3026,5 @@ function init(){let saved;try{saved=localStorage.getItem(key)}catch(e){}apply(sa
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
 </script><script defer src="./consorte-audio-sincronizado.js?v=20261115b"></script>
+<link rel="stylesheet" href="./consorte-audio-editor.css?v=1"><script defer src="./consorte-audio-editor.js?v=1"></script>
 </body></html>
