@@ -1855,7 +1855,7 @@ folderRecoverButton.onclick=async()=>{
  folderRecoverButton.disabled=true;
  try{
   const rows=await remoteList();
-  const folders=rows.filter(row=>row.metadata?.type==='folder');
+  const folders=rows.filter(row=>row.metadata?.type==='folder'&&!row.metadata?.deleted);
   cloudShortcutStatus.textContent='Encontradas '+folders.length+' carpetas en la nube.';
   const existing=await allRecords();
   const byId=new Map(existing.map(row=>[row.id,row]));
@@ -1891,7 +1891,55 @@ function writeSet(key,set){try{if(key)localStorage.setItem(key,JSON.stringify([.
 function readRevisions(){try{return JSON.parse(localStorage.getItem(revisionKey())||'{}')}catch{return {}}}
 function saveRevision(id,stamp){if(!revisionKey())return;const versions=readRevisions();versions[id]=stamp;try{localStorage.setItem(revisionKey(),JSON.stringify(versions))}catch{}}
 function dirtyAdd(id){const xs=readSet(dirtyKey());xs.add(id);writeSet(dirtyKey(),xs)}
+
 function dirtyRemove(id){const xs=readSet(dirtyKey());xs.delete(id);writeSet(dirtyKey(),xs)}
+const UNBOUND_QUEUE='consorte_unbound_changes_v3';
+const operationKey=()=>session?.user?.id?'consorte_operations_v3_'+session.user.id:UNBOUND_QUEUE;
+function readOperations(key=operationKey()){
+ try{const x=JSON.parse(localStorage.getItem(key)||'{}');return x&&typeof x==='object'&&!Array.isArray(x)?x:{}}catch{return {}}
+}
+function saveOperations(rows,key=operationKey()){
+ try{localStorage.setItem(key,JSON.stringify(rows))}
+ catch(error){status('No se pudo registrar un cambio pendiente: '+error.message);throw error}
+}
+function pendingOperations(){
+ const ops=readOperations();
+ if(session)for(const id of readSet(dirtyKey()))if(!ops[id])ops[id]={kind:'put',base:readRevisions()[id]||null,token:'anterior-'+id};
+ return ops;
+}
+function adoptUnboundOperations(){
+ if(!session?.user?.id)return;
+ const unbound=readOperations(UNBOUND_QUEUE);
+ if(!Object.keys(unbound).length)return;
+ const current=readOperations();
+ for(const [id,item] of Object.entries(unbound))if(!current[id])current[id]=item;
+ saveOperations(current);localStorage.removeItem(UNBOUND_QUEUE);
+}
+let queuedSyncTimer=null;
+function queueCloudSync(){
+ if(!session?.access_token||!navigator.onLine)return;
+ clearTimeout(queuedSyncTimer);
+ queuedSyncTimer=setTimeout(()=>synchronizeAll().catch(e=>status('Sincronización pendiente: '+e.message)),700);
+}
+function queueOperation(id,kind,previous){
+ const ops=readOperations(),initial=ops[id];
+ const base=initial?.base??(session?readRevisions()[id]||null:null);
+ const token=crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random();
+ ops[id]={kind,base,token,at:Date.now(),...(kind==='delete'?{meta:previous?{
+  id,name:previous.name||'',type:previous.type||'file',parent:previous.parent??null}:null}:{})};
+ saveOperations(ops);
+ if(session)dirtyAdd(id);
+ queueCloudSync();
+ return ops[id];
+}
+function completedOperation(id,token,stamp){
+ const ops=readOperations(),current=ops[id];
+ if(token&&current&&current.token!==token)return false;
+ delete ops[id];saveOperations(ops);
+ if(session){dirtyRemove(id);mark(id);if(stamp)saveRevision(id,stamp)}
+ return true;
+}
+
 const norm=x=>String(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
 function pathKey(item,byId,seen=new Set()){if(!item||seen.has(item.id))return '';seen.add(item.id);const parent=item.parent&&byId.get(item.parent);return(parent?pathKey(parent,byId,seen)+'/':'')+norm(item.name)}
 
@@ -1902,46 +1950,101 @@ function loadSession(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||
 function saveSession(value){
  if(value?.access_token){value={...value};if(!value.expires_at&&value.expires_in)value.expires_at=Math.floor(Date.now()/1000)+Number(value.expires_in);
  if(!value.expires_at){try{value.expires_at=JSON.parse(atob(value.access_token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).exp||0}catch{}}}
- session=value;try{if(value)localStorage.setItem(STORAGE_KEY,JSON.stringify(value));else localStorage.removeItem(STORAGE_KEY)}catch{};showSession()
+ session=value;try{if(value)localStorage.setItem(STORAGE_KEY,JSON.stringify(value));else localStorage.removeItem(STORAGE_KEY)}catch{};if(value?.access_token)adoptUnboundOperations();showSession()
 }
 function showSession(){const on=!!session?.access_token;$c('cloud-login').style.display=on?'none':'';$c('cloud-signup').style.display=on?'none':'';$c('cloud-email').style.display=on?'none':'';$c('cloud-password').style.display=on?'none':'';$c('cloud-logout').style.display=on?'':'none';$c('cloud-sync-now').style.display=on?'':'none';if(on)status('Conectado: '+(session.user?.email||'cuenta activa'))}
 async function authFetch(path,payload){const res=await fetch(SUPABASE_URL+'/auth/v1/'+path,{method:'POST',headers:{'apikey':PUB_KEY,'Content-Type':'application/json'},body:JSON.stringify(payload)});const data=await res.json().catch(()=>({}));if(!res.ok)throw Error(data.msg||data.error_description||data.message||data.error||('Error '+res.status));return data;}
 async function validateSession(){if(!session)return false;if((session.expires_at||0)>Math.floor(Date.now()/1000)+90)return true;if(!session.refresh_token){saveSession(null);return false;}try{const v=await authFetch('token?grant_type=refresh_token',{refresh_token:session.refresh_token});saveSession(v);return true}catch(e){saveSession(null);status('La sesión expiró: entra nuevamente.');return false}}
 async function api(path,options={}){if(!await validateSession())throw Error('Inicia sesión para sincronizar');const hdr={'apikey':PUB_KEY,'Authorization':'Bearer '+session.access_token,...(options.headers||{})};const res=await fetch(SUPABASE_URL+path,{...options,headers:hdr});if(!res.ok){const body=await res.text();throw Error('Nube '+res.status+': '+body.slice(0,200))}return res}
 function pathFor(rec){
- // Storage puede rechazar tildes, caracteres Unicode y nombres con %.
- // El nombre visible permanece intacto en metadata; la ruta física es ASCII estable.
  const id=String(rec.id).replace(/[^A-Za-z0-9_-]/g,'_');
  const extension=String(rec.name||'').match(/\.([A-Za-z0-9]{1,12})$/);
- return session.user.id+'/'+id+'/archivo'+(extension?'.'+extension[1].toLowerCase():'.bin');
+ const unique=crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random().toString(36).slice(2);
+ return session.user.id+'/'+id+'/archivo-'+unique+(extension?'.'+extension[1].toLowerCase():'.bin');
 }
 function mimeFor(r){return r.blob?.type||({'pdf':'application/pdf','audio':'audio/mpeg','image':'image/png'})[r.kind]||'application/octet-stream'}
-async function cloudSave(r){if(!session||suppress)return;
- // No sobrescribir una versión de otro dispositivo que aún no se haya revisado.
- const query='/rest/v1/consorte_sync_items?select=id,updated_at,object_path&id=eq.'+encodeURIComponent(r.id)+'&limit=1';
- const previousRes=await api(query,{headers:{Accept:'application/json'}});
- const previousRows=await previousRes.json();
- const previous=previousRows[0]||null;
- const known=readRevisions()[r.id];
- if(previous&&(!known||Date.parse(known)!==Date.parse(previous.updated_at))){
-   throw Error('Conflicto de versión: existe una versión diferente en la nube. Se conserva tu copia local sin sobrescribirla.');
+async function cloudSave(r,operation=pendingOperations()[r.id]){
+ if(!session||suppress||!r)return;
+ const token=operation?.token||null;
+ const res=await api('/rest/v1/consorte_sync_items?select=id,updated_at,object_path,metadata&id=eq.'+encodeURIComponent(r.id)+'&limit=1',
+  {headers:{Accept:'application/json'}});
+ const existing=(await res.json())[0]||null;
+ const base=operation?.base??readRevisions()[r.id]??null;
+ if(existing&&(!base||Date.parse(base)!==Date.parse(existing.updated_at))){
+  const e=new Error('Otra versión cambió en otro dispositivo: '+(r.name||r.id)+'. Se conserva tu copia local.');
+  e.code='SYNC_CONFLICT';throw e;
  }
- const meta={id:r.id,parent:r.parent??null,type:r.type,kind:r.kind||'',name:r.name||'',instrument:r.instrument||'',song:r.song||'',category:r.category||'',cover:r.cover||'',pinned:!!r.pinned,scoreId:r.scoreId||null,tabId:r.tabId||null,audioId:r.audioId||null,created:r.created||Date.now(),size:r.type==='file'?(r.blob?.size??r.size??null):null};
- let object_path=previous?.object_path||null;
- if(r.type==='file'&&r.blob){
-   // Una actualización nunca debe reutilizar una ruta antigua con Unicode o %.
-   // Escribir en ruta segura y cambiar la referencia solo tras la subida correcta.
-   // La antigua copia de Storage permanece intacta como respaldo.
-   object_path=pathFor(r);
-   await api('/storage/v1/object/'+BUCKET+'/'+object_path,{method:'POST',headers:{'Content-Type':mimeFor(r),'x-upsert':'true'},body:r.blob});
+ const meta={id:r.id,parent:r.parent??null,type:r.type,kind:r.kind||'',name:r.name||'',
+  instrument:r.instrument||'',song:r.song||'',category:r.category||'',cover:r.cover||'',
+  pinned:!!r.pinned,scoreId:r.scoreId||null,tabId:r.tabId||null,audioId:r.audioId||null,
+  created:r.created||Date.now(),size:r.type==='file'?(r.blob?.size??r.size??null):null};
+ let object_path=existing?.object_path||r.cloudObjectPath||null;
+ if(r.type==='file'){
+  if(r.blob instanceof Blob&&!r.cloudNeedsDownload){
+   // Objetos de versión única: nunca se sobrescribe el original anterior.
+   const newPath=pathFor(r);
+   await api('/storage/v1/object/'+BUCKET+'/'+newPath,{
+    method:'POST',headers:{'Content-Type':mimeFor(r)},body:r.blob
+   });
+   object_path=newPath;
+  }else if(!object_path){
+   throw Error('No hay contenido descargado para '+r.name+'. Cambio pendiente.');
+  }
  }
  const updated_at=new Date().toISOString();
- await api('/rest/v1/consorte_sync_items?on_conflict=owner_id,id',{method:'POST',headers:{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({id:r.id,owner_id:session.user.id,metadata:meta,object_path,updated_at})});
- saveRevision(r.id,updated_at);
- mark(r.id);dirtyRemove(r.id);
+ const body={metadata:meta,object_path,updated_at};
+ let write;
+ if(existing){
+  const url='/rest/v1/consorte_sync_items?id=eq.'+encodeURIComponent(r.id)+
+   '&updated_at=eq.'+encodeURIComponent(existing.updated_at);
+  write=await api(url,{method:'PATCH',headers:{'Content-Type':'application/json','Prefer':'return=representation'},
+   body:JSON.stringify(body)});
+ }else{
+  write=await api('/rest/v1/consorte_sync_items?on_conflict=owner_id,id',{
+   method:'POST',headers:{'Content-Type':'application/json','Prefer':'resolution=ignore-duplicates,return=representation'},
+   body:JSON.stringify({id:r.id,owner_id:session.user.id,...body})
+  });
+ }
+ const saved=await write.json();
+ if(!Array.isArray(saved)||saved.length!==1){
+  const e=new Error('El archivo cambió durante la subida: '+r.name+'. La copia externa no fue sobrescrita.');
+  e.code='SYNC_CONFLICT';throw e;
+ }
+ completedOperation(r.id,token,saved[0].updated_at||updated_at);
 }
-putRecord=async function(r){await localPut(r);if(session){dirtyAdd(r.id);try{await cloudSave(r);status('Documento guardado y sincronizado: '+r.name)}catch(e){status('Guardado local. Pendiente de subir: '+e.message)}}};
-delRecord=async function(id){await localDelete(id);if(session){try{await api('/rest/v1/consorte_sync_items?id=eq.'+encodeURIComponent(id),{method:'DELETE'});}catch(e){status('Eliminado localmente; fallo en nube: '+e.message)}}};
+putRecord=async function(r){
+ await localPut(r);
+ queueOperation(r.id,'put');
+ status(session?'Cambio guardado · sincronización pendiente: '+(r.name||'documento'):
+  'Guardado local. Inicia sesión para compartir: '+(r.name||'documento'));
+};
+delRecord=async function(id){
+ const previous=(await allRecords()).find(r=>r.id===id);
+ await localDelete(id);
+ queueOperation(id,'delete',previous);
+ status(session?'Eliminación pendiente de sincronizar.':'Eliminado localmente; se sincronizará al iniciar sesión.');
+};
+async function cloudDelete(id,operation){
+ const token=operation?.token||null;
+ const res=await api('/rest/v1/consorte_sync_items?select=id,updated_at,metadata,object_path&id=eq.'+encodeURIComponent(id)+'&limit=1');
+ const remote=(await res.json())[0]||null;
+ if(!remote){completedOperation(id,token);return}
+ const base=operation?.base??readRevisions()[id]??null;
+ if(!base||Date.parse(base)!==Date.parse(remote.updated_at)){
+  const e=new Error('La eliminación de '+(operation?.meta?.name||id)+' entró en conflicto con cambios de otro dispositivo.');
+  e.code='SYNC_CONFLICT';throw e;
+ }
+ const newStamp=new Date().toISOString();
+ const patch=await api('/rest/v1/consorte_sync_items?id=eq.'+encodeURIComponent(id)+
+  '&updated_at=eq.'+encodeURIComponent(remote.updated_at),{
+  method:'PATCH',headers:{'Content-Type':'application/json','Prefer':'return=representation'},
+  body:JSON.stringify({metadata:{...(remote.metadata||{}),deleted:true,deleted_at:newStamp},updated_at:newStamp})
+ });
+ const rows=await patch.json();
+ if(!Array.isArray(rows)||rows.length!==1)throw Error('Eliminación en conflicto; se conserva la copia remota');
+ completedOperation(id,token,rows[0].updated_at||newStamp);
+ // No se borra Storage; los datos sobreviven a posibles errores.
+}
 async function remoteList(){
  // No dejar fuera archivos si la biblioteca supera 1000 registros.
  const items=[];
@@ -1999,7 +2102,7 @@ const CONSORT_SHARED_SETTINGS=[
  'consorte_theme','consorte_logo','consorte_visual_design_v2',
  'consorte_freestyle_editor_v1','consorte_biblioteca_tipo_vista',
  'consorte_custom_categories_v1','consort-folder-sizes-v1',
- 'consorte_agenda_v1'
+ 'consorte_agenda_v1','consorte-folder-icon-color'
 ];
 let preferenceSyncInProgress=false,preferenceSeededThisSession=false;
 function sharedPrefKeys(remoteRows){
@@ -2108,18 +2211,23 @@ async function pull(){
   const remote=await remoteList();
   const current=await allRecords();
   const byLocal=new Map(current.map(item=>[item.id,item]));
-  const versions=readRevisions(),pending=readSet(dirtyKey());
+  const versions=readRevisions(),pending=new Set(Object.keys(pendingOperations()));
   const folderRows=remote.filter(row=>row.metadata?.type==='folder');
   const fileRows=remote.filter(row=>row.metadata?.type!=='folder').sort(
    (a,b)=>Date.parse(b.updated_at||0)-Date.parse(a.updated_at||0)
   );
   const ordered=[...folderRows,...fileRows];
-  let added=0,updated=0,skippedPending=0,failed=0,firstError='';
+  let added=0,updated=0,removed=0,skippedPending=0,failed=0,firstError='';
   for(const row of ordered){
    const original=byLocal.get(row.id);
-   if(original&&pending.has(row.id)){skippedPending++;continue}
+   if(pending.has(row.id)){skippedPending++;continue}
    const remoteStamp=row.updated_at;
-   const stampKnown=versions[row.id]===remoteStamp;
+   if(row.metadata?.deleted){
+    if(original){try{await localDelete(row.id);byLocal.delete(row.id);removed++}
+     catch(error){failed++;if(!firstError)firstError='Eliminación: '+error.message}}
+    saveRevision(row.id,remoteStamp);mark(row.id);continue;
+   }
+   const stampKnown=Boolean(versions[row.id]&&Date.parse(versions[row.id])===Date.parse(remoteStamp));
    if(original&&stampKnown&&(row.metadata?.type==='folder'||original.blob instanceof Blob||original.cloudObjectPath)){
     // La metadata y la copia local ya corresponden a esta versión.
     continue;
@@ -2147,59 +2255,48 @@ async function pull(){
     failed++;if(!firstError)firstError=(copy.name||row.id)+': '+error.message;
    }
   }
-  if(added||updated)await refresh();
-  const files=remote.filter(row=>row.metadata?.type==='file');
+  if(added||updated||removed)await refresh();
+  const files=remote.filter(row=>row.metadata?.type==='file'&&!row.metadata?.deleted);
   const cloudOnly=files.filter(row=>!(byLocal.get(row.id)?.blob instanceof Blob)).length;
-  const orphan=remote.filter(row=>row.metadata?.parent&&!remote.some(p=>p.id===row.metadata.parent)).length;
-  status('Cuenta: '+fileRows.length+' archivos y '+folderRows.length+' carpetas · '+added+
-   ' nuevos en este dispositivo'+(updated?' · '+updated+' actualizados':'')+
+  const orphan=remote.filter(row=>!row.metadata?.deleted&&row.metadata?.parent&&!remote.some(p=>p.id===row.metadata.parent&&!p.metadata?.deleted)).length;
+  status('Cuenta: '+files.length+' archivos y '+folderRows.filter(x=>!x.metadata?.deleted).length+' carpetas · '+added+
+   ' nuevos en este dispositivo'+(updated?' · '+updated+' actualizados':'')+(removed?' · '+removed+' eliminaciones recibidas':'')+
    (cloudOnly?' · '+cloudOnly+' archivos se descargarán al abrirlos':'')+
    (orphan?' · '+orphan+' elementos sin carpeta original':'')+
    (failed?' · '+failed+' errores: '+firstError:''));
-  return {added,updated,failed,cloudOnly,orphans:orphan,remoteCount:remote.length,remoteFiles:fileRows.length,remoteFolders:folderRows.length,firstError,skippedPending};
+  return {added,updated,removed,failed,cloudOnly,orphans:orphan,remoteCount:remote.length,remoteFiles:files.length,remoteFolders:folderRows.filter(x=>!x.metadata?.deleted).length,firstError,skippedPending};
  }catch(error){status('Error al recibir cambios: '+error.message);return {error:'Descarga: '+error.message}}
  finally{syncing=false}
 }
 async function pushExisting(){
- if(!session||!db||!navigator.onLine){if(manualSync)status('No se pueden subir archivos: comprueba tu sesión, conexión y biblioteca.');return}
- if(busy){if(manualSync)status('Ya hay una subida en curso. Se completará antes de iniciar otra.');return}
+ if(!session||!db||!navigator.onLine)return {error:'No hay sesión, conexión o biblioteca local'};
+ if(busy)return {error:'Ya existe una subida activa'};
  busy=true;
  try{
   const local=await allRecords(),remote=await remoteList();
-  const remoteIds=new Set(remote.map(x=>x.id));
-  const localById=new Map(local.map(x=>[x.id,x]));
-  const remoteById=new Map(remote.map(x=>[x.id,{...(x.metadata||{}),id:x.id}]));
-  const pending=readSet(dirtyKey()),uploaded=marked();
-  let saved=0,failed=0,duplicates=0,firstError='';
-  // Prevent reinserting same named folders from different devices.
-  for(const item of local){
-   // No recrear en la nube las antiguas subdivisiones Audios/Partituras/General
-   // que ya fueron retiradas. El contenido queda en su carpeta de canción.
-   if(item.type==='folder'&&['audios','partituras','general'].includes(norm(item.name))&&!remoteIds.has(item.id)){
-     continue;
-   }
-   const isPending=pending.has(item.id);
-   if(remoteIds.has(item.id)&&!isPending)continue;
-   // An item already uploaded but now absent was removed on another device;
-   // do not resurrect it just because an old local copy still exists.
-   if(!remoteIds.has(item.id)&&uploaded.has(item.id)&&!isPending)continue;
-   if(!remoteIds.has(item.id)){
-    const localPath=pathKey(item,localById);
-    const equivalent=remote.find(row=>{
-     const m=row.metadata||{};
-     return m.type===item.type&&pathKey({...m,id:row.id},remoteById)===localPath&&
-       (item.type==='folder'||(m.size!=null&&m.size===item.blob?.size));
-    });
-    if(equivalent){duplicates++;continue}
-   }
-   try{
-    await cloudSave(item);saved++;
-   }catch(e){failed++;dirtyAdd(item.id);if(!firstError)firstError=e.message}
+  const remoteMap=new Map(remote.map(row=>[row.id,row]));
+  const pending=pendingOperations(),uploaded=marked();
+  let saved=0,deleted=0,failed=0,firstError='';
+  for(const [id,operation] of Object.entries(pending)){
+   if(operation.kind!=='delete')continue;
+   try{await cloudDelete(id,operation);deleted++}
+   catch(error){failed++;if(!firstError)firstError=error.message}
   }
-  status('Sincronización: '+saved+' pendientes subidos'+(duplicates?' · equivalentes ya presentes '+duplicates:'')+
-    (failed?' · '+failed+' pendientes por error: '+firstError:''));
-  return {saved,failed,duplicates,firstError};
- }catch(e){status('Error al subir documentos: '+e.message);return {error:'Subida: '+e.message}}
+  for(const item of local){
+   if(item.type==='folder'&&['audios','partituras','general'].includes(norm(item.name))&&!remoteMap.has(item.id))continue;
+   const operation=pending[item.id];
+   if(operation?.kind==='delete')continue;
+   if(remoteMap.has(item.id)&&!operation)continue;
+   if(!remoteMap.has(item.id)&&uploaded.has(item.id)&&!operation)continue;
+   try{await cloudSave(item,operation);saved++}
+   catch(error){failed++;dirtyAdd(item.id);if(!firstError)firstError=error.message}
+  }
+  const remaining=Object.keys(pendingOperations()).length;
+  status('Sincronización: '+saved+' subidos · '+deleted+' eliminaciones transmitidas'+
+   (remaining?' · '+remaining+' cambios pendientes':'')+
+   (failed?' · '+failed+' errores: '+firstError:''));
+  return {saved,deleted,failed,pending:remaining,firstError};
+ }catch(error){status('Error al subir documentos: '+error.message);return {error:'Subida: '+error.message}}
  finally{busy=false}
 }
 async function login(signup){const email=$c('cloud-email').value.trim(),password=$c('cloud-password').value;if(!email||!password){status('Escribe tu correo y contraseña.');return}
@@ -2221,13 +2318,13 @@ $c('cloud-sync-now').onclick=async()=>{
   const local=await allRecords();
   const localCount=local.filter(x=>x.type==='file'&&x.blob).length;
   const localFolders=local.filter(x=>x.type==='folder').length;
-  const incomplete=result.pull?.error||result.push?.error||result.settings?.error||result.pull?.failed||result.push?.failed;
+  const incomplete=result.pull?.error||result.push?.error||result.settings?.error||result.pull?.failed||result.push?.failed||result.push?.pending;
   status((incomplete?'Sincronización incompleta':'Biblioteca de la cuenta actualizada')+
     ' · '+(result.pull?.remoteFiles??localCount)+' archivos y '+(result.pull?.remoteFolders??localFolders)+' carpetas visibles en la cuenta'+
     ' · '+localCount+' archivos guardados en este dispositivo'+
     (result.pull?.cloudOnly?' · '+result.pull.cloudOnly+' archivos en nube, se descargarán al abrir':'')+
     (result.pull?.failed?' · errores al descargar '+result.pull.failed:'')+
-    (result.push?.failed?' · errores al subir '+result.push.failed:'')+
+    (result.push?.failed?' · errores al subir '+result.push.failed:'')+(result.push?.pending?' · pendientes '+result.push.pending:'')+
     (result.pull?.error?' · '+result.pull.error:'')+
     (result.push?.error?' · '+result.push.error:'')+
     (result.settings?.error?' · '+result.settings.error:'')+
@@ -2252,12 +2349,12 @@ async function synchronizeAll(){
    const uploaded=await pushExisting();
    const settings=await syncAccountPreferences();
    const result={pull:received||{},push:uploaded||{},settings:settings||{}};
-   const incomplete=result.pull.error||result.push.error||result.settings.error||result.pull.failed||result.push.failed;
+   const incomplete=result.pull.error||result.push.error||result.settings.error||result.pull.failed||result.push.failed||result.push.pending;
    if(incomplete){
     status('Sincronización incompleta'+
       (result.pull.cloudOnly?' · '+result.pull.cloudOnly+' en nube para abrir cuando se necesiten':'')+
       (result.pull.failed?' · errores de descarga: '+result.pull.failed:'')+
-      (result.push.failed?' · errores de subida: '+result.push.failed:'')+
+      (result.push.failed?' · errores de subida: '+result.push.failed:'')+(result.push.pending?' · pendientes: '+result.push.pending:'')+
       (result.pull.error?' · '+result.pull.error:'')+
       (result.push.error?' · '+result.push.error:'')+
       (result.settings.error?' · '+result.settings.error:'')+
@@ -2277,7 +2374,9 @@ async function synchronizeAll(){
  finally{syncSequence=null}
 }
 setTimeout(()=>{if(session)synchronizeAll().catch(e=>status('Error al sincronizar: '+e.message))},1500);
-setInterval(()=>{if(session)synchronizeAll().catch(e=>status('Error al sincronizar: '+e.message))},25000);
+setInterval(()=>{if(session)synchronizeAll().catch(e=>status('Error al sincronizar: '+e.message))},15000);
+window.addEventListener('focus',()=>{if(session)queueCloudSync()});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&session)queueCloudSync()});
 window.addEventListener('online',()=>{if(session)synchronizeAll().catch(e=>status('Error al sincronizar: '+e.message))});
 })();
 </script>
