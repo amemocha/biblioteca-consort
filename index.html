@@ -1912,12 +1912,13 @@ function adoptUnboundOperations(){
  const unbound=readOperations(UNBOUND_QUEUE);
  if(!Object.keys(unbound).length)return;
  const current=readOperations();
- for(const [id,item] of Object.entries(unbound))if(!current[id])current[id]=item;
+ for(const [id,item] of Object.entries(unbound))if(!current[id])current[id]={...item,base:item.base||readRevisions()[id]||null};
  saveOperations(current);localStorage.removeItem(UNBOUND_QUEUE);
 }
-let queuedSyncTimer=null;
+let queuedSyncTimer=null,needsResync=false;
 function queueCloudSync(){
  if(!session?.access_token||!navigator.onLine)return;
+ if(syncSequence){needsResync=true;return}
  clearTimeout(queuedSyncTimer);
  queuedSyncTimer=setTimeout(()=>synchronizeAll().catch(e=>status('Sincronización pendiente: '+e.message)),700);
 }
@@ -1934,7 +1935,12 @@ function queueOperation(id,kind,previous){
 }
 function completedOperation(id,token,stamp){
  const ops=readOperations(),current=ops[id];
- if(token&&current&&current.token!==token)return false;
+ // El usuario pudo realizar otro cambio mientras el anterior estaba subiendo.
+ // La operación nueva debe conservarse y partir de la versión recién confirmada.
+ if(current&&current.token!==token){
+  if(stamp){current.base=stamp;ops[id]=current;saveOperations(ops);saveRevision(id,stamp)}
+  return false;
+ }
  delete ops[id];saveOperations(ops);
  if(session){dirtyRemove(id);mark(id);if(stamp)saveRevision(id,stamp)}
  return true;
@@ -1980,8 +1986,9 @@ async function cloudSave(r,operation=pendingOperations()[r.id]){
   created:r.created||Date.now(),size:r.type==='file'?(r.blob?.size??r.size??null):null};
  let object_path=existing?.object_path||r.cloudObjectPath||null;
  if(r.type==='file'){
-  if(r.blob instanceof Blob&&!r.cloudNeedsDownload){
-   // Objetos de versión única: nunca se sobrescribe el original anterior.
+  if(r.blob instanceof Blob&&!r.cloudNeedsDownload&&(!existing||!object_path||
+    (Number.isFinite(Number(existing.metadata?.size))&&Number(existing.metadata?.size)!==r.blob.size))){
+   // Subir solo contenido nuevo; cambios de nombre y carpeta no reenvían MP3/PDF.
    const newPath=pathFor(r);
    await api('/storage/v1/object/'+BUCKET+'/'+newPath,{
     method:'POST',headers:{'Content-Type':mimeFor(r)},body:r.blob
@@ -2371,7 +2378,7 @@ async function synchronizeAll(){
    return result;
  })();
  try{return await syncSequence}
- finally{syncSequence=null}
+ finally{syncSequence=null;if(needsResync){needsResync=false;queueCloudSync()}}
 }
 setTimeout(()=>{if(session)synchronizeAll().catch(e=>status('Error al sincronizar: '+e.message))},1500);
 setInterval(()=>{if(session)synchronizeAll().catch(e=>status('Error al sincronizar: '+e.message))},15000);
