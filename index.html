@@ -103,22 +103,7 @@ body:has(#consorteEditDock.active) #resizeHandle{z-index:11999!important;bottom:
  .app.editor-mode .page.active [data-editor-id],.app.editor-mode .editor-copy,.app.editor-mode .editor-floating,.app.editor-mode .editor-decor,#resizeHandle{touch-action:none!important;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
  .app.editor-mode [contenteditable="true"],.app.editor-mode input,.app.editor-mode textarea{touch-action:auto!important;-webkit-user-select:text;user-select:text}
 }
-</style><style id="consort-violet-ui-2026">
-:root{--dark:#643db3!important;--accent:#ff9e16!important;--paper:#ffffff!important;--bg:#f6f3ff!important;--ink:#28213b!important;--muted:#71698a!important;--border:#e6dcfa!important;--shadow:0 10px 28px #51349a18!important;--button-radius:14px!important}
-body{background:linear-gradient(145deg,#faf7ff,#f2edff 62%,#fff9ed)!important;color:#28213b}
-.sidebar{background:linear-gradient(165deg,#bd3ba9 0%,#8546c0 46%,#5548b6 100%)!important}
-.top{background:linear-gradient(110deg,#b53caf,#7145bf)!important;color:white!important}
-.nav,.bottomnav button{color:white!important;border-radius:13px!important}
-.nav.active,.bottomnav button.active{background:#ffffff30!important;color:#fff!important}
-.bottomnav{background:linear-gradient(100deg,#a13fb5,#5946b9)!important}
-button{border-radius:14px!important}
-button.primary,.primary{background:linear-gradient(115deg,#ff9b0c,#ffc027)!important;color:#30213e!important;border-color:#f6a21a!important}
-.card,.panel,.tile,.modal,.folder-card{border-radius:18px!important;box-shadow:0 8px 22px #6443ac12}
-input,select,textarea{border-radius:12px!important;background:#fff!important;border-color:#e4d9fa!important}
-#launchEditorAnywhere{background:linear-gradient(125deg,#b73bb0,#6244bb)!important;color:#fff!important;border:1px solid #eee0ff!important}
-#consorteEditDock{background:#faf7ff!important;border-top-color:#a54bc3!important}
-@media(max-width:850px){.bottomnav{display:flex!important;visibility:visible!important;opacity:1!important;z-index:1000!important}.bottomnav button{display:block!important;visibility:visible!important;opacity:1!important;min-width:0!important;position:relative!important;transform:none!important}}
-</style><style id="consort-deep-purple-folders">
+</style><!-- El antiguo tema violeta fue sustituido por Paleta 1. --><style id="consort-deep-purple-folders">
 .folder-circle{background:#eee6ff!important;border-color:#d5c4f6!important;box-shadow:inset 0 0 0 2px #f8f5ff!important}
 .folder-circle::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='24' viewBox='0 0 28 24'%3E%3Cpath d='M3 6V4.5Q3 3 4.5 3H11l3 3h9.5Q25 6 25 7.5v12Q25 21 23.5 21h-19Q3 21 3 19.5Z' fill='%237a3ec2' stroke='%235b2da2' stroke-width='1.8' stroke-linejoin='round'/%3E%3C/svg%3E")!important}
 </style><style>
@@ -3096,4 +3081,112 @@ html body .app .sidebar .nav:focus-visible,
 html body .app .bottomnav button:focus-visible{outline:3px solid #93C5FD!important;outline-offset:2px!important}
 </style>
 <style id="consorte-hide-top-title">.app .main > header.top{display:none!important}</style>
+
+<style id="consorte-global-palette-1">
+/* PALETA 1 — Colores globales de interfaz. No cambia el contenido de los archivos. */
+:root{
+ --dark:#172B46!important;--accent:#2563EB!important;--paper:#FFFFFF!important;
+ --bg:#F4F7FB!important;--ink:#172B46!important;--muted:#64748B!important;
+ --border:#DFE7F0!important;--shadow:0 5px 18px rgba(23,43,70,.07)!important;
+ --button-radius:10px!important;
+}
+html,body{background:#F4F7FB!important;color:#172B46!important}
+body,.app,.main,.content{background-color:#F4F7FB!important}
+.app .page>h1,.app .page h1,.app .page h2,.app .page h3{color:#172B46!important;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.app .page .sub,.app .page .small,.status,.view-label,.time{color:#64748B!important}
+.card,.app .page .card,.app .page .item,.item,.panel,.tile,.modal,dialog,.tabview,
+#visualEditor,#consorteEditDock #visualEditor,.agenda-calendar-card,
+.consorte-note-card,#consorte-note-dialog,#agenda-event-dialog,#consorte-cloud-panel{
+ background:#FFFFFF!important;background-image:none!important;color:#172B46!important;
+ border-color:#DFE7F0!important;
+ box-shadow:0 5px 18px rgba(23,43,70,.07)!important;
+ border-radius:13px!important;
+}
+.app .page button,.app .page button:not(.nav),button,
+.library-more-menu>summary,.library-more-options button,
+#consorte-cloud-panel button{
+ background:#FFFFFF!important;background-image:none!important;
+ color:#29415D!important;border-color:#D5E0EC!important;border-radius:10px!important;
+ box-shadow:none!important;
+}
+.app .page button:hover,button:hover{background:#EEF4FC!important;border-color:#B9CCE2!important}
+.app .page button.primary,.app .page .primary,.app .page .activeMark,
+button.primary,.primary,.activeMark,
+#launchEditorAnywhere,#consorte-editor-toggle,
+#consorte-audio-editor button.ce-primary{
+ background:#2563EB!important;background-image:none!important;color:#FFFFFF!important;
+ border-color:#2563EB!important;box-shadow:none!important;
+}
+.app .page button.primary:hover,button.primary:hover,#launchEditorAnywhere:hover{
+ background:#1D4ED8!important;border-color:#1D4ED8!important;
+}
+input,select,textarea,.app .page input,.app .page select,.app .page textarea{
+ background:#FFFFFF!important;color:#172B46!important;border-color:#CDD8E5!important;
+ box-shadow:none!important;border-radius:9px!important;
+}
+input[type="range"],input[type="checkbox"],input[type="radio"]{accent-color:#2563EB!important}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,
+[tabindex]:focus-visible{outline:3px solid #93C5FD!important;outline-offset:2px!important}
+.drop,.app .page .drop{background:#F8FBFF!important;border-color:#94B6E2!important}
+.drop.drag{background:#E4F0FF!important}
+.notice,.question{background:#F0F6FF!important;border-color:#D7E5F5!important;color:#29415D!important}
+.scoreview,.app .page .scoreview{background:#EAF0F7!important;border-color:#DDE6F0!important}
+.song-group-title{color:#294A70!important;border-color:#CBDCF0!important}
+.view-switch{background:#EDF3FA!important;border-color:#DDE6EF!important}
+.view-switch button[aria-pressed="true"],.app .page button[aria-pressed="true"],
+.app .page button.active,.app .page button.selected{
+ background:#234E84!important;color:#FFFFFF!important;border-color:#234E84!important;
+}
+#consorteEditDock{background:#FFFFFF!important;color:#172B46!important;border-top:2px solid #2563EB!important}
+#consorteEditDock .dockNav{background:#172B46!important;background-image:none!important}
+#consorteEditDock .dockNav button{background:#2A496B!important;color:#F1F6FE!important;border-color:#466585!important}
+#consorteEditDock .dockNav button.active{background:#2563EB!important;color:#FFFFFF!important;border-color:#3B82F6!important}
+#consorteEditDock .dockNav #dockExit{background:#213954!important;color:#FFFFFF!important}
+#consorteEditDock #visualEditor{background:#FFFFFF!important}
+#visualEditor,.app.editor-mode #visualEditor{background:#F8FBFF!important;border-color:#B9CDE4!important}
+.app.editor-mode [data-editor-id].editor-selected{outline-color:#2563EB!important;box-shadow:0 0 0 3px #2563EB22!important}
+#resizeHandle{background:#2563EB!important}
+.editor-copy[contenteditable="true"],.app.editor-mode [data-editor-id][contenteditable="true"]{outline-color:#2563EB!important}
+#editorStatus{color:#526B84!important}
+#consorte-cloud-panel{background:#F8FBFF!important;color:#172B46!important}
+#consorte-cloud-panel .cloud-note{color:#64748B!important}
+#launchEditorAnywhere{border-color:#2563EB!important}
+.library-more-menu>summary,.library-more-options{background:#FFFFFF!important;border-color:#D8E2ED!important}
+.library-more-menu[open]>summary{background:#EAF2FF!important}
+#library .item{background:#FFFFFF!important;border-color:#DCE6F1!important}
+#library .item:hover{border-color:#A8C4E9!important}
+.folder-circle{background:#EAF2FF!important;border-color:#D1E3F8!important;box-shadow:inset 0 0 0 2px #F8FBFF!important}
+#consorte-audio-editor{background:#F7FAFF!important;color:#172B46!important;border-color:#D8E4F3!important}
+#consorte-audio-editor .ce-mark{background:#FFFFFF!important}
+#consorte-audio-editor button.ce-danger{color:#A0263B!important;border-color:#D9A8B1!important}
+#study>.cp-top-audio{background:#FFFFFF!important;border-color:#DCE5EF!important}
+#study .consorte-player-plus{background:#172B46!important;color:#FFFFFF!important;border-color:#284563!important}
+#study .consorte-player-plus button{background:#FFFFFF18!important;color:#FFFFFF!important;border-color:#FFFFFF38!important}
+#study .consorte-player-plus .cp-play{background:#2563EB!important;color:#FFFFFF!important;border-color:#3B82F6!important}
+#study .cp-disc{background:#2563EB!important;color:#FFFFFF!important}
+#study .cp-meter-card{background:#F8FBFF!important;border-color:#DAE5F2!important}
+#study .cp-meter-card h2{color:#172B46!important}
+.agenda-week span,.agenda-days,.agenda-day{border-color:#DCE6F1!important}
+.agenda-days,.agenda-day{background:#FFFFFF!important}
+.agenda-day:hover{background:#EEF5FF!important}
+.agenda-day.sel{background:#E6F0FF!important;box-shadow:inset 0 0 0 2px #60A5FA!important}
+.agenda-day.othermonth{background:#F3F6FA!important;color:#8090A4!important}
+.agenda-day.now .agenda-day-number{background:#2563EB!important;color:#FFFFFF!important}
+.agenda-event-pill{background:#486B9C!important}
+.agenda-event-pill.ensayo,.agenda-dot.ensayo{background:#2563EB!important}
+.agenda-event-pill.presentacion,.agenda-dot.presentacion{background:#178B91!important}
+.agenda-event-pill.reunion,.agenda-dot.reunion{background:#385F9D!important}
+.agenda-event-pill.otro,.agenda-dot.otro{background:#7088A8!important}
+.agenda-event-pill.recordatorio,.agenda-dot.recordatorio{background:#577EA9!important}
+.agenda-entry,.consorte-note-card{background:#FFFFFF!important;border-color:#DFE7F0!important}
+.consorte-note-preview,.agenda-legend,.agenda-more{color:#64748B!important}
+#consorte-note-dialog{background:#FFFFFF!important}
+.note-tools,.note-editor-bottom{border-color:#DCE6F1!important}
+.note-rich-editor:focus{border-color:#60A5FA!important}
+.note-song-link{background:#EAF2FF!important;color:#1D4ED8!important;border-color:#BBD5FA!important}
+#agenda-event-dialog{background:#FFFFFF!important}
+#consorte-note-dialog .note-title{background:transparent!important}
+#consorte-cloud-panel .cloud-note,.editor-status{color:#64748B!important}
+/* Custom file artwork and user-selected folder covers intentionally retain their own colors. */
+</style>
 </body></html>
