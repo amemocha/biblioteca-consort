@@ -211,6 +211,52 @@ const text=(n,t,def="")=>one(n,t)?.textContent?.trim()??def;
 function problem(msg){$("error").textContent=msg||""}
 function status(msg){$("status").textContent=msg||""}
 function clearAudio(){const player=$("player");player.pause();player.removeAttribute("src");player.load();if(state.url)URL.revokeObjectURL(state.url);state.url=null;state.blob=null;$("result").hidden=true;}
+// Índice de compases compartido por todos los pentagramas.
+// MusicXML usa divisiones locales y "backup" para voces simultáneas.
+function sharedMeasureStarts(parts){
+ const lengths=[],counts=parts.map(p=>kids(p,"measure"));
+ for(const measures of counts){
+  let divisions=1,meter=4;
+  for(const [i,measure] of measures.entries()){
+   let cursor=0,lastOnset=0,furthest=0;
+   for(const e of Array.from(measure.children)){
+    const tag=e.localName;
+    if(tag==="attributes"){
+     // Si <divisions> no aparece, MusicXML conserva el valor anterior.
+     const divisionNode=one(e,"divisions");
+     if(divisionNode)divisions=clamp(int(divisionNode.textContent,divisions),1,1000000);
+     const time=one(e,"time");
+     if(time){
+      const beats=text(time,"beats","4").split("+").reduce((sum,part)=>sum+Math.max(0,int(part,0)),0);
+      const beatType=Math.max(1,int(text(time,"beat-type","4"),4));
+      if(beats>0)meter=clamp(beats*4/beatType,.125,64);
+     }
+     continue;
+    }
+    if(tag==="backup"||tag==="forward"){
+     const d=clamp(int(text(e,"duration","0"),0)/divisions,0,1000);
+     cursor=Math.max(0,cursor+(tag==="backup"?-d:d));
+     furthest=Math.max(furthest,cursor);
+     continue;
+    }
+    if(tag!=="note")continue;
+    const chord=!!one(e,"chord"),grace=!!one(e,"grace");
+    const d=grace?0:clamp(int(text(e,"duration","0"),0)/divisions,0,1000);
+    const at=chord?lastOnset:cursor;
+    if(!chord){lastOnset=cursor;cursor+=d}
+    furthest=Math.max(furthest,cursor,at+d);
+   }
+   // Conserva la anacrusa; el resto de los compases dura la métrica escrita.
+   const pickup=measure.getAttribute("implicit")==="yes"||
+       (i===0&&furthest>0&&furthest<meter-.001);
+   const length=pickup?furthest:Math.max(furthest,meter);
+   lengths[i]=Math.max(lengths[i]||0,length);
+  }
+ }
+ let position=0;
+ return lengths.map(len=>{const start=position;position+=len;return start});
+}
+
 function parse(xml,filename=""){
  const doc=new DOMParser().parseFromString(xml,"application/xml");
  if(doc.querySelector("parsererror"))throw Error("El XML no tiene una estructura válida.");
@@ -226,6 +272,7 @@ function parse(xml,filename=""){
  }
  const metadata=kids(one(root,"identification"),"creator").map(c=>c.textContent?.trim()).filter(Boolean);
  const scoreParts=kids(root,"part");
+ const measureStarts=sharedMeasureStarts(scoreParts);
  const groups=[],notes=[],tempi=[];
  for(const [pi,part] of scoreParts.entries()){
   const pid=part.getAttribute("id")||String(pi);
@@ -236,13 +283,15 @@ function parse(xml,filename=""){
   const name=identified?identified.name:inferPartName(rawName,scoreParts.length===1?filename:"",scoreParts.length===1?metadata:[]);
  
   const byId=new Map(),ties=new Map();
-  let divisions=1,measureStart=0,offset=0;
-  for(const measure of kids(part,"measure")){
-   let cursor=measureStart,lastOnset=cursor,end=cursor;
+  let divisions=1,offset=0;
+  for(const [measureIndex,measure] of kids(part,"measure").entries()){
+   const measureStart=measureStarts[measureIndex]||0;
+   let cursor=measureStart,lastOnset=cursor;
    for(const e of Array.from(measure.children)){
     const tag=e.localName;
     if(tag==="attributes"){
-     divisions=clamp(int(text(e,"divisions","1"),1),1,1000000);
+     const divisionNode=one(e,"divisions");
+     if(divisionNode)divisions=clamp(int(divisionNode.textContent,divisions),1,1000000);
      const trans=one(e,"transpose");
      if(trans)offset=int(text(trans,"chromatic","0"))+12*int(text(trans,"octave-change","0"));
      continue;
@@ -262,7 +311,6 @@ function parse(xml,filename=""){
     const duration=grace?0:clamp(int(text(e,"duration","0"))/divisions,0,1000);
     const at=chord?lastOnset:cursor;
     if(!chord){lastOnset=cursor;cursor+=duration}
-    end=Math.max(end,cursor,at+duration);
     if(grace||duration<=0||one(e,"rest")||one(e,"unpitched"))continue;
     const pitch=one(e,"pitch");
     if(!pitch)continue;
@@ -282,7 +330,6 @@ function parse(xml,filename=""){
      if(tieTypes.includes("start"))ties.set(key,n);
     }
    }
-   measureStart=end;
   }
  }
  if(!notes.length)throw Error("La partitura no contiene notas musicales compatibles.");
