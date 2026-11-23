@@ -73,6 +73,13 @@ button.primary{box-shadow:0 3px 10px #2563eb2b}
 @media(max-width:480px){.library-head{flex-direction:column}.project-list{grid-template-columns:1fr}}
 
 .studio-save-row,.studio-audio-import,.tab-toolbar{display:flex;align-items:end;flex-wrap:wrap;gap:10px;margin:14px 0}
+.studio-library-score-import{margin:15px 0 8px;padding:16px;background:#eff5fe;border:1px solid #d1e2f9;border-radius:12px}
+.studio-library-score-import>label{display:block;font-size:13px;font-weight:750;color:#284b72;margin-bottom:9px}
+.studio-library-score-actions{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.studio-library-score-actions select{flex:1;min-width:170px;max-width:100%;padding:10px 12px;border:1px solid #c8d7eb;border-radius:9px;background:white;color:#172b46}
+.studio-library-score-actions button{flex-shrink:0}
+#studioScoreLibraryMessage{margin:9px 0 0;min-height:16px}
+@media(max-width:600px){.studio-library-score-actions select,.studio-library-score-actions button{flex:1 1 100%}}
 .studio-save-row>label,.studio-audio-import>label,.tab-toolbar>label{min-width:180px;flex:1;display:grid;gap:6px;font-size:12px;font-weight:700;color:#385372}
 .studio-save-row select,.studio-audio-import select,.tab-toolbar select{width:100%;max-width:100%;min-width:0;padding:10px;border:1px solid #d6e2ef;background:#fff;border-radius:10px;color:#172b46}
 .studio-audio-edit-host{scroll-margin-top:16px}
@@ -105,7 +112,19 @@ button.primary{box-shadow:0 3px 10px #2563eb2b}
 <input id="file" type="file" accept=".mxl,.musicxml,.xml,application/vnd.recordare.musicxml,application/vnd.recordare.musicxml+xml,application/xml,text/xml">
 <input id="fileAny" type="file">
 <p class="small" style="margin:14px 0 0">Si tu teléfono dice «Ningún archivo coincide», pulsa <strong>Ver todos los archivos</strong> y busca tu partitura en Descargas o Archivos.</p>
-</div><p class="small">Admite partituras MusicXML (.xml, .musicxml y .mxl comprimido). Si tienes un archivo de proyecto MuseScore (.mscz o .mscx), primero expórtalo desde MuseScore a MusicXML.</p><div id="info" hidden></div><div id="error" role="alert"></div></section>
+</div>
+<div class="studio-library-score-import">
+<label for="studioLibraryScores">Partitura guardada en Biblioteca Consort (.xml, .musicxml o .mxl)</label>
+<div class="studio-library-score-actions">
+<select id="studioLibraryScores" aria-label="Elegir partitura MusicXML de Biblioteca">
+<option value="">Selecciona una partitura de Biblioteca...</option>
+</select>
+<button id="studioOpenLibraryScore" type="button" class="primary">Cargar desde Biblioteca</button>
+<button id="studioRefreshLibraryScores" type="button">Actualizar lista</button>
+</div>
+<p id="studioScoreLibraryMessage" class="small" aria-live="polite"></p>
+</div>
+<p class="small">Admite partituras MusicXML (.xml, .musicxml y .mxl comprimido), tanto desde este dispositivo como desde Biblioteca. Los archivos XML genéricos que no sean partituras se rechazarán. Si tienes un proyecto MuseScore (.mscz o .mscx), expórtalo a MusicXML.</p><div id="info" hidden></div><div id="error" role="alert"></div></section>
 <section id="settings" class="card studio-mixer" hidden><div class="mixer-top"><div><div class="eyebrow">MESA DE MEZCLAS</div><h2>Instrumentos y voces</h2><p class="small">Cada instrumento tiene un solo canal y todos siguen los mismos compases. Ajusta tono, volumen y sonido sin alterar tu partitura.</p></div><div class="mixer-summary" id="mixerSummary"></div></div><div id="voices"></div><div class="controls"><label>Velocidad (negras/minuto)<input id="tempo" type="number" value="100" min="30" max="240"></label><label><span class="small">Elige un instrumento diferente en cada voz. Los sonidos son sintetizados.</span></label></div><div class="actions"><button id="reset">Restablecer voces</button><button id="saveProject">Guardar proyecto</button><button id="render" class="primary">Generar audio</button></div><p class="small" id="saveStatus" aria-live="polite"></p><p id="status" aria-live="polite"></p></section>
 <section id="result" class="card" hidden><div class="eyebrow">RESULTADO</div><h2>Escuchar y exportar</h2><div id="player" class="multitrack-player" role="group" aria-label="Reproductor de mezcla por instrumentos">
 <button type="button" id="playToggle" class="primary" aria-label="Reproducir o pausar la mezcla">Reproducir</button>
@@ -113,7 +132,7 @@ button.primary{box-shadow:0 3px 10px #2563eb2b}
 <span id="timeReadout">0:00 / 0:00</span>
 </div>
 <p class="small mix-instructions">Después de generar el audio, puedes mover los volúmenes mientras escuchas. La descarga WAV incluirá los niveles actuales.</p>
-<div class="actions"><button id="download" class="primary">Descargar mezcla WAV actual</button><button id="editCurrentMix">Editar mezcla en Studio</button><button id="stop">Detener</button></div>
+<div class="actions"><button id="download" class="primary">Descargar mezcla WAV actual</button><button id="editCurrentMix" class="primary">Editar audio generado</button><button id="stop">Detener</button></div>
 <div class="studio-save-row"><label>Carpeta de Biblioteca <select id="studioSaveFolder"><option value="">Inicio de Biblioteca</option></select></label><button id="saveMixLibrary" class="primary" type="button">Guardar mezcla en Biblioteca</button></div>
 <p id="studioSaveMessage" class="small" role="status" aria-live="polite"></p><p class="small">Audio instrumental sintetizado. Para partituras extensas se ajusta la calidad de exportación para proteger la memoria del dispositivo. No contiene los instrumentos reales de MuseScore ni todas las indicaciones de expresión.</p></section>
 <section id="scoreTabSection" class="card" hidden>
@@ -979,7 +998,8 @@ async function load(file){
   if(score.shortBars)status("Partitura importada. "+score.shortBars+
     " compases parciales identificados; no se añaden pausas al final de ellos.");
   try{await saveCurrentProject();}catch(err){projectNotice("No se pudo guardar el proyecto automáticamente: "+(err.message||err))}
- }catch(err){problem(err.message||String(err))}
+  return score;
+ }catch(err){problem(err.message||String(err));return null}
 }
 $("chooseMxl").onclick=()=>$("file").click();
 $("chooseAny").onclick=()=>$("fileAny").click();
@@ -1073,7 +1093,7 @@ async function synthesize(){
   clearAudio();
   state.stems=stems;state.duration=lengthSeconds;state.sampleRate=rate;
   $("result").hidden=false;updatePlaybackDisplay();
-  status("Pistas listas. Ajusta los volúmenes incluso durante la reproducción y descarga la mezcla cuando quieras.");
+  status("Pistas listas. Ajusta el volumen de cada instrumento y pulsa «Editar audio generado» para recortar o modificar la mezcla sin descargarla.");
  }catch(err){problem("No se pudo generar el audio: "+(err.message||err));status("")}
  finally{state.busy=false;$("render").disabled=false}
 }
@@ -1123,12 +1143,47 @@ async function refreshStudioLibrarySelects(){
  folder.replaceChildren(new Option("Inicio de Biblioteca",""));
  for(const f of await api.folderOptions())folder.add(new Option(f.label,f.id));
  if([...folder.options].some(o=>o.value===previous))folder.value=previous;
- const records=await api.list(),select=$("studioLibraryAudios"),selected=select.value;
+ const records=await api.list();
+ const scores=$("studioLibraryScores"),previousScore=scores.value;
+ scores.replaceChildren(new Option("Selecciona una partitura de Biblioteca...",""));
+ for(const item of records.filter(r=>r.type==="file"&&/\.(xml|musicxml|mxl)$/i.test(r.name||"")).sort((a,b)=>a.name.localeCompare(b.name,"es")))
+  scores.add(new Option(item.name,item.id));
+ if([...scores.options].some(o=>o.value===previousScore))scores.value=previousScore;
+ $("studioOpenLibraryScore").disabled=scores.options.length<=1;
+ const select=$("studioLibraryAudios"),selected=select.value;
  select.replaceChildren(new Option("Elegir un audio...",""));
  for(const item of records.filter(r=>r.type==="file"&&r.kind==="audio").sort((a,b)=>a.name.localeCompare(b.name,"es")))
   select.add(new Option(item.name,item.id));
  if([...select.options].some(o=>o.value===selected))select.value=selected;
 }
+async function openSelectedLibraryScore(id){
+ const notice=$("studioScoreLibraryMessage"),button=$("studioOpenLibraryScore");
+ if(!id){notice.textContent="Selecciona primero un archivo MusicXML.";return}
+ if(state.busy||state.exporting){notice.textContent="Termina primero la generación o exportación actual.";return}
+ button.disabled=true;notice.textContent="Cargando partitura desde Biblioteca...";
+ try{
+  const library=window.consorteStudioLibrary;
+  if(!library?.musicXMLFile)throw Error("La conexión con Biblioteca no está disponible.");
+  const file=await library.musicXMLFile(id);
+  const score=await load(file);
+  if(!score)throw Error("No se pudo interpretar como una partitura MusicXML. Comprueba el mensaje de error de arriba.");
+  notice.textContent="«"+file.name+"» cargado desde Biblioteca. Puedes ajustar las voces y generar audio.";
+  $("settings").scrollIntoView({behavior:"smooth",block:"start"});
+ }catch(err){notice.textContent="Error al abrir el archivo de Biblioteca: "+(err.message||err)}
+ finally{button.disabled=false}
+}
+$("studioOpenLibraryScore").onclick=()=>openSelectedLibraryScore($("studioLibraryScores").value);
+$("studioRefreshLibraryScores").onclick=async()=>{
+ const button=$("studioRefreshLibraryScores");
+ button.disabled=true;
+ try{
+  await refreshStudioLibrarySelects();
+  $("studioScoreLibraryMessage").textContent=$("studioLibraryScores").options.length>1
+   ?"Lista de partituras actualizada.":"No hay archivos .xml, .musicxml o .mxl guardados en este navegador.";
+ }catch(err){$("studioScoreLibraryMessage").textContent="No se pudo actualizar Biblioteca: "+(err.message||err)}
+ finally{button.disabled=false}
+};
+
 $("saveMixLibrary").onclick=()=>mixAction($("saveMixLibrary"),async(blob,name)=>{
  const api=window.consorteStudioLibrary;
  if(!api)throw Error("Biblioteca Consort no está disponible.");
@@ -1162,17 +1217,22 @@ $("studioOpenLibraryAudio").onclick=async()=>{
  }catch(err){$("studioAudioMessage").textContent=err.message||String(err)}
 };
 window.consorteStudioGetScore=()=>state.score;
-window.addEventListener("DOMContentLoaded",()=>{
- refreshStudioLibrarySelects().catch(err=>{
-  $("studioSaveMessage").textContent="No se pudieron listar las carpetas: "+(err.message||err)
- });
+window.addEventListener("DOMContentLoaded",async()=>{
+ try{await refreshStudioLibrarySelects()}catch(err){
+  $("studioSaveMessage").textContent="No se pudo consultar Biblioteca: "+(err.message||err)
+ }
+ const scoreId=new URLSearchParams(location.search).get("editScore");
+ if(scoreId){
+  $("studioLibraryScores").value=scoreId;
+  await openSelectedLibraryScore(scoreId);
+ }
 });
 $("render").onclick=synthesize;
 $("download").onclick=downloadCurrentMix;
 })();
 </script>
 <link rel="stylesheet" href="./consorte-audio-editor.css?v=2">
-<script src="./consorte-studio-library-bridge.js"></script>
+<script src="./consorte-studio-library-bridge.js?v=20261123b"></script>
 <script src="./consorte-studio-audio-editor.js"></script>
 <script src="./consorte-studio-tablature.js"></script>
 </body></html>
