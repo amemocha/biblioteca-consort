@@ -260,12 +260,19 @@ function update(){
  saveDraft();refreshParts();renderEvents();renderEngravingSoon();
 }
 function syncMetadata(){
+ const previous=clone(model);
  model.title=$("xmlComposerTitle").value.slice(0,120);
  model.author=$("xmlComposerAuthor").value.slice(0,120);
  model.beats=Number($("xmlComposerBeats").value);
  model.beatType=Number($("xmlComposerBeatType").value);
  model.tempo=Math.min(240,Math.max(30,Math.round(Number($("xmlComposerTempo").value)||100)));
- saveDraft();renderEngravingSoon();
+ try{
+  maxBars();
+  saveDraft();renderEvents();renderEngravingSoon();notify("Datos de la partitura actualizados.");
+ }catch(err){
+  model=previous;undoStack.pop();showForm();renderEvents();
+  notify("No se puede cambiar el compás: "+(err.message||err),true);
+ }
 }
 function showForm(){
  $("xmlComposerTitle").value=model.title;
@@ -413,7 +420,7 @@ function init(){
  $("xmlComposerCancel").onclick=()=>{finishEdit();notify("Edición cancelada.")};
  $("xmlComposerClear").onclick=clearCurrent;
  for(const id of ["xmlComposerTitle","xmlComposerAuthor","xmlComposerBeats","xmlComposerBeatType","xmlComposerTempo"])
-  $(id).addEventListener("change",()=>{checkpoint();syncMetadata();renderEvents()});
+  $(id).addEventListener("change",()=>{checkpoint();syncMetadata()});
  $("xmlComposerPart").onchange=()=>{model.selected=$("xmlComposerPart").value;editing=-1;update()};
  $("xmlComposerPartName").onchange=()=>{
   const part=current();checkpoint();part.name=$("xmlComposerPartName").value.trim().slice(0,80)||"Instrumento";
