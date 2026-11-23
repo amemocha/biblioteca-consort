@@ -96,7 +96,8 @@ button.primary{box-shadow:0 3px 10px #2563eb2b}
 
 #tabCustomTuning{display:block;width:100%;min-width:0;margin-top:7px;padding:10px;border:1px solid #cbd9e8;background:#fff;color:#172b46;border-radius:9px;font:inherit}
 #tabCustomLabel[hidden]{display:none!important}
-</style></head>
+</style><link rel="stylesheet" href="./consorte-studio-xml-composer.css?v=20261123xml1">
+</head>
 <body><header class="studio-header"><div class="header-inner"><div class="brand-kicker">CONSORT STUDIO</div><div class="build-version">Versión 2026.11.23-14 · Studio integrado y tablaturas corregidas</div><h1>Tu música, a tu manera.</h1><p>Importa tu partitura, ajusta cada instrumento y crea el audio que necesitas.</p></div></header>
 <main>
 <section class="card project-library" id="library">
@@ -106,6 +107,55 @@ button.primary{box-shadow:0 3px 10px #2563eb2b}
 <div id="projectsList" class="project-list"><p class="small">Buscando proyectos guardados…</p></div>
 <p class="small">Se guardan automáticamente en este navegador, incluyendo el volumen, los instrumentos y los semitonos. En otros dispositivos no aparecerán y, al abrirlos, el audio se debe generar otra vez.</p>
 </section>
+
+<section class="card" id="xmlComposerSection" aria-labelledby="xmlComposerHeading">
+ <div class="eyebrow">COMPOSICIÓN MUSICAL</div>
+ <h2 id="xmlComposerHeading">Crear archivo MusicXML</h2>
+ <p class="small">Escribe notas y silencios por instrumento, organiza compases y genera un documento musical que puedas abrir en MuseScore o convertir a audio aquí mismo.</p>
+ <div class="xml-composer-fields">
+  <label>Título de la obra<input id="xmlComposerTitle" type="text" maxlength="120" value="Nueva composición" placeholder="Nombre de la composición"></label>
+  <label>Compositor o arreglista<input id="xmlComposerAuthor" type="text" maxlength="120" placeholder="Autor"></label>
+  <label>Numerador del compás<select id="xmlComposerBeats"><option value="2">2 tiempos</option><option value="3">3 tiempos</option><option value="4" selected>4 tiempos</option><option value="5">5 tiempos</option><option value="6">6 tiempos</option><option value="7">7 tiempos</option><option value="9">9 tiempos</option><option value="12">12 tiempos</option></select></label>
+  <label>Unidad de compás<select id="xmlComposerBeatType"><option value="4" selected>Negra (4)</option><option value="8">Corchea (8)</option><option value="2">Blanca (2)</option><option value="16">Semicorchea (16)</option></select></label>
+  <label>Tempo (negras/minuto)<input id="xmlComposerTempo" type="number" min="30" max="240" value="100"></label>
+ </div>
+ <div class="xml-composer-voices">
+  <label>Instrumento que estás escribiendo<select id="xmlComposerPart" aria-label="Instrumento a editar"></select></label>
+  <button id="xmlComposerAddPart" type="button">+ Añadir instrumento</button>
+  <button id="xmlComposerFiveGuitars" type="button">Plantilla de cinco guitarras</button>
+  <button id="xmlComposerRemovePart" type="button">Quitar instrumento</button>
+ </div>
+ <label class="xml-composer-part-name">Nombre del instrumento<input id="xmlComposerPartName" type="text" maxlength="80" placeholder="Guitarra soprano"></label>
+ <div class="xml-composer-entry">
+  <label>Figura<select id="xmlComposerFigure">
+   <option value="quarter" selected>Negra (1 tiempo)</option>
+   <option value="half">Blanca (2 tiempos)</option>
+   <option value="whole">Redonda (4 tiempos)</option>
+   <option value="eighth">Corchea (1/2 tiempo)</option>
+   <option value="16th">Semicorchea (1/4 tiempo)</option>
+   <option value="32nd">Fusa (1/8 tiempo)</option>
+  </select></label>
+  <label>Tipo<select id="xmlComposerKind"><option value="note">Nota</option><option value="rest">Silencio</option><option value="chord">Añadir nota al acorde anterior</option></select></label>
+  <label>Altura<input id="xmlComposerPitch" type="text" value="Mi4" placeholder="Mi4, Fa#4, Sib3" maxlength="12"></label>
+  <label class="xml-composer-dot"><input type="checkbox" id="xmlComposerDot"> Puntillo</label>
+  <button id="xmlComposerAddNote" class="primary" type="button">Añadir figura</button>
+  <button id="xmlComposerFinishBar" type="button">Completar compás con silencio</button>
+ </div>
+ <p class="small">Las alturas admiten Do, Re, Mi, Fa, Sol, La, Si o C, D, E, F, G, A, B con octava (ej.: Do4, F#3). Las notas de acorde suenan a la vez y deben caber en el mismo instrumento.</p>
+ <div class="xml-composer-preview">
+  <div class="xml-composer-preview-head"><strong id="xmlComposerPartTitle">Guitarra soprano</strong><span id="xmlComposerCount" class="small">0 figuras</span></div>
+  <div id="xmlComposerEvents" class="xml-composer-events"></div>
+ </div>
+ <p id="xmlComposerStatus" role="status" aria-live="polite" class="small"></p>
+ <div class="xml-composer-footer">
+  <label>Guardar en Biblioteca<select id="xmlComposerFolder"><option value="">Inicio de Biblioteca</option></select></label>
+  <button id="xmlComposerSaveLibrary" type="button">Guardar MusicXML en Biblioteca</button>
+  <button id="xmlComposerDownload" type="button">Descargar .musicxml</button>
+  <button id="xmlComposerUseAudio" type="button" class="primary">Abrir en generador de audio</button>
+ </div>
+ <p class="small">Los compases se completan con silencios escritos al exportar. El borrador se guarda automáticamente en este navegador; no modifica ninguna partitura original.</p>
+</section>
+
 <section class="card"><div class="eyebrow">PROYECTO MUSICAL</div><h2>Importar partitura</h2><div class="drop" id="drop">
 <strong>Subir partitura MusicXML (.mxl incluido)</strong><p class="small">Admite .mxl, .musicxml y .xml. También puedes arrastrar el archivo aquí.</p>
 <div class="actions" style="justify-content:center;margin-top:12px">
@@ -157,5 +207,6 @@ button.primary{box-shadow:0 3px 10px #2563eb2b}
 <link rel="stylesheet" href="./consorte-audio-editor.css?v=2">
 <script src="./consorte-studio-library-bridge.js?v=20261123b"></script>
 <script src="./consorte-studio-audio-editor.js"></script>
-<script src="./consorte-studio-tablature.js?v=20261123native5"></script>
+<script src="./consorte-studio-tablature.js?v=20261123native6"></script>
+<script src="./consorte-studio-xml-composer.js?v=20261123xml1"></script>
 </body></html>
