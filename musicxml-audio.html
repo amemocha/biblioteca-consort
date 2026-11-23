@@ -33,6 +33,35 @@ const INSTRUMENTS=[
  ["violin","Violín"],["cello","Violonchelo"],["clarinet","Clarinete"],
  ["trumpet","Trompeta"],["organ","Órgano"],["bass","Bajo eléctrico"]
 ];
+// Identificación de familias de guitarra; G.S se reserva para contrabajo según la nomenclatura solicitada.
+const VOICE_ALIASES=[
+ {name:"Guitarra bajo",short:"G.B",test:/\b(?:g\s*[.\- ]\s*b\.?|guitarra[\s_-]*bajo|guitarra[\s_-]*bass)\b/i},
+ {name:"Guitarra alto",short:"G.A",test:/\b(?:g\s*[.\- ]\s*a\.?|guitarra[\s_-]*alto)\b/i},
+ {name:"Guitarra tenor",short:"G.T",test:/\b(?:g\s*[.\- ]\s*t\.?|guitarra[\s_-]*tenor)\b/i},
+ {name:"Contrabajo",short:"G.S",test:/\b(?:g\s*[.\- ]\s*s\.?|contra[\s_-]*bajo|contrabajo)\b/i},
+ {name:"Guitarra prima",short:"G.P",test:/\b(?:g\s*[.\- ]\s*p\.?|guitarra[\s_-]*prima)\b/i},
+ {name:"Guitarra soprano",short:"",test:/\b(?:guitarra[\s_-]*soprano)\b/i}
+];
+function voiceIdentity(source){
+ const n=String(source||"").replace(/[_-]+/g," ").trim();
+ for(const entry of VOICE_ALIASES)if(entry.test.test(n))return entry;
+ return null;
+}
+function meaningfulName(name){return !!name&&!/^(voice|voz|instrumento|instrument|part|parte|staff|pentagrama)(?:\s*\d+)?$/i.test(String(name).trim())}
+function identityLabel(name){const match=voiceIdentity(name);return match?match.name+(match.short?" ("+match.short+")":""):name}
+function inferPartName(raw,filename,metadata){
+ const candidate=[raw,...metadata,filename.replace(/\.[^.]+$/,"").replace(/^\d+[\s_-]*/,"")];
+ if(meaningfulName(raw)){
+  const match=voiceIdentity(raw);
+  return match?match.name:raw;
+ }
+ for(const value of candidate){
+  const match=voiceIdentity(value);
+  if(match)return match.name;
+ }
+ return meaningfulName(raw)?raw:"Instrumento sin identificar";
+}
+
 function inferInstrument(name){
  const n=String(name).toLowerCase();
  if(/dulce|recorder/.test(n))return "recorder";
@@ -46,7 +75,7 @@ function inferInstrument(name){
  if(/clarinete|clarinet/.test(n))return "clarinet";
  if(/trompeta|trumpet/.test(n))return "trumpet";
  if(/[oó]rgano|organ/.test(n))return "organ";
- if(/bajo|bass/.test(n))return "bass";
+ if(/contrabajo|bajo|bass/.test(n))return "bass";
  return "piano";
 }
 const PATCH={
@@ -76,17 +105,18 @@ const text=(n,t,def="")=>one(n,t)?.textContent?.trim()??def;
 function problem(msg){$("error").textContent=msg||""}
 function status(msg){$("status").textContent=msg||""}
 function clearAudio(){const player=$("player");player.pause();player.removeAttribute("src");player.load();if(state.url)URL.revokeObjectURL(state.url);state.url=null;state.blob=null;$("result").hidden=true;}
-function parse(xml){
+function parse(xml,filename=""){
  const doc=new DOMParser().parseFromString(xml,"application/xml");
  if(doc.querySelector("parsererror"))throw Error("El XML no tiene una estructura válida.");
  const root=doc.documentElement;
  if(root.localName!=="score-partwise")throw Error("Se necesita una partitura MusicXML score-partwise (no un XML genérico).");
  const partNames=new Map();
  for(const part of kids(one(root,"part-list"),"score-part"))partNames.set(part.getAttribute("id"),text(part,"part-name","Instrumento"));
+ const metadata=kids(one(root,"identification"),"creator").map(c=>c.textContent?.trim()).filter(Boolean);
  const groups=[],notes=[],tempi=[];
  for(const [pi,part] of kids(root,"part").entries()){
   const pid=part.getAttribute("id")||String(pi);
-  const name=partNames.get(pid)||"Instrumento "+(pi+1);
+  const name=inferPartName(partNames.get(pid)||"",filename,metadata);
   const byId=new Map(),ties=new Map();
   let divisions=1,measureStart=0,offset=0;
   for(const measure of kids(part,"measure")){
@@ -147,9 +177,9 @@ function makeVoiceRows(){
  $("voices").replaceChildren();
  let part=null;
  for(const group of state.score.groups){
-  if(group.part!==part){part=group.part;const h=document.createElement("div");h.className="group-title";h.textContent=group.name;$("voices").append(h)}
+  if(group.part!==part){part=group.part;const h=document.createElement("div");h.className="group-title";h.textContent=identityLabel(group.name);$("voices").append(h)}
   const row=document.createElement("div");row.className="voice";
-  const title=document.createElement("div");title.className="title";const name=document.createElement("strong");name.textContent="Voz "+group.voice+(group.staff!=="1"?" · Pentagrama "+group.staff:"");const count=document.createElement("small");count.textContent=group.count+" notas";title.append(name,count);
+  const title=document.createElement("div");title.className="title";const name=document.createElement("strong");name.textContent=identityLabel(group.name)+" · Voz "+group.voice+(group.staff!=="1"?" · Pentagrama "+group.staff:"");const count=document.createElement("small");count.textContent=group.count+" notas";title.append(name,count);
   const minus=document.createElement("button");minus.textContent="− 1";minus.setAttribute("aria-label","Bajar un semitono en "+group.name+" voz "+group.voice);
   const plus=document.createElement("button");plus.textContent="+ 1";plus.setAttribute("aria-label","Subir un semitono en "+group.name+" voz "+group.voice);
   const n=document.createElement("output");n.textContent="0 semitonos";
@@ -227,7 +257,7 @@ async function load(file){
  problem("");status("");$("info").hidden=true;$("settings").hidden=true;clearAudio();
  if(file.size>12*1024*1024){problem("Archivo demasiado grande (máximo 12 MB).");return}
  try{
-  const score=parse(await readMusicXML(file));state.score=score;
+  const score=parse(await readMusicXML(file),file.name);state.score=score;
   $("tempo").value=clamp(Math.round(score.tempo),30,240);
   $("info").hidden=false;$("info").textContent=score.title+" · "+score.groups.length+" voces · "+score.notes.length+" notas";
   makeVoiceRows();$("settings").hidden=false;
