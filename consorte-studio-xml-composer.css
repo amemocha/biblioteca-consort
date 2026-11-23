@@ -33,3 +33,8 @@
 #xmlComposerSection .xml-composer-staff .engraving-fallback .staff-lines{height:80px;background:repeating-linear-gradient(to bottom,transparent 0 16px,#8497af 16px 17px);border-radius:4px}
 #xmlComposerSection #xmlComposerStatus{font-weight:650;min-height:20px;white-space:pre-wrap}
 @media(max-width:590px){#xmlComposerSection .xml-composer-entry button,#xmlComposerSection .xml-composer-footer button{flex-basis:100%}}
+
+/* Score notes are interactive edit targets in the professional notation view. */
+#xmlComposerSection .xml-composer-clickable-note{cursor:pointer;outline-offset:3px}
+#xmlComposerSection .xml-composer-clickable-note:hover{filter:drop-shadow(0 0 2px #2563eb)}
+#xmlComposerSection .xml-composer-clickable-note:focus-visible,#xmlComposerSection .xml-composer-selected-note{outline:2px solid #2563eb;outline-offset:3px}
