@@ -49,8 +49,15 @@ button.primary{box-shadow:0 3px 10px #2563eb2b}
 #info:not([hidden]){background:#eaf2ff;border-radius:9px;padding:10px 13px;font-weight:650}
 @media(max-width:780px){.mixer-grid{grid-template-columns:minmax(0,1fr)}.studio-mixer{padding:17px}.mixer-top{flex-direction:column;align-items:flex-start;gap:12px}.mixer-channel.voice{padding:15px}}
 @media(max-width:390px){.mixer-channel.voice{column-gap:10px}.stepper{max-width:160px}.mixer-channel .stepper button{width:31px;flex-basis:31px}.card{padding:15px}}
+
+.multitrack-player{display:flex;align-items:center;gap:13px;background:#f5f9ff;border:1px solid #dce7f5;border-radius:12px;padding:13px;margin-top:14px}
+.multitrack-player button{min-width:105px}
+.multitrack-player input[type=range]{flex:1;min-width:0;accent-color:#2563eb}
+#timeReadout{font-size:13px;font-weight:700;color:#385372;font-variant-numeric:tabular-nums;white-space:nowrap}
+.mix-instructions{margin:9px 0 0}
+@media(max-width:510px){.multitrack-player{flex-wrap:wrap}.multitrack-player input[type=range]{order:3;flex-basis:100%}}
 </style></head>
-<body><header class="studio-header"><div class="header-inner"><div class="brand-kicker">CONSORT STUDIO</div><div class="build-version">Versión 2026.11.23-04 · Compases sincronizados</div><h1>Tu música, a tu manera.</h1><p>Importa tu partitura, ajusta cada instrumento y crea el audio que necesitas.</p></div></header>
+<body><header class="studio-header"><div class="header-inner"><div class="brand-kicker">CONSORT STUDIO</div><div class="build-version">Versión 2026.11.23-05 · Volumen editable antes y después</div><h1>Tu música, a tu manera.</h1><p>Importa tu partitura, ajusta cada instrumento y crea el audio que necesitas.</p></div></header>
 <main>
 <section class="card"><div class="eyebrow">PROYECTO MUSICAL</div><h2>Importar partitura</h2><div class="drop" id="drop">
 <strong>Subir partitura MusicXML (.mxl incluido)</strong><p class="small">Admite .mxl, .musicxml y .xml. También puedes arrastrar el archivo aquí.</p>
@@ -63,13 +70,20 @@ button.primary{box-shadow:0 3px 10px #2563eb2b}
 <p class="small" style="margin:14px 0 0">Si tu teléfono dice «Ningún archivo coincide», pulsa <strong>Ver todos los archivos</strong> y busca tu partitura en Descargas o Archivos.</p>
 </div><p class="small">Admite partituras MusicXML (.xml, .musicxml y .mxl comprimido). Si tienes un archivo de proyecto MuseScore (.mscz o .mscx), primero expórtalo desde MuseScore a MusicXML.</p><div id="info" hidden></div><div id="error" role="alert"></div></section>
 <section id="settings" class="card studio-mixer" hidden><div class="mixer-top"><div><div class="eyebrow">MESA DE MEZCLAS</div><h2>Instrumentos y voces</h2><p class="small">Cada instrumento tiene un solo canal y todos siguen los mismos compases. Ajusta tono, volumen y sonido sin alterar tu partitura.</p></div><div class="mixer-summary" id="mixerSummary"></div></div><div id="voices"></div><div class="controls"><label>Velocidad (negras/minuto)<input id="tempo" type="number" value="100" min="30" max="240"></label><label><span class="small">Elige un instrumento diferente en cada voz. Los sonidos son sintetizados.</span></label></div><div class="actions"><button id="reset">Restablecer voces</button><button id="render" class="primary">Generar audio</button></div><p id="status" aria-live="polite"></p></section>
-<section id="result" class="card" hidden><div class="eyebrow">RESULTADO</div><h2>Escuchar y exportar</h2><audio id="player" class="audio" controls preload="metadata"></audio><div class="actions"><button id="download" class="primary">Descargar audio WAV</button><button id="stop">Detener</button></div><p class="small">Audio instrumental sintetizado. Para partituras extensas se ajusta la calidad de exportación para proteger la memoria del dispositivo. No contiene los instrumentos reales de MuseScore ni todas las indicaciones de expresión.</p></section>
+<section id="result" class="card" hidden><div class="eyebrow">RESULTADO</div><h2>Escuchar y exportar</h2><div id="player" class="multitrack-player" role="group" aria-label="Reproductor de mezcla por instrumentos">
+<button type="button" id="playToggle" class="primary" aria-label="Reproducir o pausar la mezcla">Reproducir</button>
+<input type="range" id="seek" min="0" max="1000" value="0" step="1" aria-label="Posición de reproducción">
+<span id="timeReadout">0:00 / 0:00</span>
+</div>
+<p class="small mix-instructions">Después de generar el audio, puedes mover los volúmenes mientras escuchas. La descarga WAV incluirá los niveles actuales.</p><div class="actions"><button id="download" class="primary">Descargar mezcla WAV actual</button><button id="stop">Detener</button></div><p class="small">Audio instrumental sintetizado. Para partituras extensas se ajusta la calidad de exportación para proteger la memoria del dispositivo. No contiene los instrumentos reales de MuseScore ni todas las indicaciones de expresión.</p></section>
 <p class="foot"><a href="./">Volver a Biblioteca Consort</a> · Los archivos no se modifican ni se guardan en la biblioteca automáticamente.</p></main>
 <script>
 (()=>{
 "use strict";
 const $=id=>document.getElementById(id);
-const state={score:null,url:null,blob:null,busy:false};
+const state={score:null,url:null,blob:null,busy:false,exporting:false,stems:new Map(),
+ sampleRate:22050,duration:0,context:null,sources:[],gains:new Map(),
+ playing:false,startedAt:0,pauseOffset:0,animationFrame:0};
 const semis={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
 
 const INSTRUMENTS=[
@@ -210,7 +224,87 @@ const one=(n,t)=>kids(n,t)[0]||null;
 const text=(n,t,def="")=>one(n,t)?.textContent?.trim()??def;
 function problem(msg){$("error").textContent=msg||""}
 function status(msg){$("status").textContent=msg||""}
-function clearAudio(){const player=$("player");player.pause();player.removeAttribute("src");player.load();if(state.url)URL.revokeObjectURL(state.url);state.url=null;state.blob=null;$("result").hidden=true;}
+function clearAudio(){
+ stopPlayback(true);
+ state.stems.clear();state.duration=0;state.sampleRate=22050;
+ if(state.url)URL.revokeObjectURL(state.url);
+ state.url=null;state.blob=null;
+ $("result").hidden=true;
+ updatePlaybackDisplay();
+}
+function formatDuration(seconds){
+ const rounded=Math.max(0,Math.floor(seconds||0));
+ return Math.floor(rounded/60)+":"+String(rounded%60).padStart(2,"0");
+}
+function updatePlaybackDisplay(){
+ const p=state.playing&&state.context?Math.max(0,state.context.currentTime-state.startedAt):state.pauseOffset;
+ const elapsed=Math.min(state.duration,p);
+ $("timeReadout").textContent=formatDuration(elapsed)+" / "+formatDuration(state.duration);
+ $("seek").value=state.duration>0?String(Math.round(elapsed/state.duration*1000)):"0";
+ $("playToggle").textContent=state.playing?"Pausar":"Reproducir";
+ $("playToggle").setAttribute("aria-label",state.playing?"Pausar reproducción":"Reproducir mezcla");
+}
+function playbackFrame(){
+ if(!state.playing)return;
+ if(state.context.currentTime-state.startedAt>=state.duration){
+  stopPlayback(true);return;
+ }
+ updatePlaybackDisplay();
+ state.animationFrame=requestAnimationFrame(playbackFrame);
+}
+function stopPlayback(reset=false){
+ if(state.animationFrame){cancelAnimationFrame(state.animationFrame);state.animationFrame=0}
+ if(state.playing&&state.context)state.pauseOffset=Math.min(state.duration,Math.max(0,state.context.currentTime-state.startedAt));
+ for(const source of state.sources){
+  try{source.stop()}catch(_){}
+  source.disconnect();
+ }
+ state.sources=[];state.gains.clear();state.playing=false;
+ if(reset)state.pauseOffset=0;
+ updatePlaybackDisplay();
+}
+function adjustRenderedVolume(group){
+ if(state.stems.has(group.id)&&state.context){
+  const gain=state.gains.get(group.id);
+  if(gain)gain.gain.setTargetAtTime(group.volume/100,state.context.currentTime,.012);
+ }
+}
+async function togglePlayback(){
+ if(!state.stems.size)return;
+ if(state.playing){stopPlayback(false);return}
+ try{
+  if(!state.context)state.context=new (window.AudioContext||window.webkitAudioContext)();
+  if(state.context.state==="suspended")await state.context.resume();
+  const ctx=state.context;
+  if(state.pauseOffset>=state.duration-.03)state.pauseOffset=0;
+  const offset=state.pauseOffset;
+  const master=ctx.createDynamicsCompressor();
+  master.threshold.value=-7;master.knee.value=12;master.ratio.value=4;
+  master.attack.value=.003;master.release.value=.18;
+  master.connect(ctx.destination);
+  state.sources=[];state.gains.clear();
+  for(const group of state.score.groups){
+   const stem=state.stems.get(group.id);
+   if(!stem)continue;
+   const source=ctx.createBufferSource(),gain=ctx.createGain();
+   source.buffer=stem;gain.gain.value=group.volume/100;
+   source.connect(gain);gain.connect(master);source.start(0,offset);
+   state.sources.push(source);state.gains.set(group.id,gain);
+  }
+  state.startedAt=ctx.currentTime-offset;state.playing=true;
+  updatePlaybackDisplay();state.animationFrame=requestAnimationFrame(playbackFrame);
+ }catch(err){
+  stopPlayback(false);problem("No se pudo reproducir la mezcla: "+(err.message||err));
+ }
+}
+$("playToggle").onclick=togglePlayback;
+$("seek").onchange=()=>{
+ if(!state.duration)return;
+ const next=clamp(Number($("seek").value)/1000*state.duration,0,state.duration);
+ const playing=state.playing;stopPlayback(false);state.pauseOffset=next;
+ updatePlaybackDisplay();if(playing)togglePlayback();
+};
+
 // Índice de compases compartido por todos los pentagramas.
 // MusicXML usa divisiones locales y "backup" para voces simultáneas.
 function sharedMeasureStarts(parts){
@@ -370,7 +464,7 @@ function makeVoiceRows(){
   volHeader.append(volTitle,val);
   const range=document.createElement("input");range.type="range";range.min="0";range.max="100";range.step="1";range.value=String(group.volume);
   range.setAttribute("aria-label","Volumen de "+displayName);
-  range.oninput=()=>{group.volume=int(range.value);val.textContent=group.volume+"%";clearAudio();updateMixerSummary()};
+  range.oninput=()=>{group.volume=int(range.value);val.textContent=group.volume+"%";adjustRenderedVolume(group);updateMixerSummary()};
   volume.append(volHeader,range);
   const instBox=document.createElement("label");instBox.className="channel-control channel-instrument";
   const instTitle=document.createElement("span");instTitle.className="control-caption";instTitle.textContent="INSTRUMENTO";
@@ -497,7 +591,7 @@ drop.addEventListener("dragover",e=>{e.preventDefault();drop.classList.add("drag
 drop.addEventListener("dragleave",()=>drop.classList.remove("drag"));
 drop.addEventListener("drop",e=>{e.preventDefault();drop.classList.remove("drag");load(e.dataTransfer.files[0])});
 $("reset").onclick=()=>{if(!state.score)return;for(const g of state.score.groups){g.offset=0;g.volume=100;g.instrument=inferInstrument(g.name)}makeVoiceRows();clearAudio()};
-$("stop").onclick=()=>{$("player").pause();$("player").currentTime=0};
+$("stop").onclick=()=>stopPlayback(true);
 function encodeWav(samples,rate){
  const buffer=new ArrayBuffer(44+samples.length*2),view=new DataView(buffer);
  function str(off,s){for(let i=0;i<s.length;i++)view.setUint8(off+i,s.charCodeAt(i))}
@@ -518,33 +612,44 @@ function updateDurationEstimate(){
 }
 $("tempo").addEventListener("input",()=>{if(state.score){clearAudio();updateDurationEstimate()}});
 async function synthesize(){
- if(state.busy||!state.score)return;
+ if(state.busy||state.exporting||!state.score)return;
  const tempo=clamp(int($("tempo").value,100),30,240);
  const groups=new Map(state.score.groups.map(g=>[g.id,g]));
  const maxQuarter=Math.max(...state.score.notes.map(n=>n.start+n.duration));
  const lengthSeconds=maxQuarter*60/tempo+1;
- // The previous arbitrary five-minute restriction rejected otherwise valid scores.
- // Adapt output sample rate for longer pieces to reduce browser memory pressure.
  if(!Number.isFinite(lengthSeconds)||lengthSeconds<=0){problem("La duración calculada de la partitura no es válida.");return}
- if(lengthSeconds>1200){problem("La partitura supera los 20 minutos a esta velocidad. Divide la partitura en secciones para evitar que el navegador se quede sin memoria.");return}
- const rate=lengthSeconds>480?16000:22050;
- const total=Math.ceil(lengthSeconds*rate),buf=new Float32Array(total);
- state.busy=true;$("render").disabled=true;problem("");status("Generando audio...");
+ if(lengthSeconds>1200){problem("La partitura supera los 20 minutos a esta velocidad. Divide la partitura en secciones.");return}
+ const rate=lengthSeconds>480?12000:22050;
+ const total=Math.ceil(lengthSeconds*rate);
+ const memory=state.score.groups.length*total*4;
+ if(memory>320*1024*1024){
+  problem("Esta mezcla requiere demasiada memoria para conservar las voces separadas. Prueba una partitura más corta o divide la obra.");return;
+ }
+ state.busy=true;$("render").disabled=true;problem("");status("Generando pistas de instrumentos...");
  try{
+  const stems=new Map();
+  for(const group of state.score.groups){
+   const buffer=new AudioBuffer({numberOfChannels:1,length:total,sampleRate:rate});
+   stems.set(group.id,buffer);
+  }
   let count=0;
   for(const note of state.score.notes){
-   const g=groups.get(note.group);if(!g||!g.volume)continue;
+   const g=groups.get(note.group);if(!g)continue;
    const midi=note.midi+g.offset;
    if(midi<20||midi>115)continue;
    const freq=440*Math.pow(2,(midi-69)/12);
    const start=Math.max(0,Math.round(note.start*60/tempo*rate));
    const maxDur=note.duration*60/tempo;
    const dur=Math.min(maxDur,5*60),len=Math.min(Math.round(dur*rate),total-start);
+   if(len<=0)continue;
    const patch=PATCH[g.instrument]||PATCH.piano;
-   const gain=g.volume/100*0.20;
+   // Instrument samples are independent of current volume so muted voices
+   // can be restored after rendering without regenerating the audio.
+   const gain=.20;
    const dphase=2*Math.PI*freq/rate;
    const attack=patch.a,release=Math.min(patch.r,dur*.48);
    const harmonicScale=patch.h.reduce((a,b)=>a+Math.abs(b),0);
+   const buf=stems.get(g.id).getChannelData(0);
    let phase=0;
    for(let j=0;j<len;j++){
     const t=j/rate;
@@ -561,22 +666,45 @@ async function synthesize(){
     buf[start+j]+=wave*fadeIn*Math.max(0,fadeOut)*pluck*trem*gain;
    }
    count++;
-   if(count%100===0){status("Generando audio: "+Math.round(count/state.score.notes.length*100)+"%");await new Promise(resolve=>setTimeout(resolve,0))}
+   if(count%100===0){status("Generando instrumentos: "+Math.round(count/state.score.notes.length*100)+"%");await new Promise(resolve=>setTimeout(resolve,0))}
   }
-  let peak=0;for(const x of buf)peak=Math.max(peak,Math.abs(x));
-  if(peak>0.94){const factor=.94/peak;for(let i=0;i<buf.length;i++)buf[i]*=factor}
-  clearAudio();state.blob=encodeWav(buf,rate);state.url=URL.createObjectURL(state.blob);
-  $("player").src=state.url;$("result").hidden=false;status("Audio generado. Puedes escucharlo o descargarlo.");
+  clearAudio();
+  state.stems=stems;state.duration=lengthSeconds;state.sampleRate=rate;
+  $("result").hidden=false;updatePlaybackDisplay();
+  status("Pistas listas. Ajusta los volúmenes incluso durante la reproducción y descarga la mezcla cuando quieras.");
  }catch(err){problem("No se pudo generar el audio: "+(err.message||err));status("")}
  finally{state.busy=false;$("render").disabled=false}
 }
+// Mezcla exclusivamente las pistas ya generadas: no vuelve a sintetizar notas.
+async function downloadCurrentMix(){
+ if(state.exporting||state.busy||!state.stems.size)return;
+ state.exporting=true;$("download").disabled=true;problem("");
+ const currentVolumes=state.score.groups.map(g=>({buffer:state.stems.get(g.id),amount:g.volume/100}));
+ try{
+  const len=Math.ceil(state.duration*state.sampleRate);
+  const mixed=new Float32Array(len);
+  for(let i=0;i<len;i+=65536){
+   const stop=Math.min(i+65536,len);
+   for(const track of currentVolumes){
+    if(!track.buffer||track.amount===0)continue;
+    const data=track.buffer.getChannelData(0);
+    for(let j=i;j<stop;j++)mixed[j]+=data[j]*track.amount;
+   }
+   if(i%(65536*8)===0){status("Preparando descarga: "+Math.round(stop/len*100)+"%");await new Promise(resolve=>setTimeout(resolve,0))}
+  }
+  let peak=0;for(const x of mixed)peak=Math.max(peak,Math.abs(x));
+  if(peak>.94){const factor=.94/peak;for(let i=0;i<mixed.length;i++)mixed[i]*=factor}
+  const blob=encodeWav(mixed,state.sampleRate),url=URL.createObjectURL(blob);
+  const link=document.createElement("a");link.href=url;
+  const name=state.score?.title||"partitura";
+  link.download=name.replace(/[^\w \-À-ÿ]/g,"").trim().slice(0,75).replace(/ +/g,"_")+"_consort.wav";
+  document.body.append(link);link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
+  status("Mezcla WAV descargada con los volúmenes seleccionados.");
+ }catch(err){problem("No se pudo descargar la mezcla: "+(err.message||err))}
+ finally{state.exporting=false;$("download").disabled=false}
+}
 $("render").onclick=synthesize;
-$("download").onclick=()=>{
- if(!state.blob)return;
- const a=document.createElement("a");a.href=state.url;
- const name=state.score?.title||"partitura";
- a.download=name.replace(/[^\w \-À-ÿ]/g,"").trim().slice(0,75).replace(/ +/g,"_")+"_consort.wav";
- document.body.append(a);a.click();a.remove();
-};
+$("download").onclick=downloadCurrentMix;
 })();
 </script></body></html>
