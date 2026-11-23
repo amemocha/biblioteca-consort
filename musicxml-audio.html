@@ -56,9 +56,31 @@ button.primary{box-shadow:0 3px 10px #2563eb2b}
 #timeReadout{font-size:13px;font-weight:700;color:#385372;font-variant-numeric:tabular-nums;white-space:nowrap}
 .mix-instructions{margin:9px 0 0}
 @media(max-width:510px){.multitrack-player{flex-wrap:wrap}.multitrack-player input[type=range]{order:3;flex-basis:100%}}
+
+.project-library{padding:22px}
+.library-head{display:flex;justify-content:space-between;align-items:start;gap:12px}
+.library-head h2{margin-bottom:4px}.library-head p{margin:0 0 16px}
+.library-counter{white-space:nowrap;color:#2857a2;background:#eaf2ff;border-radius:999px;padding:7px 11px;font-size:12px;font-weight:700}
+.project-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:10px}
+.project-entry{display:flex;flex-direction:column;gap:9px;justify-content:space-between;border:1px solid #dce6f2;border-radius:11px;background:#fafcff;padding:13px;min-width:0}
+.project-entry strong{display:block;white-space:normal;word-break:break-word;color:#172b46;font-size:14px}
+.project-entry small{font-size:11px;color:#64748b}
+.project-entry .actions{margin:0;gap:6px}
+.project-entry button{font-size:12px;padding:7px 10px}
+.project-entry button.primary{flex:1}
+.project-entry.is-current{border-color:#8fb6f2;background:#f0f6ff}
+#saveStatus{min-height:1.1em;margin:7px 0 0}
+@media(max-width:480px){.library-head{flex-direction:column}.project-list{grid-template-columns:1fr}}
 </style></head>
-<body><header class="studio-header"><div class="header-inner"><div class="brand-kicker">CONSORT STUDIO</div><div class="build-version">Versión 2026.11.23-05 · Volumen editable antes y después</div><h1>Tu música, a tu manera.</h1><p>Importa tu partitura, ajusta cada instrumento y crea el audio que necesitas.</p></div></header>
+<body><header class="studio-header"><div class="header-inner"><div class="brand-kicker">CONSORT STUDIO</div><div class="build-version">Versión 2026.11.23-06 · Mis proyectos y notas continuas</div><h1>Tu música, a tu manera.</h1><p>Importa tu partitura, ajusta cada instrumento y crea el audio que necesitas.</p></div></header>
 <main>
+<section class="card project-library" id="library">
+<div class="library-head"><div><div class="eyebrow">TU ESPACIO DE TRABAJO</div><h2>Mis proyectos</h2>
+<p class="small">Abre tus partituras guardadas para seguir editando instrumentos, volumen y tono.</p></div>
+<span id="projectCounter" class="library-counter">0 proyectos</span></div>
+<div id="projectsList" class="project-list"><p class="small">Buscando proyectos guardados…</p></div>
+<p class="small">Se guardan únicamente en este navegador. Si borras sus datos o usas otro dispositivo, no aparecerán allí. El audio se vuelve a generar al abrir un proyecto.</p>
+</section>
 <section class="card"><div class="eyebrow">PROYECTO MUSICAL</div><h2>Importar partitura</h2><div class="drop" id="drop">
 <strong>Subir partitura MusicXML (.mxl incluido)</strong><p class="small">Admite .mxl, .musicxml y .xml. También puedes arrastrar el archivo aquí.</p>
 <div class="actions" style="justify-content:center;margin-top:12px">
@@ -69,7 +91,7 @@ button.primary{box-shadow:0 3px 10px #2563eb2b}
 <input id="fileAny" type="file">
 <p class="small" style="margin:14px 0 0">Si tu teléfono dice «Ningún archivo coincide», pulsa <strong>Ver todos los archivos</strong> y busca tu partitura en Descargas o Archivos.</p>
 </div><p class="small">Admite partituras MusicXML (.xml, .musicxml y .mxl comprimido). Si tienes un archivo de proyecto MuseScore (.mscz o .mscx), primero expórtalo desde MuseScore a MusicXML.</p><div id="info" hidden></div><div id="error" role="alert"></div></section>
-<section id="settings" class="card studio-mixer" hidden><div class="mixer-top"><div><div class="eyebrow">MESA DE MEZCLAS</div><h2>Instrumentos y voces</h2><p class="small">Cada instrumento tiene un solo canal y todos siguen los mismos compases. Ajusta tono, volumen y sonido sin alterar tu partitura.</p></div><div class="mixer-summary" id="mixerSummary"></div></div><div id="voices"></div><div class="controls"><label>Velocidad (negras/minuto)<input id="tempo" type="number" value="100" min="30" max="240"></label><label><span class="small">Elige un instrumento diferente en cada voz. Los sonidos son sintetizados.</span></label></div><div class="actions"><button id="reset">Restablecer voces</button><button id="render" class="primary">Generar audio</button></div><p id="status" aria-live="polite"></p></section>
+<section id="settings" class="card studio-mixer" hidden><div class="mixer-top"><div><div class="eyebrow">MESA DE MEZCLAS</div><h2>Instrumentos y voces</h2><p class="small">Cada instrumento tiene un solo canal y todos siguen los mismos compases. Ajusta tono, volumen y sonido sin alterar tu partitura.</p></div><div class="mixer-summary" id="mixerSummary"></div></div><div id="voices"></div><div class="controls"><label>Velocidad (negras/minuto)<input id="tempo" type="number" value="100" min="30" max="240"></label><label><span class="small">Elige un instrumento diferente en cada voz. Los sonidos son sintetizados.</span></label></div><div class="actions"><button id="reset">Restablecer voces</button><button id="saveProject">Guardar proyecto</button><button id="render" class="primary">Generar audio</button></div><p class="small" id="saveStatus" aria-live="polite"></p><p id="status" aria-live="polite"></p></section>
 <section id="result" class="card" hidden><div class="eyebrow">RESULTADO</div><h2>Escuchar y exportar</h2><div id="player" class="multitrack-player" role="group" aria-label="Reproductor de mezcla por instrumentos">
 <button type="button" id="playToggle" class="primary" aria-label="Reproducir o pausar la mezcla">Reproducir</button>
 <input type="range" id="seek" min="0" max="1000" value="0" step="1" aria-label="Posición de reproducción">
@@ -83,7 +105,147 @@ button.primary{box-shadow:0 3px 10px #2563eb2b}
 const $=id=>document.getElementById(id);
 const state={score:null,url:null,blob:null,busy:false,exporting:false,stems:new Map(),
  sampleRate:22050,duration:0,context:null,sources:[],gains:new Map(),
- playing:false,startedAt:0,pauseOffset:0,animationFrame:0};
+ playing:false,startedAt:0,pauseOffset:0,animationFrame:0,
+ projectId:null,projectName:"",dbPromise:null,saveTimer:0};
+
+// Proyectos editables guardados localmente en IndexedDB (no almacenamiento en la nube).
+function openProjectDatabase(){
+ if(state.dbPromise)return state.dbPromise;
+ state.dbPromise=new Promise((resolve,reject)=>{
+  if(!window.indexedDB){reject(Error("IndexedDB no disponible"));return}
+  const req=indexedDB.open("consort-studio-projects",1);
+  req.onupgradeneeded=()=>{
+   const db=req.result;
+   if(!db.objectStoreNames.contains("projects"))db.createObjectStore("projects",{keyPath:"id"});
+  };
+  req.onsuccess=()=>resolve(req.result);
+  req.onerror=()=>reject(req.error||Error("No se puede abrir la biblioteca de proyectos"));
+ });
+ return state.dbPromise;
+}
+async function projectOperation(mode,method,value){
+ const db=await openProjectDatabase();
+ return new Promise((resolve,reject)=>{
+  const tx=db.transaction("projects",mode);
+  const store=tx.objectStore("projects");
+  const req=method==="getAll"?store.getAll():method==="get"?store.get(value):method==="delete"?store.delete(value):store.put(value);
+  req.onsuccess=()=>resolve(req.result);
+  req.onerror=()=>reject(req.error||Error("Error al acceder al proyecto"));
+  tx.onerror=()=>reject(tx.error||Error("Error en la base de proyectos"));
+ });
+}
+function projectDate(timestamp){
+ try{return new Date(timestamp).toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}
+ catch(_){return ""}
+}
+function projectNotice(text){
+ const el=$("saveStatus");
+ if(el)el.textContent=text;
+}
+async function renderProjects(){
+ const root=$("projectsList");
+ try{
+  const projects=(await projectOperation("readonly","getAll")).sort((a,b)=>b.updatedAt-a.updatedAt);
+  root.replaceChildren();
+  $("projectCounter").textContent=projects.length+" "+(projects.length===1?"proyecto":"proyectos");
+  if(!projects.length){
+   const empty=document.createElement("p");empty.className="small";
+   empty.textContent="Aún no hay proyectos. Importa una partitura y aparecerá aquí automáticamente.";
+   root.append(empty);return;
+  }
+  for(const record of projects){
+   const box=document.createElement("article");box.className="project-entry"+(record.id===state.projectId?" is-current":"");
+   const info=document.createElement("div");
+   const name=document.createElement("strong");name.textContent=record.title||"Partitura";
+   const details=document.createElement("small");
+   details.textContent=projectDate(record.updatedAt)+" · "+(record.score?.groups?.length||0)+" instrumentos";
+   info.append(name,details);
+   const actions=document.createElement("div");actions.className="actions";
+   const open=document.createElement("button");open.type="button";open.className="primary";open.textContent=record.id===state.projectId?"Editando":"Abrir y editar";
+   open.onclick=()=>openSavedProject(record.id);
+   const rename=document.createElement("button");rename.type="button";rename.textContent="Renombrar";
+   rename.onclick=()=>renameSavedProject(record.id);
+   const remove=document.createElement("button");remove.type="button";remove.textContent="Eliminar";
+   remove.onclick=()=>removeSavedProject(record.id);
+   actions.append(open,rename,remove);box.append(info,actions);root.append(box);
+  }
+ }catch(err){
+  root.replaceChildren();
+  const problem=document.createElement("p");problem.className="small";
+  problem.textContent="No se puede acceder a los proyectos guardados en este navegador: "+(err.message||err);
+  root.append(problem);
+ }
+}
+async function saveCurrentProject(expectedId=state.projectId){
+ if(!state.score||!expectedId||expectedId!==state.projectId)return;
+ const record={id:expectedId,title:state.projectName||state.score.title||"Partitura",
+  updatedAt:Date.now(),tempo:clamp(int($("tempo").value,100),30,240),score:state.score};
+ await projectOperation("readwrite","put",record);
+ if(expectedId===state.projectId)projectNotice("Proyecto guardado en este navegador.");
+ await renderProjects();
+}
+function scheduleProjectSave(){
+ if(!state.score||!state.projectId)return;
+ if(state.saveTimer)clearTimeout(state.saveTimer);
+ const expectedId=state.projectId;
+ state.saveTimer=setTimeout(()=>{
+  state.saveTimer=0;
+  saveCurrentProject(expectedId).catch(err=>projectNotice("No se pudo guardar: "+(err.message||err)));
+ },500);
+}
+async function flushProjectSave(){
+ if(state.saveTimer){clearTimeout(state.saveTimer);state.saveTimer=0}
+ if(state.score&&state.projectId)await saveCurrentProject();
+}
+async function openSavedProject(id){
+ if(state.busy||state.exporting)return;
+ try{
+  await flushProjectSave();
+  const record=await projectOperation("readonly","get",id);
+  if(!record||!record.score)throw Error("Proyecto no encontrado.");
+  clearAudio();
+  state.score=record.score;state.projectId=record.id;state.projectName=record.title||record.score.title;
+  $("tempo").value=clamp(int(record.tempo,100),30,240);
+  $("info").hidden=false;
+  $("info").textContent=state.projectName+" · "+state.score.groups.length+" instrumentos · "+state.score.notes.length+" notas";
+  $("settings").hidden=false;
+  makeVoiceRows();updateDurationEstimate();projectNotice("Proyecto abierto para editar. Genera el audio cuando quieras.");
+  await renderProjects();
+  $("settings").scrollIntoView({behavior:"smooth",block:"start"});
+ }catch(err){problem("No se pudo abrir el proyecto: "+(err.message||err))}
+}
+async function removeSavedProject(id){
+ if(!confirm("¿Eliminar definitivamente este proyecto guardado en este navegador?"))return;
+ try{
+  if(state.projectId===id){
+   if(state.saveTimer)clearTimeout(state.saveTimer);state.saveTimer=0;
+   clearAudio();state.projectId=null;state.projectName="";state.score=null;
+   $("settings").hidden=true;$("info").hidden=true;
+  }
+  await projectOperation("readwrite","delete",id);
+  await renderProjects();
+ }catch(err){problem("No se pudo eliminar: "+(err.message||err))}
+}
+async function renameSavedProject(id){
+ try{
+  await flushProjectSave();
+  const project=await projectOperation("readonly","get",id);
+  if(!project)return;
+  const name=prompt("Nuevo nombre del proyecto:",project.title);
+  if(name===null||!name.trim())return;
+  project.title=name.trim().slice(0,120);project.updatedAt=Date.now();
+  await projectOperation("readwrite","put",project);
+  if(state.projectId===id){state.projectName=project.title;
+   $("info").textContent=state.projectName+" · "+state.score.groups.length+" instrumentos · "+state.score.notes.length+" notas"}
+  await renderProjects();
+ }catch(err){problem("No se pudo renombrar: "+(err.message||err))}
+}
+$("saveProject").onclick=()=>{
+ if(state.saveTimer){clearTimeout(state.saveTimer);state.saveTimer=0}
+ saveCurrentProject().catch(err=>projectNotice("No se pudo guardar: "+(err.message||err)));
+};
+renderProjects();
+
 const semis={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
 
 const INSTRUMENTS=[
@@ -454,7 +616,7 @@ function makeVoiceRows(){
   const minus=document.createElement("button");minus.type="button";minus.textContent="−";minus.setAttribute("aria-label","Bajar un semitono: "+displayName);
   const plus=document.createElement("button");plus.type="button";plus.textContent="+";plus.setAttribute("aria-label","Subir un semitono: "+displayName);
   const n=document.createElement("output");n.textContent="0";n.title="Semitonos";
-  function change(delta){group.offset=clamp(group.offset+delta,-24,24);n.textContent=(group.offset>0?"+":"")+group.offset;clearAudio();updateMixerSummary()}
+  function change(delta){group.offset=clamp(group.offset+delta,-24,24);n.textContent=(group.offset>0?"+":"")+group.offset;clearAudio();updateMixerSummary();scheduleProjectSave()}
   minus.onclick=()=>change(-1);plus.onclick=()=>change(1);
   steps.append(minus,n,plus);pitch.append(pitchTitle,steps);
   const volume=document.createElement("div");volume.className="channel-control channel-volume";
@@ -464,7 +626,7 @@ function makeVoiceRows(){
   volHeader.append(volTitle,val);
   const range=document.createElement("input");range.type="range";range.min="0";range.max="100";range.step="1";range.value=String(group.volume);
   range.setAttribute("aria-label","Volumen de "+displayName);
-  range.oninput=()=>{group.volume=int(range.value);val.textContent=group.volume+"%";adjustRenderedVolume(group);updateMixerSummary()};
+  range.oninput=()=>{group.volume=int(range.value);val.textContent=group.volume+"%";adjustRenderedVolume(group);updateMixerSummary();scheduleProjectSave()};
   volume.append(volHeader,range);
   const instBox=document.createElement("label");instBox.className="channel-control channel-instrument";
   const instTitle=document.createElement("span");instTitle.className="control-caption";instTitle.textContent="INSTRUMENTO";
@@ -473,7 +635,7 @@ function makeVoiceRows(){
    const opt=document.createElement("option");opt.value=id;opt.textContent=labelText;sel.append(opt);
   }
   sel.value=group.instrument;
-  sel.onchange=()=>{group.instrument=sel.value;clearAudio()};
+  sel.onchange=()=>{group.instrument=sel.value;clearAudio();scheduleProjectSave()};
   instBox.append(instTitle,sel);
   row.append(header,pitch,volume,instBox);
   const reassign=document.createElement("label");reassign.className="channel-reassign";
@@ -506,7 +668,7 @@ function makeVoiceRows(){
    for(const g of state.score.groups)g.count=state.score.notes.filter(note=>note.group===g.id).length;
    const order={soprano:0,alto:1,tenor:2,bajo:3,contra:4};
    state.score.groups.sort((a,b)=>(order[instrumentRole(a.name,true)]??10)-(order[instrumentRole(b.name,true)]??10));
-   clearAudio();makeVoiceRows();
+   clearAudio();makeVoiceRows();scheduleProjectSave();
    $("info").textContent=state.score.title+" · "+state.score.originalVoices+" pistas del XML reunidas en "+state.score.groups.length+" instrumentos · "+state.score.notes.length+" notas";
   };
   reassign.append(reassignTitle,reassignSelect);row.append(reassign);
@@ -573,15 +735,20 @@ async function readMusicXML(file){
 }
 async function load(file){
  if(!file)return;
- problem("");status("");$("info").hidden=true;$("settings").hidden=true;clearAudio();
  if(file.size>12*1024*1024){problem("Archivo demasiado grande (máximo 12 MB).");return}
  try{
-  const score=parse(await readMusicXML(file),file.name);state.score=score;
+  problem("");status("");
+  await flushProjectSave();
+  const score=parse(await readMusicXML(file),file.name);
+  clearAudio();
+  state.score=score;
+  state.projectId="project-"+Date.now()+"-"+Math.random().toString(36).slice(2);
+  state.projectName=score.title&&score.title!=="Partitura"?score.title:file.name.replace(/\.(mxl|musicxml|xml)$/i,"");
   $("tempo").value=clamp(Math.round(score.tempo),30,240);
-  $("info").hidden=false;$("info").textContent=score.title+" · "+score.originalVoices+" pistas del XML reunidas en "+score.groups.length+" instrumentos · "+score.notes.length+" notas";
-  makeVoiceRows();$("settings").hidden=false;
-  updateDurationEstimate();
- }catch(err){state.score=null;problem(err.message||String(err))}
+  $("info").hidden=false;$("info").textContent=state.projectName+" · "+score.originalVoices+" pistas del XML reunidas en "+score.groups.length+" instrumentos · "+score.notes.length+" notas";
+  makeVoiceRows();$("settings").hidden=false;updateDurationEstimate();
+  try{await saveCurrentProject();}catch(err){projectNotice("No se pudo guardar el proyecto automáticamente: "+(err.message||err))}
+ }catch(err){problem(err.message||String(err))}
 }
 $("chooseMxl").onclick=()=>$("file").click();
 $("chooseAny").onclick=()=>$("fileAny").click();
@@ -590,7 +757,7 @@ const drop=$("drop");
 drop.addEventListener("dragover",e=>{e.preventDefault();drop.classList.add("drag")});
 drop.addEventListener("dragleave",()=>drop.classList.remove("drag"));
 drop.addEventListener("drop",e=>{e.preventDefault();drop.classList.remove("drag");load(e.dataTransfer.files[0])});
-$("reset").onclick=()=>{if(!state.score)return;for(const g of state.score.groups){g.offset=0;g.volume=100;g.instrument=inferInstrument(g.name)}makeVoiceRows();clearAudio()};
+$("reset").onclick=()=>{if(!state.score)return;for(const g of state.score.groups){g.offset=0;g.volume=100;g.instrument=inferInstrument(g.name)}makeVoiceRows();clearAudio();scheduleProjectSave()};
 $("stop").onclick=()=>stopPlayback(true);
 function encodeWav(samples,rate){
  const buffer=new ArrayBuffer(44+samples.length*2),view=new DataView(buffer);
@@ -610,7 +777,7 @@ function updateDurationEstimate(){
  const minutes=Math.floor(secs/60),rest=String(secs%60).padStart(2,"0");
  status("Duración estimada: "+minutes+":"+rest+" a "+tempo+" negras/minuto. Pulsa Generar audio.");
 }
-$("tempo").addEventListener("input",()=>{if(state.score){clearAudio();updateDurationEstimate()}});
+$("tempo").addEventListener("input",()=>{if(state.score){clearAudio();updateDurationEstimate();scheduleProjectSave()}});
 async function synthesize(){
  if(state.busy||state.exporting||!state.score)return;
  const tempo=clamp(int($("tempo").value,100),30,240);
@@ -640,21 +807,25 @@ async function synthesize(){
    const freq=440*Math.pow(2,(midi-69)/12);
    const start=Math.max(0,Math.round(note.start*60/tempo*rate));
    const maxDur=note.duration*60/tempo;
-   const dur=Math.min(maxDur,5*60),len=Math.min(Math.round(dur*rate),total-start);
+   const dur=Math.min(maxDur,5*60);
+   // No apagues la nota antes de terminar su figura. Deja una cola corta
+   // DESPUÉS del final escrito (sin rellenar silencios reales).
+   const tail=Math.min(.07,Math.max(.025,dur*.12));
+   const len=Math.min(Math.round((dur+tail)*rate),total-start);
    if(len<=0)continue;
    const patch=PATCH[g.instrument]||PATCH.piano;
    // Instrument samples are independent of current volume so muted voices
    // can be restored after rendering without regenerating the audio.
    const gain=.20;
    const dphase=2*Math.PI*freq/rate;
-   const attack=patch.a,release=Math.min(patch.r,dur*.48);
+   const attack=Math.max(.002,Math.min(patch.a,dur*.3));
    const harmonicScale=patch.h.reduce((a,b)=>a+Math.abs(b),0);
    const buf=stems.get(g.id).getChannelData(0);
    let phase=0;
    for(let j=0;j<len;j++){
     const t=j/rate;
     const fadeIn=Math.min(1,t/attack);
-    const fadeOut=Math.min(1,(dur-t)/Math.max(.008,release));
+    const fadeOut=t<=dur?1:Math.max(0,1-(t-dur)/tail);
     const pluck=patch.pluck?Math.exp(-t/Math.max(.06,patch.d)):1;
     const vibrato=patch.vib?1+.005*Math.sin(2*Math.PI*patch.vib*t):1;
     phase+=dphase*vibrato;
