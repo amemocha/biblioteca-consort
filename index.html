@@ -206,7 +206,7 @@ body:has(#consorteEditDock.active) #resizeHandle{z-index:11999!important;bottom:
 <section id="scoreTabSection" class="card" hidden>
 <div class="eyebrow">PARTITURA Y TABLATURA</div><h2>Crear tablatura</h2>
 <p class="small">La tablatura usa las notas escritas en el MusicXML original, una octava más grave (−12 semitonos). No utiliza la transposición del archivo ni los cambios de tono del mezclador. Puedes verla sola o debajo de la partitura.</p>
-<div class="tab-toolbar"><label>Instrumento <select id="tabInstrument"></select></label><label>Presentación <select id="tabLayout"><option value="both">Partitura y tablatura debajo</option><option value="tab">Solo tablatura</option></select></label><label>Afinación <select id="tabTuning"><option value="original">Afinación del MusicXML original (preferida)</option><option value="guitar">Guitarra de 6 cuerdas (E A D G B E)</option><option value="bass">Bajo de 4 cuerdas (E A D G)</option></select></label></div>
+<div class="tab-toolbar"><label>Instrumento <select id="tabInstrument"></select></label><label>Presentación <select id="tabLayout"><option value="both">Partitura y tablatura debajo</option><option value="tab">Solo tablatura</option></select></label><label>Afinación <select id="tabTuning"><option value="original">Afinación del MusicXML original (preferida)</option><option value="guitar">Guitarra de 6 cuerdas (E A D G B E)</option><option value="bass">Bajo de 4 cuerdas (E A D G)</option><option value="custom">Afinación personalizada</option></select></label><label id="tabCustomLabel" hidden>Notas de las cuerdas, de grave a aguda <input id="tabCustomTuning" type="text" placeholder="E2 A2 D3 G3 B3 E4" aria-label="Afinación manual de cuerdas"></label></div>
 <div class="tab-toolbar"><button id="cs-tabPrev" type="button">Página anterior</button><span id="cs-tabPageLabel" class="small">Página 1</span><button id="cs-tabNext" type="button">Página siguiente</button><button id="tabPrint" type="button">Imprimir tablatura</button></div>
 <div id="tabScore" class="tab-score" role="region" aria-label="Partitura y tablatura generada"></div>
 <p class="small">La vista muestra alturas y trastes básicos. No representa todavía todas las articulaciones ni el grabado musical de MuseScore. No se modifica el MusicXML original.</p>
@@ -3276,6 +3276,6 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 <script src="./consorte-studio-core.js?v=20261123native3"></script>
 <script src="./consorte-studio-library-bridge.js?v=20261123native3"></script>
 <script src="./consorte-studio-audio-editor.js?v=20261123native3"></script>
-<script src="./consorte-studio-tablature.js?v=20261123native3"></script>
+<script src="./consorte-studio-tablature.js?v=20261123native4"></script>
 <script>window.dispatchEvent(new Event("consorte-studio-native-ready"));</script>
 </body></html>
