@@ -15,7 +15,7 @@
 <input id="fileAny" type="file">
 <p class="small" style="margin:14px 0 0">Si tu teléfono dice «Ningún archivo coincide», pulsa <strong>Ver todos los archivos</strong> y busca tu partitura en Descargas o Archivos.</p>
 </div><p class="small">Admite partituras MusicXML (.xml, .musicxml y .mxl comprimido). Si tienes un archivo de proyecto MuseScore (.mscz o .mscx), primero expórtalo desde MuseScore a MusicXML.</p><div id="info" hidden></div><div id="error" role="alert"></div></section>
-<section id="settings" class="card" hidden><h2>2. Ajusta cada voz por separado</h2><p class="small">Usa + y − para cambiar semitonos, elige el instrumento que quieres escuchar y regula el volumen de cada voz, incluso hasta silencio. Estos cambios afectan el audio, no la partitura original.</p><div id="voices"></div><div class="controls"><label>Velocidad (negras/minuto)<input id="tempo" type="number" value="100" min="30" max="240"></label><label><span class="small">Elige un instrumento diferente en cada voz. Los sonidos son sintetizados.</span></label></div><div class="actions"><button id="reset">Restablecer voces</button><button id="render" class="primary">Generar audio</button></div><p id="status" aria-live="polite"></p></section>
+<section id="settings" class="card" hidden><h2>2. Ajusta cada voz por separado</h2><p class="small">Las pistas del mismo instrumento, como G.B y Guitarra bajo, se agrupan. Usa + y − para cambiar semitonos, elige su sonido y regula el volumen de cada voz instrumental. Estos cambios afectan el audio, no la partitura original.</p><div id="voices"></div><div class="controls"><label>Velocidad (negras/minuto)<input id="tempo" type="number" value="100" min="30" max="240"></label><label><span class="small">Elige un instrumento diferente en cada voz. Los sonidos son sintetizados.</span></label></div><div class="actions"><button id="reset">Restablecer voces</button><button id="render" class="primary">Generar audio</button></div><p id="status" aria-live="polite"></p></section>
 <section id="result" class="card" hidden><h2>3. Escucha y descarga</h2><audio id="player" class="audio" controls preload="metadata"></audio><div class="actions"><button id="download" class="primary">Descargar audio WAV</button><button id="stop">Detener</button></div><p class="small">Audio instrumental sintetizado. Para partituras extensas se ajusta la calidad de exportación para proteger la memoria del dispositivo. No contiene los instrumentos reales de MuseScore ni todas las indicaciones de expresión.</p></section>
 <p class="foot"><a href="./">Volver a Biblioteca Consort</a> · Los archivos no se modifican ni se guardan en la biblioteca automáticamente.</p></main>
 <script>
@@ -42,13 +42,31 @@ const VOICE_ALIASES=[
  {name:"Guitarra prima",short:"G.P",test:/\b(?:g\s*[.\- ]\s*p\.?|guitarra[\s_-]*prima)\b/i},
  {name:"Guitarra soprano",short:"",test:/\b(?:guitarra[\s_-]*soprano)\b/i}
 ];
+function compactInstrumentName(value){
+ return String(value||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase()
+  .replace(/[_\-.]+/g," ").replace(/\s+/g," ").trim();
+}
 function voiceIdentity(source){
- const n=String(source||"").replace(/[_-]+/g," ").trim();
- for(const entry of VOICE_ALIASES)if(entry.test.test(n))return entry;
+ const n=compactInstrumentName(source);
+ const short=n.replace(/\s/g,"");
+ const standard={
+  gb:"Guitarra bajo",ga:"Guitarra alto",gt:"Guitarra tenor",
+  gp:"Guitarra prima",gs:"Contrabajo"
+ };
+ const match=standard[short];
+ if(match)return {name:match,short:short.toUpperCase().replace("", "")};
+ if(/\b(?:guitarra\s+bajo|guitarra\s+bass)\b/.test(n))return {name:"Guitarra bajo",short:"G.B"};
+ if(/\bguitarra\s+alto\b/.test(n))return {name:"Guitarra alto",short:"G.A"};
+ if(/\bguitarra\s+tenor\b/.test(n))return {name:"Guitarra tenor",short:"G.T"};
+ if(/\bguitarra\s+prima\b/.test(n))return {name:"Guitarra prima",short:"G.P"};
+ if(/\b(?:contrabajo|contra bajo)\b/.test(n))return {name:"Contrabajo",short:"G.S"};
  return null;
 }
 function meaningfulName(name){return !!name&&!/^(voice|voz|instrumento|instrument|part|parte|staff|pentagrama)(?:\s*\d+)?$/i.test(String(name).trim())}
-function identityLabel(name){const match=voiceIdentity(name);return match?match.name+(match.short?" ("+match.short+")":""):name}
+function identityLabel(name){
+ const match=voiceIdentity(name);
+ return match?match.name+" ("+match.short.split("").join(".")+")":name;
+}
 function inferPartName(raw,filename,metadata){
  const candidate=[raw,...metadata,filename.replace(/\.[^.]+$/,"").replace(/^\d+[\s_-]*/,"")];
  if(meaningfulName(raw)){
@@ -60,6 +78,36 @@ function inferPartName(raw,filename,metadata){
   if(match)return match.name;
  }
  return meaningfulName(raw)?raw:"Instrumento sin identificar";
+}
+// Una voz instrumental = un nombre canónico; varios pentagramas o voces internas
+// conservan TODAS sus notas pero comparten un solo control de mezcla.
+function combineInstrumentVoices(groups,notes){
+ const byKey=new Map(),idMap=new Map(),combined=[];
+ for(const group of groups){
+  const alias=voiceIdentity(group.name);
+  // Los instrumentos sin nombre se mantienen separados por parte: no asumimos
+  // que dos pistas genéricas representan el mismo instrumento.
+  const key=alias?"alias:"+alias.name:meaningfulName(group.name)
+   ?"name:"+compactInstrumentName(group.name):"unknown:"+group.part;
+  let target=byKey.get(key);
+  if(!target){
+   target={...group,id:"mix-"+combined.length,voice:"",staff:"",count:0,sourceCount:0};
+   byKey.set(key,target);combined.push(target);
+  }
+  target.sourceCount++;
+  idMap.set(group.id,target.id);
+ }
+ for(const note of notes)note.group=idMap.get(note.group)||note.group;
+ // Las partes duplicadas con exactamente la misma nota no deben sonar dos veces.
+ const unique=[],seen=new Set(),counts=new Map();
+ for(const note of notes){
+  const key=note.group+"|"+note.midi+"|"+note.start.toFixed(7)+"|"+note.duration.toFixed(7);
+  if(seen.has(key))continue;
+  seen.add(key);unique.push(note);
+  counts.set(note.group,(counts.get(note.group)||0)+1);
+ }
+ for(const group of combined)group.count=counts.get(group.id)||0;
+ return {groups:combined,notes:unique};
 }
 
 function inferInstrument(name){
@@ -171,7 +219,8 @@ function parse(xml,filename=""){
  if(notes.length>13000)throw Error("La partitura supera las 13.000 notas admitidas en esta versión.");
  groups.sort((a,b)=>a.part-b.part||int(a.staff)-int(b.staff)||int(a.voice)-int(b.voice));
  const title=text(one(root,"work"),"work-title")||text(root,"movement-title")||"Partitura";
- return {title,groups,notes,tempo:tempi[0]?.bpm||100};
+ const merged=combineInstrumentVoices(groups,notes);
+ return {title,groups:merged.groups,notes:merged.notes,tempo:tempi[0]?.bpm||100,originalVoices:groups.length};
 }
 function makeVoiceRows(){
  $("voices").replaceChildren();
@@ -179,7 +228,7 @@ function makeVoiceRows(){
  for(const group of state.score.groups){
   if(group.part!==part){part=group.part;const h=document.createElement("div");h.className="group-title";h.textContent=identityLabel(group.name);$("voices").append(h)}
   const row=document.createElement("div");row.className="voice";
-  const title=document.createElement("div");title.className="title";const name=document.createElement("strong");name.textContent=identityLabel(group.name)+" · Voz "+group.voice+(group.staff!=="1"?" · Pentagrama "+group.staff:"");const count=document.createElement("small");count.textContent=group.count+" notas";title.append(name,count);
+  const title=document.createElement("div");title.className="title";const name=document.createElement("strong");name.textContent=identityLabel(group.name);const count=document.createElement("small");count.textContent=group.count+" notas"+(group.sourceCount>1?" · "+group.sourceCount+" pistas reunidas":"");title.append(name,count);
   const minus=document.createElement("button");minus.textContent="− 1";minus.setAttribute("aria-label","Bajar un semitono en "+group.name+" voz "+group.voice);
   const plus=document.createElement("button");plus.textContent="+ 1";plus.setAttribute("aria-label","Subir un semitono en "+group.name+" voz "+group.voice);
   const n=document.createElement("output");n.textContent="0 semitonos";
@@ -259,7 +308,7 @@ async function load(file){
  try{
   const score=parse(await readMusicXML(file),file.name);state.score=score;
   $("tempo").value=clamp(Math.round(score.tempo),30,240);
-  $("info").hidden=false;$("info").textContent=score.title+" · "+score.groups.length+" voces · "+score.notes.length+" notas";
+  $("info").hidden=false;$("info").textContent=score.title+" · "+score.groups.length+" voces instrumentales (de "+score.originalVoices+" pistas MusicXML) · "+score.notes.length+" notas";
   makeVoiceRows();$("settings").hidden=false;
   updateDurationEstimate();
  }catch(err){state.score=null;problem(err.message||String(err))}
