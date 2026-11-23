@@ -19,6 +19,11 @@ panel.innerHTML=[
 '<div class="ce-selection"><label>Inicio del tramo <span id="ce-start-label">0:00</span><input type="range" id="ce-start" min="0" max="1000" value="0"></label><label>Fin del tramo <span id="ce-end-label">0:00</span><input type="range" id="ce-end" min="0" max="1000" value="1000"></label></div>',
 '<div class="ce-row"><button type="button" id="ce-cut">✂ Conservar selección</button><button type="button" id="ce-remove">Eliminar selección</button><button type="button" id="ce-silence">Silenciar tramo</button><button type="button" id="ce-fade">Fundido de entrada/salida</button><button type="button" id="ce-normalize">Normalizar volumen</button><button type="button" id="ce-reverse">Invertir tramo</button></div>',
 '<div class="ce-row"><button type="button" id="ce-append">＋ Agregar audio al final</button><input type="file" id="ce-append-file" accept="audio/*,.wav,.mp3,.m4a,.ogg" hidden><button type="button" id="ce-undo">↶ Deshacer última edición</button><button type="button" id="ce-original">Restablecer original</button></div>',
+'<h3>Dividir audio en partes</h3>',
+'<p>Marca un intervalo con los controles de inicio y fin y pulsa «Crear parte». Para dividir en dos por el cursor, sitúa la reproducción en el punto de corte. Puedes guardar cada fragmento por separado o todos en una misma carpeta.</p>',
+'<div class="ce-row"><button type="button" id="ce-create-part">Crear parte con selección</button><button type="button" id="ce-split-cursor">Dividir en dos en el segundo actual</button></div>',
+'<div class="ce-part-list" id="ce-parts"></div>',
+'<div class="ce-row"><label style="flex:1">Guardar fragmentos en <select id="ce-folder"><option value="">Inicio de Biblioteca</option></select></label><button type="button" class="ce-primary" id="ce-save-all-parts">Guardar todas las partes</button></div>',
 '<div class="ce-row"><button type="button" class="ce-primary" id="ce-mark">🔖 Crear marca en este segundo</button><span class="ce-helper">Pulsa una marca para escuchar desde ese segundo.</span></div>',
 '<h3>Lista de marcas <span id="ce-count">(0)</span></h3><div class="ce-mark-list" id="ce-marks"></div>',
 '<div class="ce-actions"><button type="button" class="ce-primary" id="ce-copy">Guardar copia en la biblioteca</button><button type="button" class="ce-danger" id="ce-replace">Reemplazar audio original</button><button type="button" id="ce-mp3">Descargar en MP3</button></div>',
@@ -31,7 +36,7 @@ if(playerUI)playerUI.after(toggle,panel);
 const el=id=>panel.querySelector('#'+id);
 const canvas=el('ce-wave');
 let original=null,working=null,record=null,dirty=false,busy=false,undo=null,previewUrl=null,markData=[];
-let start=0,end=0,loading=null;
+let start=0,end=0,loading=null;let parts=[];
 const status=t=>el('ce-status').textContent=t;
 const sec=t=>Math.max(0,Number(t)||0);
 const time=t=>{t=Math.floor(sec(t));return Math.floor(t/60)+':'+String(t%60).padStart(2,'0')};
@@ -70,6 +75,85 @@ function draw(){
 function rangeLabels(){if(!working)return;el('ce-start-label').textContent=time(start);el('ce-end-label').textContent=time(end);el('ce-duration').textContent='Duración '+time(working.duration)+' · Selección '+time(Math.max(0,end-start));draw()}
 function syncSliders(){if(!working)return;el('ce-start').value=Math.round(start/working.duration*1000);el('ce-end').value=Math.round(end/working.duration*1000);rangeLabels()}
 function setSelection(which,value){if(!working)return;const t=sec(value)/1000*working.duration,limit=1/working.sampleRate;if(which==='start')start=Math.min(t,end-limit);else end=Math.max(t,start+limit);syncSliders()}
+
+async function updateFolderChoices(){
+ const select=el("ce-folder"),previous=select.value;
+ select.replaceChildren(new Option("Inicio de Biblioteca",""));
+ try{
+  const folders=await window.consorteStudioLibrary?.folderOptions?.()||[];
+  for(const f of folders)select.add(new Option(f.label,f.id));
+  if([...select.options].some(x=>x.value===previous))select.value=previous;
+  else if(record?.parent&&[...select.options].some(x=>x.value===record.parent))select.value=record.parent;
+ }catch(err){status("No se pueden cargar las carpetas: "+(err.message||err))}
+}
+function renderParts(){
+ const list=el("ce-parts");list.replaceChildren();
+ if(!parts.length){
+  const empty=document.createElement("p");empty.className="ce-helper";
+  empty.textContent="Aún no hay partes separadas.";list.append(empty);return;
+ }
+ for(const [index,part] of parts.entries()){
+  const line=document.createElement("div");line.className="ce-part-row";
+  const label=document.createElement("strong");label.textContent="Parte "+(index+1)+" · "+time(part.audio.duration);
+  const field=document.createElement("input");field.value=part.name;field.maxLength=120;
+  field.setAttribute("aria-label","Nombre de parte "+(index+1));field.onchange=()=>part.name=field.value.trim()||part.name;
+  const save=document.createElement("button");save.type="button";save.textContent="Guardar parte";
+  save.onclick=()=>saveAudioPart(part,save);
+  const remove=document.createElement("button");remove.type="button";remove.textContent="×";
+  remove.title="Quitar de la lista";remove.onclick=()=>{parts.splice(index,1);renderParts()};
+  line.append(label,field,save,remove);list.append(line);
+ }
+}
+function addPart(begin,finish){
+ if(!working||busy)return;
+ if(parts.length>=30){status("Máximo 30 partes por sesión.");return}
+ try{
+  if(finish-begin<.025)throw Error("Selecciona al menos 0,025 segundos de audio.");
+  const audio=sliceBuffer(working,begin,finish);
+  const base=String(record?.name||"Audio").replace(/\.[^.]+$/,"");
+  parts.push({name:base+" - parte "+(parts.length+1)+".wav",audio});
+  renderParts();status("Parte creada. Puedes seguir separando otras secciones.");
+ }catch(err){status("No se pudo separar: "+(err.message||err))}
+}
+el("ce-create-part").onclick=()=>addPart(start,end);
+el("ce-split-cursor").onclick=()=>{
+ if(!working)return;
+ const position=Math.min(working.duration,Math.max(0,sec(player.currentTime)));
+ if(position<=.025||position>=working.duration-.025){
+  status("Sitúa el cursor en un punto interior del audio antes de dividir.");return;
+ }
+ if(parts.length>28){status("Solo caben 30 partes por sesión.");return}
+ addPart(0,position);addPart(position,working.duration);
+};
+async function saveAudioPart(part,button){
+ const api=window.consorteStudioLibrary;
+ if(!api){status("No se pudo conectar con Biblioteca Consort.");return false}
+ button.disabled=true;
+ try{
+  const destination=el("ce-folder").value||null;
+  const blob=encodeWav(part.audio);
+  await api.saveCopy(blob,part.name,record,destination);
+  status("Fragmento «"+part.name+"» guardado en Biblioteca.");
+  return true;
+ }catch(err){status("No se pudo guardar «"+part.name+"»: "+(err.message||err));return false}
+ finally{button.disabled=false}
+}
+el("ce-save-all-parts").onclick=async()=>{
+ if(!parts.length){status("Primero crea una o varias partes.");return}
+ const button=el("ce-save-all-parts");button.disabled=true;
+ let saved=0;
+ try{
+  for(const part of parts){
+   status("Guardando parte "+(saved+1)+" de "+parts.length+"…");
+   const ok=await saveAudioPart(part,button);
+   if(!ok)break;
+   saved++;
+  }
+  status(saved+" de "+parts.length+" partes guardadas en Biblioteca Consort.");
+ }finally{button.disabled=false}
+};
+renderParts();
+
 el('ce-start').oninput=e=>setSelection('start',e.target.value);
 el('ce-end').oninput=e=>setSelection('end',e.target.value);
 el('ce-start-now').onclick=()=>{if(working){start=Math.min(sec(player.currentTime),end-1/working.sampleRate);syncSliders()}};
@@ -200,7 +284,7 @@ async function loadSelected(){
  try{
   const buffer=await decode(r.blob);if(loading!==r.id)return;
   if(previewUrl){URL.revokeObjectURL(previewUrl);previewUrl=null}
-  record=r;original=buffer;working=copyBuffer(buffer);dirty=false;undo=null;start=0;end=buffer.duration;
+  record=r;original=buffer;working=copyBuffer(buffer);dirty=false;undo=null;start=0;end=buffer.duration;parts=[];renderParts();await updateFolderChoices();
   markData=readMarks();renderMarks();syncSliders();status('Audio listo: '+r.name)
  }catch(e){status('No se pudo abrir el audio: '+e.message)}
 }
