@@ -1,0 +1,35 @@
+/* MusicXML editor — native panels, consistent with Biblioteca/Studio */
+#xmlComposerSection{min-width:0;scroll-margin-top:18px}
+#xmlComposerSection input,#xmlComposerSection select{max-width:100%;color:#172b46;background:#fff}
+#xmlComposerSection .xml-composer-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;margin:16px 0}
+#xmlComposerSection .xml-composer-fields label,
+#xmlComposerSection .xml-composer-voices label,
+#xmlComposerSection .xml-composer-entry label,
+#xmlComposerSection .xml-composer-footer label,
+#xmlComposerSection .xml-composer-part-name{font-size:13px;color:#365875;font-weight:700;display:grid;gap:6px;align-content:start;min-width:0}
+#xmlComposerSection input[type=text],#xmlComposerSection input[type=number],#xmlComposerSection select{border:1px solid #cbd9e8;padding:10px 11px;border-radius:9px;min-height:42px;width:100%;font:inherit;margin:0}
+#xmlComposerSection .xml-composer-voices{display:flex;gap:9px;flex-wrap:wrap;align-items:end;padding:13px;border-radius:12px;background:#eef5ff;margin:15px 0 12px}
+#xmlComposerSection .xml-composer-voices label{flex:1;min-width:170px}
+#xmlComposerSection .xml-composer-part-name{margin-bottom:14px;max-width:520px}
+#xmlComposerSection .xml-composer-entry{border:1px solid #d6e2f1;padding:14px;border-radius:12px;display:flex;align-items:end;gap:10px;flex-wrap:wrap}
+#xmlComposerSection .xml-composer-entry label{flex:1 1 115px}
+#xmlComposerSection .xml-composer-entry .xml-composer-dot{display:flex;align-items:center;gap:8px;min-height:42px;flex:0 0 85px}
+#xmlComposerSection .xml-composer-dot input{width:17px;height:17px;accent-color:#2563eb}
+#xmlComposerSection .xml-composer-entry button{min-height:43px;flex:1 1 auto}
+#xmlComposerSection .xml-composer-preview{padding:14px;background:#fff;border:1px solid #dbe5f1;border-radius:14px;min-width:0;margin:16px 0}
+#xmlComposerSection .xml-composer-preview-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;margin-bottom:10px;color:#173550}
+#xmlComposerSection .xml-composer-events{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+#xmlComposerSection .xml-composer-event{display:flex;align-items:center;gap:5px;border:1px solid #c4d5ed;background:#edf4ff;border-radius:8px;padding:6px 7px;max-width:100%}
+#xmlComposerSection .xml-composer-event button{border:0;background:transparent;color:#1d4ed8;padding:3px 5px;font-size:12px}
+#xmlComposerSection .xml-composer-event button.delete{color:#a72840}
+#xmlComposerSection .xml-composer-event button:focus-visible{outline:2px solid #2563eb}
+#xmlComposerSection .xml-composer-bar{font-size:12px;font-weight:700;color:#617d99;padding:5px 3px}
+#xmlComposerSection .xml-composer-footer{display:flex;flex-wrap:wrap;align-items:end;gap:10px;margin:14px 0}
+#xmlComposerSection .xml-composer-footer label{flex:1 1 185px}
+#xmlComposerSection .xml-composer-footer button{flex:1 1 170px;min-height:44px}
+#xmlComposerSection .xml-composer-staff{min-height:170px;overflow-x:auto;background:white;border:1px solid #d7e1ee;border-radius:12px;padding:8px;margin-top:12px}
+#xmlComposerSection .xml-composer-staff svg{display:block;max-width:100%;height:auto}
+#xmlComposerSection .xml-composer-staff .engraving-fallback{padding:20px;display:grid;gap:8px;color:#5b718a;font-size:13px}
+#xmlComposerSection .xml-composer-staff .engraving-fallback .staff-lines{height:80px;background:repeating-linear-gradient(to bottom,transparent 0 16px,#8497af 16px 17px);border-radius:4px}
+#xmlComposerSection #xmlComposerStatus{font-weight:650;min-height:20px;white-space:pre-wrap}
+@media(max-width:590px){#xmlComposerSection .xml-composer-entry button,#xmlComposerSection .xml-composer-footer button{flex-basis:100%}}
