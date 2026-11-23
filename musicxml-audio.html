@@ -72,7 +72,7 @@ button.primary{box-shadow:0 3px 10px #2563eb2b}
 #saveStatus{min-height:1.1em;margin:7px 0 0}
 @media(max-width:480px){.library-head{flex-direction:column}.project-list{grid-template-columns:1fr}}
 </style></head>
-<body><header class="studio-header"><div class="header-inner"><div class="brand-kicker">CONSORT STUDIO</div><div class="build-version">Versión 2026.11.23-08 · Partituras individuales y repeticiones</div><h1>Tu música, a tu manera.</h1><p>Importa tu partitura, ajusta cada instrumento y crea el audio que necesitas.</p></div></header>
+<body><header class="studio-header"><div class="header-inner"><div class="brand-kicker">CONSORT STUDIO</div><div class="build-version">Versión 2026.11.23-09 · Solo continuo entre compases</div><h1>Tu música, a tu manera.</h1><p>Importa tu partitura, ajusta cada instrumento y crea el audio que necesitas.</p></div></header>
 <main>
 <section class="card project-library" id="library">
 <div class="library-head"><div><div class="eyebrow">TU ESPACIO DE TRABAJO</div><h2>Mis proyectos</h2>
@@ -205,7 +205,20 @@ async function openSavedProject(id){
   const record=await projectOperation("readonly","get",id);
   if(!record||!record.score)throw Error("Proyecto no encontrado.");
   clearAudio();
-  state.score=record.score;state.sourceXML=record.sourceXML||null;
+  let restoredScore=record.score,wasMigrated=false;
+  if(record.sourceXML&&record.score.timingVersion!==9){
+   restoredScore=parse(record.sourceXML,record.title||"Partitura");
+   for(const group of restoredScore.groups){
+    const previous=record.score.groups.find(g=>g.name===group.name)||
+                   record.score.groups.find(g=>g.id===group.id);
+    if(previous){
+     group.offset=previous.offset;group.volume=previous.volume;
+     group.instrument=previous.instrument;
+    }
+   }
+   wasMigrated=true;
+  }
+  state.score=restoredScore;state.sourceXML=record.sourceXML||null;
   state.projectId=record.id;state.projectName=record.title||record.score.title;
   $("tempo").value=clamp(int(record.tempo,100),30,240);
   $("info").hidden=false;
@@ -217,6 +230,7 @@ async function openSavedProject(id){
    :"Este proyecto se guardó antes de la corrección de compases. Para corregir su ritmo, vuelve a importar el MusicXML original.");
 
   await renderProjects();
+  if(wasMigrated)scheduleProjectSave();
   $("settings").scrollIntoView({behavior:"smooth",block:"start"});
  }catch(err){problem("No se pudo abrir el proyecto: "+(err.message||err))}
 }
@@ -482,7 +496,7 @@ function sharedMeasureStarts(parts){
  for(const measures of counts){
   let divisions=1,meter=4;
   for(const [i,measure] of measures.entries()){
-   let cursor=0,lastOnset=0,furthest=0;
+   let cursor=0,lastOnset=0,furthest=0,lastSoundEnd=0,hasSound=false;
    for(const e of Array.from(measure.children)){
     const tag=e.localName;
     if(tag==="attributes"){
@@ -509,14 +523,17 @@ function sharedMeasureStarts(parts){
     const at=chord?lastOnset:cursor;
     if(!chord){lastOnset=cursor;cursor+=d}
     furthest=Math.max(furthest,cursor,at+d);
+    if(d>0&&!one(e,"rest")&&!one(e,"unpitched")&&one(e,"pitch")){
+     hasSound=true;lastSoundEnd=Math.max(lastSoundEnd,at+d);
+    }
    }
-   // MusicXML codifica notas y silencios con duración. No añadir silencios
-   // al final de un compás parcialmente escrito: eso creó pausas falsas
-   // entre compases, especialmente en exportaciones simplificadas.
-   // En exportaciones individuales hay compases visuales vacíos sin notas
-   // ni silencios. No convertirlos artificialmente en cuatro tiempos.
-   // Un silencio escrito sí contiene <rest> y su propia <duration>.
-   const length=furthest>0?furthest:(singlePart?0:meter);
+   // Solo: reproducir de forma continua, como una única secuencia.
+   // El final de cada compás es el final de su última nota audible.
+   // No insertar el descanso que queda entre esa nota y la barra.
+   // Mantener los descansos interiores y los compases de silencio completo.
+   // Conjunto: conservar la duración de compases previa sin cambios.
+   const length=singlePart?(hasSound?lastSoundEnd:furthest)
+                          :(furthest>0?furthest:meter);
    if(furthest>0&&furthest<meter-0.001)partialBars++;
    lengths[i]=Math.max(lengths[i]||0,length);
   }
@@ -724,7 +741,8 @@ function parse(xml,filename=""){
    tempo:tempi[0]?.bpm||100,
    originalVoices:groups.length,originalParts:scoreParts.length,
    shortBars:measureStarts.shortBars,
-   quarterLength:performance.quarterLength,repeatJumps:performance.jumps};
+   quarterLength:performance.quarterLength,repeatJumps:performance.jumps,
+   timingVersion:9,continuousSolo:scoreParts.length===1};
 }
 function makeVoiceRows(){
  const root=$("voices");
