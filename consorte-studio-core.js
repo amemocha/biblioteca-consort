@@ -1144,6 +1144,7 @@ $("studioOpenLibraryAudio").onclick=async()=>{
  }catch(err){$("studioAudioMessage").textContent=err.message||String(err)}
 };
 window.consorteStudioGetScore=()=>state.score;
+window.consorteStudioAutosave=scheduleProjectSave;
 window.consorteStudioOpenScore=openSelectedLibraryScore;
 async function initializeStudioLibrary(){
  try{await refreshStudioLibrarySelects()}catch(err){
