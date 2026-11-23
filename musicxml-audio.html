@@ -1078,34 +1078,95 @@ async function synthesize(){
  finally{state.busy=false;$("render").disabled=false}
 }
 // Mezcla exclusivamente las pistas ya generadas: no vuelve a sintetizar notas.
-async function downloadCurrentMix(){
- if(state.exporting||state.busy||!state.stems.size)return;
- state.exporting=true;$("download").disabled=true;problem("");
- const currentVolumes=state.score.groups.map(g=>({buffer:state.stems.get(g.id),amount:g.volume/100}));
- try{
-  const len=Math.ceil(state.duration*state.sampleRate);
-  const mixed=new Float32Array(len);
-  for(let i=0;i<len;i+=65536){
-   const stop=Math.min(i+65536,len);
-   for(const track of currentVolumes){
-    if(!track.buffer||track.amount===0)continue;
-    const data=track.buffer.getChannelData(0);
-    for(let j=i;j<stop;j++)mixed[j]+=data[j]*track.amount;
-   }
-   if(i%(65536*8)===0){status("Preparando descarga: "+Math.round(stop/len*100)+"%");await new Promise(resolve=>setTimeout(resolve,0))}
+
+// Reuse the previously synthesized instrument tracks for downloads, library
+// saves and opening the audio in the editor, without rebuilding notes.
+async function currentMixWav(){
+ if(state.busy||!state.stems.size)throw Error("Primero genera audio desde MusicXML.");
+ const volumes=state.score.groups.map(g=>({buffer:state.stems.get(g.id),amount:g.volume/100}));
+ const len=Math.ceil(state.duration*state.sampleRate),mixed=new Float32Array(len);
+ for(let i=0;i<len;i+=65536){
+  const stop=Math.min(i+65536,len);
+  for(const track of volumes){
+   if(!track.buffer||!track.amount)continue;
+   const pcm=track.buffer.getChannelData(0);
+   for(let j=i;j<stop;j++)mixed[j]+=pcm[j]*track.amount;
   }
-  let peak=0;for(const x of mixed)peak=Math.max(peak,Math.abs(x));
-  if(peak>.94){const factor=.94/peak;for(let i=0;i<mixed.length;i++)mixed[i]*=factor}
-  const blob=encodeWav(mixed,state.sampleRate),url=URL.createObjectURL(blob);
-  const link=document.createElement("a");link.href=url;
-  const name=state.score?.title||"partitura";
-  link.download=name.replace(/[^\w \-À-ÿ]/g,"").trim().slice(0,75).replace(/ +/g,"_")+"_consort.wav";
-  document.body.append(link);link.click();link.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),60000);
-  status("Mezcla WAV descargada con los volúmenes seleccionados.");
- }catch(err){problem("No se pudo descargar la mezcla: "+(err.message||err))}
- finally{state.exporting=false;$("download").disabled=false}
+  if(i%(65536*8)===0){status("Preparando mezcla: "+Math.round(stop/len*100)+"%");await new Promise(resolve=>setTimeout(resolve,0))}
+ }
+ let peak=0;for(const x of mixed)peak=Math.max(peak,Math.abs(x));
+ if(peak>.94){const factor=.94/peak;for(let i=0;i<mixed.length;i++)mixed[i]*=factor}
+ return encodeWav(mixed,state.sampleRate);
 }
+function currentMixFilename(){
+ return (state.projectName||state.score?.title||"Partitura").replace(/[^\w \-À-ÿ]/g,"").trim().slice(0,75).replace(/ +/g,"_")+"_consort.wav";
+}
+async function mixAction(button,action){
+ if(state.busy||state.exporting||!state.stems.size)return;
+ state.exporting=true;button.disabled=true;problem("");
+ try{const wav=await currentMixWav();await action(wav,currentMixFilename())}
+ catch(err){problem("No se pudo preparar la mezcla: "+(err.message||err))}
+ finally{state.exporting=false;button.disabled=false}
+}
+async function downloadCurrentMix(){
+ return mixAction($("download"),async(blob,name)=>{
+  const url=URL.createObjectURL(blob),link=document.createElement("a");
+  link.href=url;link.download=name;document.body.append(link);link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
+  status("Mezcla descargada con los volúmenes actuales.");
+ });
+}
+async function refreshStudioLibrarySelects(){
+ const api=window.consorteStudioLibrary;
+ if(!api)return;
+ const folder=$("studioSaveFolder"),previous=folder.value;
+ folder.replaceChildren(new Option("Inicio de Biblioteca",""));
+ for(const f of await api.folderOptions())folder.add(new Option(f.label,f.id));
+ if([...folder.options].some(o=>o.value===previous))folder.value=previous;
+ const records=await api.list(),select=$("studioLibraryAudios"),selected=select.value;
+ select.replaceChildren(new Option("Elegir un audio...",""));
+ for(const item of records.filter(r=>r.type==="file"&&r.kind==="audio").sort((a,b)=>a.name.localeCompare(b.name,"es")))
+  select.add(new Option(item.name,item.id));
+ if([...select.options].some(o=>o.value===selected))select.value=selected;
+}
+$("saveMixLibrary").onclick=()=>mixAction($("saveMixLibrary"),async(blob,name)=>{
+ const api=window.consorteStudioLibrary;
+ if(!api)throw Error("Biblioteca Consort no está disponible.");
+ const parent=$("studioSaveFolder").value||null;
+ await api.saveCopy(blob,name,null,parent);
+ $("studioSaveMessage").textContent="Guardado «"+name+"» en "+(parent?"la carpeta elegida":"el inicio de Biblioteca")+".";
+ status("Audio guardado en Biblioteca Consort.");
+ await refreshStudioLibrarySelects();
+});
+$("editCurrentMix").onclick=()=>mixAction($("editCurrentMix"),async(blob,name)=>{
+ const api=window.consorteStudioLibrary;
+ if(!api)throw Error("Editor no disponible.");
+ await api.openGenerated(blob,name);
+ $("studioAudioMessage").textContent="Mezcla cargada en el editor de audio.";
+});
+$("studioChooseAudio").onclick=()=>$("studioAudioFile").click();
+$("studioAudioFile").onchange=async event=>{
+ const file=event.target.files?.[0];event.target.value="";
+ if(!file)return;
+ try{
+  await window.consorteStudioLibrary.openGenerated(file,file.name);
+  $("studioAudioMessage").textContent="Audio «"+file.name+"» listo para editar.";
+ }catch(err){$("studioAudioMessage").textContent="No se pudo importar el audio: "+(err.message||err)}
+};
+$("studioOpenLibraryAudio").onclick=async()=>{
+ const id=$("studioLibraryAudios").value;
+ if(!id){$("studioAudioMessage").textContent="Elige primero un audio.";return}
+ try{
+  await window.consorteStudioLibrary.openFromLibrary(id);
+  $("studioAudioMessage").textContent="Audio de Biblioteca cargado.";
+ }catch(err){$("studioAudioMessage").textContent=err.message||String(err)}
+};
+window.consorteStudioGetScore=()=>state.score;
+window.addEventListener("DOMContentLoaded",()=>{
+ refreshStudioLibrarySelects().catch(err=>{
+  $("studioSaveMessage").textContent="No se pudieron listar las carpetas: "+(err.message||err)
+ });
+});
 $("render").onclick=synthesize;
 $("download").onclick=downloadCurrentMix;
 })();
