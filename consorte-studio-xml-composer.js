@@ -367,6 +367,29 @@ function renderEngraving(){
    const formatter=new VF.Formatter();
    formatter.joinVoices([voice]).format([voice],Math.max(350,width-160));
    voice.draw(context,stave);
+   // Clicking a rendered note edits the actual MusicXML event, not merely
+   // a decorative score picture.
+   const sourceEvents=current().events;
+   notes.forEach((drawn,k)=>{
+    const eventIndex=sourceEvents.indexOf(events[k]);
+    if(eventIndex<0)return; // generated rest padding is not editable
+    const node=drawn.getSVGElement?.();
+    if(!node)return;
+    node.classList.add("xml-composer-clickable-note");
+    node.setAttribute("role","button");
+    node.setAttribute("tabindex","0");
+    node.setAttribute("aria-label","Editar "+eventLabel(events[k]));
+    const edit=event=>{
+     event.stopPropagation();
+     startEdit(eventIndex);
+     target.querySelectorAll(".xml-composer-selected-note").forEach(n=>n.classList.remove("xml-composer-selected-note"));
+     node.classList.add("xml-composer-selected-note");
+    };
+    node.addEventListener("click",edit);
+    node.addEventListener("keydown",event=>{
+     if(event.key==="Enter"||event.key===" "){event.preventDefault();edit(event)}
+    });
+   });
    context.setFont("Arial",10).fillText("Compás "+(i+1),48,25+j*175);
   }
   $("xmlComposerStaffPage").textContent="Compases "+(start+1)+"–"+end+" de "+bars.length;
@@ -476,7 +499,13 @@ function init(){
  };
  const folderRefresh=reloadFolders;
  window.addEventListener("consorte-studio-native-ready",folderRefresh);
- reloadFolders();refreshParts();renderEvents();loadEngraver();renderEngravingSoon();
+ reloadFolders();refreshParts();renderEvents();renderEngravingSoon();
+ if("IntersectionObserver" in window){
+  const observer=new IntersectionObserver(entries=>{
+   if(entries.some(e=>e.isIntersecting)){observer.disconnect();loadEngraver()}
+  },{rootMargin:"200px"});
+  observer.observe(root);
+ }else loadEngraver();
 }
 init();
 })();
