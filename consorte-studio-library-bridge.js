@@ -71,6 +71,22 @@ async function saveCopy(blob,name,original=null,parentOverride){
  };
  return save(record);
 }
+async function saveScore(blob,title,parent=null){
+ if(!(blob instanceof Blob))throw Error("La partitura no contiene datos para guardar.");
+ if(blob.size>12*1024*1024)throw Error("La partitura supera los 12 MB.");
+ const titleClean=String(title||"Partitura").trim().slice(0,120);
+ const filename=String(blob.name||"")
+   .match(/\.musicxml$/i)?blob.name:
+   titleClean.normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/[^\w\- ]/g,"").trim().replace(/\s+/g,"_")+".musicxml";
+ const record={
+  id:uuid(),parent:parent||null,type:"file",kind:"other",
+  name:filename||"Partitura.musicxml",blob,created:Date.now(),song:titleClean,
+  instrument:"",category:"Partitura"
+ };
+ return save(record);
+}
+
 async function replaceAudio(original,blob,name){
  if(!original||String(original.id).startsWith("direct_"))throw Error("Solo se pueden reemplazar archivos guardados en Biblioteca");
  const current=await get(original.id);
@@ -141,7 +157,7 @@ const editorBridge={
  async replace(blob,name){const updated=await replaceAudio(current,blob,name);await this.load(updated);return updated}
 };
 window.consorteStudioAudioBridge=editorBridge;
-window.consorteStudioLibrary={get,list,saveCopy,replaceAudio,folderOptions,musicXMLFile,
+window.consorteStudioLibrary={get,list,saveCopy,saveScore,replaceAudio,folderOptions,musicXMLFile,
  async openFromLibrary(id){
   const record=await readableRecord(id);
   if(record.kind!=="audio"&&!/\.(wav|mp3|m4a|aac|ogg)$/i.test(record.name||""))
