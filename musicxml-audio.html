@@ -72,7 +72,7 @@ button.primary{box-shadow:0 3px 10px #2563eb2b}
 #saveStatus{min-height:1.1em;margin:7px 0 0}
 @media(max-width:480px){.library-head{flex-direction:column}.project-list{grid-template-columns:1fr}}
 </style></head>
-<body><header class="studio-header"><div class="header-inner"><div class="brand-kicker">CONSORT STUDIO</div><div class="build-version">Versión 2026.11.23-09 · Solo continuo entre compases</div><h1>Tu música, a tu manera.</h1><p>Importa tu partitura, ajusta cada instrumento y crea el audio que necesitas.</p></div></header>
+<body><header class="studio-header"><div class="header-inner"><div class="brand-kicker">CONSORT STUDIO</div><div class="build-version">Versión 2026.11.23-10 · Casillas 1 y 2 verificables</div><h1>Tu música, a tu manera.</h1><p>Importa tu partitura, ajusta cada instrumento y crea el audio que necesitas.</p></div></header>
 <main>
 <section class="card project-library" id="library">
 <div class="library-head"><div><div class="eyebrow">TU ESPACIO DE TRABAJO</div><h2>Mis proyectos</h2>
@@ -206,7 +206,7 @@ async function openSavedProject(id){
   if(!record||!record.score)throw Error("Proyecto no encontrado.");
   clearAudio();
   let restoredScore=record.score,wasMigrated=false;
-  if(record.sourceXML&&record.score.timingVersion!==9){
+  if(record.sourceXML&&record.score.timingVersion!==10){
    restoredScore=parse(record.sourceXML,record.title||"Partitura");
    for(const group of restoredScore.groups){
     const previous=record.score.groups.find(g=>g.name===group.name)||
@@ -222,7 +222,7 @@ async function openSavedProject(id){
   state.projectId=record.id;state.projectName=record.title||record.score.title;
   $("tempo").value=clamp(int(record.tempo,100),30,240);
   $("info").hidden=false;
-  $("info").textContent=state.projectName+" · "+state.score.groups.length+" instrumentos · "+state.score.notes.length+" notas";
+  $("info").textContent=projectInfoText(state.score,state.projectName);
   $("settings").hidden=false;
   makeVoiceRows();updateDurationEstimate();
   projectNotice(record.sourceXML
@@ -549,80 +549,118 @@ function sharedMeasureStarts(parts){
 // Los compases tienen un índice compartido por todos los instrumentos.
 function musicXMLPlaybackPlan(parts,measureStarts){
  const count=measureStarts.length;
- const marks=Array.from({length:count},()=>({forward:false,backward:false,times:2,starts:[],stops:false}));
+ if(!count)return null;
+ const marks=Array.from({length:count},()=>({forward:false,backward:false,times:2}));
+ const starts=Array.from({length:count},()=>new Set());
+ const closes=new Set();
  const measures=parts.map(p=>kids(p,"measure"));
  let hasNavigation=false;
- const parseNumbers=str=>{
-  const numbers=new Set();
-  for(const segment of String(str||"").split(/[;,]/)){
-   const range=segment.trim().match(/^(\d+)\s*-\s*(\d+)$/);
-   if(range){for(let i=Number(range[1]);i<=Math.min(Number(range[2]),10);i++)numbers.add(i)}
-   else{const n=Number.parseInt(segment,10);if(n>0&&n<11)numbers.add(n)}
+ const parseNumbers=value=>{
+  const result=new Set();
+  for(const section of String(value||"").split(/[;,]/)){
+   const range=section.trim().match(/^(\d+)\s*-\s*(\d+)$/);
+   if(range){
+    for(let n=Number(range[1]);n<=Math.min(10,Number(range[2]));n++)result.add(n);
+   }else{
+    const n=Number.parseInt(section,10);
+    if(n>=1&&n<=10)result.add(n);
+   }
   }
-  return [...numbers];
+  return [...result];
  };
  for(let i=0;i<count;i++){
-  const mark=marks[i];
   for(const part of measures){
-   const m=part[i];if(!m)continue;
-   for(const barline of kids(m,"barline")){
-    for(const rep of kids(barline,"repeat")){
-     const dir=rep.getAttribute("direction");
-     if(dir==="forward")mark.forward=true;
-     if(dir==="backward"){
-      mark.backward=true;
-      mark.times=Math.max(2,Math.min(6,int(rep.getAttribute("times"),2)));
+   const measure=part[i];
+   if(!measure)continue;
+   for(const barline of kids(measure,"barline")){
+    const side=barline.getAttribute("location")||"right";
+    for(const repeat of kids(barline,"repeat")){
+     const dir=repeat.getAttribute("direction");
+     if(dir==="forward"){
+      const at=side==="right"?i+1:i;
+      if(at<count)marks[at].forward=true;
+      hasNavigation=true;
+     }else if(dir==="backward"){
+      const at=side==="left"?i-1:i;
+      if(at>=0){
+       marks[at].backward=true;
+       marks[at].times=Math.max(2,Math.min(6,int(repeat.getAttribute("times"),2)));
+       hasNavigation=true;
+      }
      }
-     hasNavigation=true;
     }
     for(const ending of kids(barline,"ending")){
      const type=ending.getAttribute("type");
      if(type==="start"){
-      const nums=parseNumbers(ending.getAttribute("number"));
-      for(const n of nums)if(!mark.starts.includes(n))mark.starts.push(n);
-     }else if(type==="stop"||type==="discontinue")mark.stops=true;
-     hasNavigation=true;
+      const at=side==="right"?i+1:i;
+      if(at>=0&&at<count){
+       for(const n of parseNumbers(ending.getAttribute("number")))starts[at].add(n);
+       hasNavigation=true;
+      }
+     }else if(type==="stop"||type==="discontinue"){
+      const at=side==="left"?i-1:i;
+      if(at>=0){closes.add(at);hasNavigation=true}
+     }
     }
    }
   }
  }
  if(!hasNavigation)return null;
- const endings=[];
- let active=[];
+ // Algunos exportadores escriben la segunda casilla como "1" por error.
+ // Si aparece inmediatamente después de un cierre de repetición y otra
+ // casilla "1" estaba activa, la tratamos como segunda casilla.
+ let activeNumbers=[],firstEndingBeforeRepeat=false,correctedEndings=0;
+ const endings=Array.from({length:count},()=>[]);
  for(let i=0;i<count;i++){
-  const mark=marks[i];
-  if(mark.starts.length)active=mark.starts.slice();
-  endings.push(active.slice());
-  if(mark.stops)active=[];
- }
- const lengths=measureStarts.map((start,i)=>i+1<count?Math.max(0,measureStarts[i+1]-start):null);
- // La duración del último compás se obtiene del cálculo en la misma escala.
- lengths[count-1]=measureStarts.lastLength||0;
- const order=[];
- let pos=0,beat=0,sectionStart=0,pass=1,steps=0;
- const jumped=new Map();
- const limit=Math.min(6000,Math.max(100,count*8+24));
- while(pos<count&&steps++<limit){
-  const mark=marks[pos];
-  if(mark.forward&&sectionStart!==pos){sectionStart=pos;pass=1}
-  const ending=endings[pos];
-  if(ending.length&&!ending.includes(pass)){pos++;continue}
-  const len=lengths[pos]||0;
-  order.push({index:pos,start:beat,pass});
-  beat+=len;
-  if(mark.backward){
-   const key=sectionStart+"-"+pos;
-   const done=jumped.get(key)||1;
-   if(done<mark.times){
-    jumped.set(key,done+1);pass=done+1;pos=sectionStart;continue;
-   }
-   pass=1;
+  let opening=[...starts[i]].sort((a,b)=>a-b);
+  if(opening.length===1&&opening[0]===1&&i>0&&marks[i-1].backward&&firstEndingBeforeRepeat){
+   opening=[2];correctedEndings++;
   }
-  pos++;
+  if(opening.length)activeNumbers=opening;
+  endings[i]=activeNumbers.slice();
+  if(marks[i].backward){
+   firstEndingBeforeRepeat=activeNumbers.includes(1)||endings.slice(0,i+1).some(x=>x.includes(1));
+   // Un salto de repetición cierra la primera casilla incluso si el
+   // exportador omitió <ending type="stop">.
+   activeNumbers=[];
+  }else if(closes.has(i)){
+   activeNumbers=[];
+  }
  }
- if(steps>=limit)throw Error("La partitura tiene repeticiones circulares o demasiados saltos.");
- return {order,quarterLength:beat,jumps:order.length-count};
+ const lengths=measureStarts.map((start,i)=>i+1<count?Math.max(0,measureStarts[i+1]-start):measureStarts.lastLength||0);
+ const order=[],jumpCounts=new Map();
+ let index=0,quarter=0,sectionStart=0,pass=1,steps=0,jumpCount=0;
+ const maxSteps=Math.min(60000,Math.max(200,count*15+50));
+ while(index<count&&steps++<maxSteps){
+  const mark=marks[index];
+  if(mark.forward&&sectionStart!==index){
+   sectionStart=index;pass=1;
+  }
+  if(endings[index].length&&!endings[index].includes(pass)){
+   index++;
+   continue;
+  }
+  order.push({index,start:quarter,pass});
+  quarter+=lengths[index]||0;
+  if(mark.backward){
+   const key=sectionStart+"-"+index;
+   const attempts=jumpCounts.get(key)||1;
+   if(attempts<mark.times){
+    jumpCounts.set(key,attempts+1);
+    jumpCount++;pass=attempts+1;index=sectionStart;continue;
+   }
+  }
+  index++;
+ }
+ if(steps>=maxSteps)throw Error("La partitura contiene repeticiones cíclicas o no válidas.");
+ return {
+  order,quarterLength:quarter,jumps:jumpCount,
+  repeatSections:marks.filter(m=>m.backward).length,
+  endings:starts.reduce((n,opening)=>n+(opening.size>0?1:0),0),
+  correctedEndings
+ };
 }
+
 function unfoldMusicXMLNotes(parts,measureStarts,notes){
  const plan=musicXMLPlaybackPlan(parts,measureStarts);
  if(!plan)return {notes,quarterLength:0,jumps:0};
@@ -638,7 +676,8 @@ function unfoldMusicXMLNotes(parts,measureStarts,notes){
    expanded.push({...note,start:event.start+Math.max(0,note.start-measureStarts[event.index])});
   }
  }
- return {notes:expanded,quarterLength:plan.quarterLength,jumps:plan.jumps};
+ return {notes:expanded,quarterLength:plan.quarterLength,jumps:plan.jumps,
+   repeatSections:plan.repeatSections,endings:plan.endings,correctedEndings:plan.correctedEndings};
 }
 
 function parse(xml,filename=""){
@@ -742,8 +781,20 @@ function parse(xml,filename=""){
    originalVoices:groups.length,originalParts:scoreParts.length,
    shortBars:measureStarts.shortBars,
    quarterLength:performance.quarterLength,repeatJumps:performance.jumps,
-   timingVersion:9,continuousSolo:scoreParts.length===1};
+   timingVersion:10,continuousSolo:scoreParts.length===1,
+   repeatSections:performance.repeatSections||0,
+   alternateEndings:performance.endings||0,
+   correctedEndings:performance.correctedEndings||0};
 }
+function projectInfoText(score,name){
+ const repeatInfo=score.repeatSections
+  ?" · "+score.repeatSections+" repetición(es) · "+score.alternateEndings+" casillas detectadas"
+  :" · sin repeticiones MusicXML detectadas";
+ return (name||score.title||"Partitura")+" · "+score.groups.length+
+  " instrumentos · "+score.notes.length+" notas"+repeatInfo+
+  (score.correctedEndings?" · "+score.correctedEndings+" casilla(s) numerada(s) incorrectamente: corregidas":"");
+}
+
 function makeVoiceRows(){
  const root=$("voices");
  root.replaceChildren();
@@ -894,7 +945,7 @@ async function load(file){
   state.projectId="project-"+Date.now()+"-"+Math.random().toString(36).slice(2);
   state.projectName=score.title&&score.title!=="Partitura"?score.title:file.name.replace(/\.(mxl|musicxml|xml)$/i,"");
   $("tempo").value=clamp(Math.round(score.tempo),30,240);
-  $("info").hidden=false;$("info").textContent=state.projectName+" · "+score.originalVoices+" pistas del XML reunidas en "+score.groups.length+" instrumentos · "+score.notes.length+" notas";
+  $("info").hidden=false;$("info").textContent=projectInfoText(score,state.projectName);
   makeVoiceRows();$("settings").hidden=false;updateDurationEstimate();
   if(score.shortBars)status("Partitura importada. "+score.shortBars+
     " compases parciales identificados; no se añaden pausas al final de ellos.");
