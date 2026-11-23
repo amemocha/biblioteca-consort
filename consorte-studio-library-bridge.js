@@ -76,7 +76,7 @@ async function saveScore(blob,title,parent=null){
  if(blob.size>12*1024*1024)throw Error("La partitura supera los 12 MB.");
  const titleClean=String(title||"Partitura").trim().slice(0,120);
  const filename=String(blob.name||"")
-   .match(/\.musicxml$/i)?blob.name:
+   .match(/\.(?:musicxml|xml)$/i)?blob.name:
    titleClean.normalize("NFD").replace(/[\u0300-\u036f]/g,"")
     .replace(/[^\w\- ]/g,"").trim().replace(/\s+/g,"_")+".musicxml";
  const record={
