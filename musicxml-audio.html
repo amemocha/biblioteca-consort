@@ -80,71 +80,79 @@ const INSTRUMENTS=[
  ["trumpet","Trompeta"],["organ","Órgano"],["bass","Bajo eléctrico"]
 ];
 // Identificación de familias de guitarra; G.S se reserva para contrabajo según la nomenclatura solicitada.
-const VOICE_ALIASES=[
- {name:"Guitarra bajo",short:"G.B",test:/\b(?:g\s*[.\- ]\s*b\.?|guitarra[\s_-]*bajo|guitarra[\s_-]*bass)\b/i},
- {name:"Guitarra alto",short:"G.A",test:/\b(?:g\s*[.\- ]\s*a\.?|guitarra[\s_-]*alto)\b/i},
- {name:"Guitarra tenor",short:"G.T",test:/\b(?:g\s*[.\- ]\s*t\.?|guitarra[\s_-]*tenor)\b/i},
- {name:"Contrabajo",short:"G.S",test:/\b(?:g\s*[.\- ]\s*s\.?|contra[\s_-]*bajo|contrabajo)\b/i},
- {name:"Guitarra prima",short:"G.P",test:/\b(?:g\s*[.\- ]\s*p\.?|guitarra[\s_-]*prima)\b/i},
- {name:"Guitarra soprano",short:"",test:/\b(?:guitarra[\s_-]*soprano)\b/i}
-];
+// Normalización de partes: no confundir pentagramas, rótulos cortos y voces instrumentales.
+const GUITAR_ROLES={
+ soprano:{name:"Guitarra soprano",short:"G.S",sound:"guitar-nylon"},
+ alto:{name:"Guitarra alto",short:"G.A",sound:"guitar-nylon"},
+ tenor:{name:"Guitarra tenor",short:"G.T",sound:"guitar-nylon"},
+ bajo:{name:"Guitarra bajo",short:"G.B",sound:"guitar-nylon"},
+ contra:{name:"Guitarra contrabajo",short:"G.C",sound:"bass"},
+ prima:{name:"Guitarra prima",short:"G.P",sound:"guitar-nylon"}
+};
 function compactInstrumentName(value){
  return String(value||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase()
   .replace(/[_\-.]+/g," ").replace(/\s+/g," ").trim();
 }
-function voiceIdentity(source){
- const n=compactInstrumentName(source);
- const short=n.replace(/\s/g,"");
- const standard={
-  gb:"Guitarra bajo",ga:"Guitarra alto",gt:"Guitarra tenor",
-  gp:"Guitarra prima",gs:"Contrabajo"
- };
- const match=standard[short];
- if(match)return {name:match,short:short.toUpperCase().replace("", "")};
- if(/\b(?:guitarra\s+bajo|guitarra\s+bass)\b/.test(n))return {name:"Guitarra bajo",short:"G.B"};
- if(/\bguitarra\s+alto\b/.test(n))return {name:"Guitarra alto",short:"G.A"};
- if(/\bguitarra\s+tenor\b/.test(n))return {name:"Guitarra tenor",short:"G.T"};
- if(/\bguitarra\s+prima\b/.test(n))return {name:"Guitarra prima",short:"G.P"};
- if(/\b(?:contrabajo|contra bajo)\b/.test(n))return {name:"Contrabajo",short:"G.S"};
+function codeOf(value){return compactInstrumentName(value).replace(/[^a-z0-9]/g,"")}
+function instrumentRole(value,hasGuitarContra=false){
+ const n=compactInstrumentName(value);
+ let c=codeOf(value);
+ // Los paréntesis de abreviaturas MusicXML a veces producen etiquetas "(G.S.".
+ if(/^\(?[g3]\s*[.\s-]*[s5]\.?\)?$/i.test(String(value||"").trim()))c="gs";
+ if(/^guitarra\s+(?:contra\s*bajo|contrabajo)$/.test(n)||/^(gc|cc)$/.test(c))return "contra";
+ if(/^(guitarra\s+)?(?:soprano)$/.test(n)||/^(gs|sc|cs)$/.test(c))
+  return c==="gs"&&!hasGuitarContra?"contra":"soprano";
+ if(/^(guitarra\s+)?alto$/.test(n)||/^(ga|ca)$/.test(c))return "alto";
+ if(/^(guitarra\s+)?tenor$/.test(n)||/^(gt|ct)$/.test(c))return "tenor";
+ if(/^(guitarra\s+)?(?:bajo|bass)$/.test(n)||/^(gb|cb)$/.test(c))return "bajo";
+ if(/^(guitarra\s+)?prima$/.test(n)||c==="gp")return "prima";
+ if(n==="contrabajo"||n==="contra bajo")return "contra";
  return null;
+}
+function voiceIdentity(value,contextHasGuitarContra=false){
+ const role=instrumentRole(value,contextHasGuitarContra);
+ return role?GUITAR_ROLES[role]:null;
 }
 function meaningfulName(name){return !!name&&!/^(voice|voz|instrumento|instrument|part|parte|staff|pentagrama)(?:\s*\d+)?$/i.test(String(name).trim())}
 function identityLabel(name){
- const match=voiceIdentity(name);
- return match?match.name+" ("+match.short.split("").join(".")+")":name;
+ const match=voiceIdentity(name,true);
+ return match?match.name+" ("+match.short+")":name;
 }
 function inferPartName(raw,filename,metadata){
  const candidate=[raw,...metadata,filename.replace(/\.[^.]+$/,"").replace(/^\d+[\s_-]*/,"")];
  if(meaningfulName(raw)){
-  const match=voiceIdentity(raw);
+  const match=voiceIdentity(raw,true);
   return match?match.name:raw;
  }
  for(const value of candidate){
-  const match=voiceIdentity(value);
+  const match=voiceIdentity(value,true);
   if(match)return match.name;
  }
  return meaningfulName(raw)?raw:"Instrumento sin identificar";
 }
-// Una voz instrumental = un nombre canónico; varios pentagramas o voces internas
-// conservan TODAS sus notas pero comparten un solo control de mezcla.
 function combineInstrumentVoices(groups,notes){
+ // Detecta si la partitura usa la nomenclatura G.S (soprano), G.C (contrabajo).
+ // Sin G.C, G.S puede ser contrabajo según otras nomenclaturas.
+ const hasGuitarContra=groups.some(g=>instrumentRole(g.name,true)==="contra"||
+  /guitarra\s+contrabajo/i.test(g.name));
  const byKey=new Map(),idMap=new Map(),combined=[];
  for(const group of groups){
-  const alias=voiceIdentity(group.name);
-  // Los instrumentos sin nombre se mantienen separados por parte: no asumimos
-  // que dos pistas genéricas representan el mismo instrumento.
-  const key=alias?"alias:"+alias.name:meaningfulName(group.name)
-   ?"name:"+compactInstrumentName(group.name):"unknown:"+group.part;
+  const role=instrumentRole(group.name,hasGuitarContra);
+  const canonical=role?GUITAR_ROLES[role]:null;
+  const normalized=canonical?canonical.name:group.name;
+  const key=canonical?"role:"+role:meaningfulName(normalized)
+    ?"name:"+compactInstrumentName(normalized):"unknown:"+group.part;
   let target=byKey.get(key);
   if(!target){
-   target={...group,id:"mix-"+combined.length,voice:"",staff:"",count:0,sourceCount:0};
+   target={...group,id:"mix-"+combined.length,voice:"",staff:"",name:normalized,
+     count:0,sourceCount:0,
+     instrument:canonical?canonical.sound:group.instrument};
    byKey.set(key,target);combined.push(target);
   }
   target.sourceCount++;
   idMap.set(group.id,target.id);
  }
  for(const note of notes)note.group=idMap.get(note.group)||note.group;
- // Las partes duplicadas con exactamente la misma nota no deben sonar dos veces.
  const unique=[],seen=new Set(),counts=new Map();
  for(const note of notes){
   const key=note.group+"|"+note.midi+"|"+note.start.toFixed(7)+"|"+note.duration.toFixed(7);
@@ -153,6 +161,9 @@ function combineInstrumentVoices(groups,notes){
   counts.set(note.group,(counts.get(note.group)||0)+1);
  }
  for(const group of combined)group.count=counts.get(group.id)||0;
+ // Orden musical: soprano, alto, tenor, bajo, contrabajo.
+ const order={soprano:0,alto:1,tenor:2,bajo:3,contra:4,prima:5};
+ combined.sort((a,b)=>(order[instrumentRole(a.name,true)]??20)-(order[instrumentRole(b.name,true)]??20));
  return {groups:combined,notes:unique};
 }
 
