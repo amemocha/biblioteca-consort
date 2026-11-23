@@ -1,12 +1,12 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Convertidor MusicXML a audio | Consort</title>
 <style>
-:root{font:16px system-ui,-apple-system,"Segoe UI",sans-serif;color:#172b46;background:#f4f7fb}*{box-sizing:border-box}body{margin:0}header{background:#172b46;color:white;padding:23px max(18px,calc((100vw - 1050px)/2))}header h1{margin:0;font-size:clamp(23px,4vw,32px)}header p{color:#c5d5e8;margin:8px 0 0}main{max-width:1050px;padding:22px 16px 45px;margin:auto;display:grid;gap:17px}.card{border:1px solid #dce6f1;background:#fff;border-radius:15px;padding:20px;box-shadow:0 6px 20px #172b460b}h2{font-size:19px;margin:0 0 10px}.small{font-size:14px;color:#64748b;line-height:1.55}.drop{display:block;border:2px dashed #91b4df;background:#f8fbff;border-radius:12px;padding:32px 15px;text-align:center;cursor:pointer}.drop.drag,.drop:hover{border-color:#2563eb;background:#eaf2ff}input[type=file]{display:none}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}button,a.action{border:1px solid #cbd9e8;background:#fff;color:#234768;border-radius:9px;padding:11px 15px;font-weight:650;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;font:650 14px system-ui}button.primary{background:#2563eb;border-color:#2563eb;color:white}button:disabled{opacity:.5;cursor:not-allowed}.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-top:15px}label{font-weight:650;font-size:14px}label>input[type=number],select{display:block;width:100%;margin-top:7px;padding:10px;border:1px solid #cbd9e8;border-radius:9px;background:#fff;color:#172b46;font:inherit}.voice{display:grid;grid-template-columns:minmax(155px,1fr) auto auto auto minmax(140px,190px);gap:11px;align-items:center;padding:13px;border:1px solid #dbe5f0;border-radius:12px;margin:9px 0;background:#f8fbff}.voice strong{font-size:14px;display:block}.voice small{color:#64748b;display:block;margin-top:3px;font-size:12px}.voice output{min-width:56px;text-align:center;color:#1d4ed8;font-weight:700;font-size:13px}.vol{min-width:120px;font-size:13px}.vol label{display:flex;justify-content:space-between;gap:8px;font-weight:550}.vol input{width:100%;accent-color:#2563eb}.group-title{font-size:14px;font-weight:750;margin:17px 0 5px;color:#28496c}.audio{display:block;width:100%;margin-top:12px}#error{white-space:pre-wrap;color:#aa283e;font-size:14px;font-weight:650}#status{white-space:pre-wrap;font-size:14px;color:#365774}#info{font-size:14px;color:#436485;margin-top:12px}.foot{font-size:13px;color:#64748b}a{color:#2563eb}@media(max-width:650px){.voice{grid-template-columns:auto auto auto 1fr}.voice .title{grid-column:1/-1}.vol{grid-column:1/-1}.card{padding:15px}}
+:root{font:16px system-ui,-apple-system,"Segoe UI",sans-serif;color:#172b46;background:#f4f7fb}*{box-sizing:border-box}body{margin:0}header{background:#172b46;color:white;padding:23px max(18px,calc((100vw - 1050px)/2))}header h1{margin:0;font-size:clamp(23px,4vw,32px)}header p{color:#c5d5e8;margin:8px 0 0}main{max-width:1050px;padding:22px 16px 45px;margin:auto;display:grid;gap:17px}.card{border:1px solid #dce6f1;background:#fff;border-radius:15px;padding:20px;box-shadow:0 6px 20px #172b460b}h2{font-size:19px;margin:0 0 10px}.small{font-size:14px;color:#64748b;line-height:1.55}.drop{display:block;border:2px dashed #91b4df;background:#f8fbff;border-radius:12px;padding:32px 15px;text-align:center;cursor:pointer}.drop.drag,.drop:hover{border-color:#2563eb;background:#eaf2ff}input[type=file]{display:none}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}button,a.action{border:1px solid #cbd9e8;background:#fff;color:#234768;border-radius:9px;padding:11px 15px;font-weight:650;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;font:650 14px system-ui}button.primary{background:#2563eb;border-color:#2563eb;color:white}button:disabled{opacity:.5;cursor:not-allowed}.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-top:15px}label{font-weight:650;font-size:14px}label>input[type=number],select{display:block;width:100%;margin-top:7px;padding:10px;border:1px solid #cbd9e8;border-radius:9px;background:#fff;color:#172b46;font:inherit}.voice{display:grid;grid-template-columns:minmax(155px,1fr) auto auto auto minmax(130px,160px) minmax(165px,210px);gap:11px;align-items:center;padding:13px;border:1px solid #dbe5f0;border-radius:12px;margin:9px 0;background:#f8fbff}.voice strong{font-size:14px;display:block}.voice small{color:#64748b;display:block;margin-top:3px;font-size:12px}.voice output{min-width:56px;text-align:center;color:#1d4ed8;font-weight:700;font-size:13px}.vol{min-width:120px;font-size:13px}.vol label{display:flex;justify-content:space-between;gap:8px;font-weight:550}.vol input{width:100%;accent-color:#2563eb}.group-title{font-size:14px;font-weight:750;margin:17px 0 5px;color:#28496c}.audio{display:block;width:100%;margin-top:12px}#error{white-space:pre-wrap;color:#aa283e;font-size:14px;font-weight:650}#status{white-space:pre-wrap;font-size:14px;color:#365774}#info{font-size:14px;color:#436485;margin-top:12px}.foot{font-size:13px;color:#64748b}a{color:#2563eb}@media(max-width:650px){.voice{grid-template-columns:auto auto auto 1fr}.voice .title{grid-column:1/-1}.vol,.instrument{grid-column:1/-1}.card{padding:15px}}
 </style></head>
-<body><header><h1>MusicXML a audio</h1><p>Herramienta independiente · Tonalidad y volumen de cada voz · Colores 1</p></header>
+<body><header><h1>MusicXML a audio</h1><p>Herramienta independiente · Instrumento, tonalidad y volumen por voz · Colores 1</p></header>
 <main>
 <section class="card"><h2>1. Sube tu partitura</h2><label class="drop" id="drop">Selecciona o arrastra un archivo <strong>.musicxml</strong> o <strong>.xml</strong><br><span class="small">Se procesa en tu navegador, sin subirlo a servidores.</span><input id="file" type="file" accept=".musicxml,.xml,text/xml,application/xml"></label><p class="small">Compatible con MusicXML sin comprimir, tipo «score-partwise». Si tienes un .mxl, expórtalo desde MuseScore como MusicXML sin comprimir.</p><div id="info" hidden></div><div id="error" role="alert"></div></section>
-<section id="settings" class="card" hidden><h2>2. Ajusta cada voz por separado</h2><p class="small">Usa + y − para subir o bajar semitonos. Con el deslizador puedes ajustar el volumen de cada voz, incluso dejarla en silencio. Estos cambios afectan el audio, no la partitura original.</p><div id="voices"></div><div class="controls"><label>Velocidad (negras/minuto)<input id="tempo" type="number" value="100" min="30" max="240"></label><label>Sonido<select id="timbre"><option value="soft">Piano suave sintetizado</option><option value="sine">Puro</option><option value="bright">Brillante</option></select></label></div><div class="actions"><button id="reset">Restablecer voces</button><button id="render" class="primary">Generar audio</button></div><p id="status" aria-live="polite"></p></section>
+<section id="settings" class="card" hidden><h2>2. Ajusta cada voz por separado</h2><p class="small">Usa + y − para cambiar semitonos, elige el instrumento que quieres escuchar y regula el volumen de cada voz, incluso hasta silencio. Estos cambios afectan el audio, no la partitura original.</p><div id="voices"></div><div class="controls"><label>Velocidad (negras/minuto)<input id="tempo" type="number" value="100" min="30" max="240"></label><label><span class="small">Elige un instrumento diferente en cada voz. Los sonidos son sintetizados.</span></label></div><div class="actions"><button id="reset">Restablecer voces</button><button id="render" class="primary">Generar audio</button></div><p id="status" aria-live="polite"></p></section>
 <section id="result" class="card" hidden><h2>3. Escucha y descarga</h2><audio id="player" class="audio" controls preload="metadata"></audio><div class="actions"><button id="download" class="primary">Descargar audio WAV</button><button id="stop">Detener</button></div><p class="small">Audio instrumental sintetizado. No contiene los instrumentos reales de MuseScore ni todas las indicaciones de expresión.</p></section>
 <p class="foot"><a href="./">Volver a Biblioteca Consort</a> · Los archivos no se modifican ni se guardan en la biblioteca automáticamente.</p></main>
 <script>
@@ -15,6 +15,50 @@
 const $=id=>document.getElementById(id);
 const state={score:null,url:null,blob:null,busy:false};
 const semis={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+
+const INSTRUMENTS=[
+ ["piano","Piano acústico"],["electric-piano","Piano eléctrico"],["guitar-nylon","Guitarra clásica (nylon)"],
+ ["guitar-steel","Guitarra acústica (acero)"],["guitar-clean","Guitarra eléctrica limpia"],
+ ["guitar-muted","Guitarra eléctrica apagada"],["guitar-drive","Guitarra eléctrica distorsionada"],
+ ["flute","Flauta traversa"],["recorder","Flauta dulce"],["panflute","Flauta de pan"],
+ ["violin","Violín"],["cello","Violonchelo"],["clarinet","Clarinete"],
+ ["trumpet","Trompeta"],["organ","Órgano"],["bass","Bajo eléctrico"]
+];
+function inferInstrument(name){
+ const n=String(name).toLowerCase();
+ if(/dulce|recorder/.test(n))return "recorder";
+ if(/flauta|flute/.test(n))return "flute";
+ if(/guitarra el[eé]ctrica|electric guitar/.test(n))return "guitar-clean";
+ if(/guitarra|guitar/.test(n))return "guitar-nylon";
+ if(/piano el[eé]ctrico/.test(n))return "electric-piano";
+ if(/piano|teclado|keyboard/.test(n))return "piano";
+ if(/viol[ií]n|violin/.test(n))return "violin";
+ if(/violonchelo|cello/.test(n))return "cello";
+ if(/clarinete|clarinet/.test(n))return "clarinet";
+ if(/trompeta|trumpet/.test(n))return "trumpet";
+ if(/[oó]rgano|organ/.test(n))return "organ";
+ if(/bajo|bass/.test(n))return "bass";
+ return "piano";
+}
+const PATCH={
+ "piano":{h:[1,.42,.22,.11,.04],a:.007,d:1.4,r:.15,pluck:true},
+ "electric-piano":{h:[1,.31,.16,.08],a:.012,d:2.2,r:.23,pluck:true,trem:4},
+ "guitar-nylon":{h:[1,.36,.13,.05],a:.004,d:.64,r:.09,pluck:true},
+ "guitar-steel":{h:[1,.7,.43,.19,.08],a:.002,d:.95,r:.11,pluck:true},
+ "guitar-clean":{h:[1,.53,.30,.12,.05],a:.009,d:1.5,r:.15,pluck:true},
+ "guitar-muted":{h:[1,.5,.24,.1],a:.003,d:.23,r:.06,pluck:true},
+ "guitar-drive":{h:[1,.87,.69,.52,.35,.24,.12],a:.008,d:2.4,r:.17,pluck:true},
+ "flute":{h:[1,.075,.028],a:.085,d:4,r:.14},
+ "recorder":{h:[1,.17,.05],a:.047,d:4,r:.12},
+ "panflute":{h:[1,.1,.045],a:.065,d:3,r:.17},
+ "violin":{h:[1,.72,.42,.3,.18,.11],a:.11,d:4,r:.18,vib:5},
+ "cello":{h:[1,.62,.43,.23,.12],a:.14,d:4,r:.22,vib:4.8},
+ "clarinet":{h:[1,.08,.48,.06,.23,.02,.08],a:.045,d:4,r:.13},
+ "trumpet":{h:[1,.66,.5,.31,.19,.08],a:.053,d:4,r:.14},
+ "organ":{h:[1,.35,.24,.1,.06],a:.014,d:4,r:.09},
+ "bass":{h:[1,.42,.18,.08],a:.009,d:.95,r:.15,pluck:true}
+};
+
 const int=(v,def=0)=>{const x=Number(v);return Number.isFinite(x)?x:def};
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const kids=(n,t)=>Array.from(n?.children||[]).filter(x=>x.localName===t);
@@ -70,7 +114,7 @@ function parse(xml){
     const midi=12*(int(text(pitch,"octave","4"))+1)+semis[step]+int(text(pitch,"alter","0"))+offset;
     if(midi<12||midi>120)continue;
     const staff=text(e,"staff","1"),voice=text(e,"voice","1"),gid=pid+"|"+staff+"|"+voice;
-    if(!byId.has(gid)){const g={id:gid,part:pi,name,staff,voice,offset:0,volume:100,count:0};byId.set(gid,g);groups.push(g)}
+    if(!byId.has(gid)){const g={id:gid,part:pi,name,staff,voice,offset:0,volume:100,instrument:inferInstrument(name),count:0};byId.set(gid,g);groups.push(g)}
     const tieTypes=kids(e,"tie").map(t=>t.getAttribute("type"));
     const key=gid+"|"+midi;
     if(tieTypes.includes("stop")&&ties.has(key)){
@@ -107,7 +151,15 @@ function makeVoiceRows(){
   const val=document.createElement("span");val.textContent="100%";label.append(caption,val);
   const range=document.createElement("input");range.type="range";range.min="0";range.max="100";range.step="1";range.value="100";range.setAttribute("aria-label","Volumen de "+group.name+" voz "+group.voice);
   range.oninput=()=>{group.volume=int(range.value);val.textContent=group.volume+"%";clearAudio()};
-  volume.append(label,range);row.append(title,minus,n,plus,volume);$("voices").append(row);
+  volume.append(label,range);
+  const instBox=document.createElement("label");instBox.className="instrument";
+  instBox.textContent="Instrumento";
+  const sel=document.createElement("select");sel.setAttribute("aria-label","Instrumento de "+group.name+" voz "+group.voice);
+  for(const [id,labelText] of INSTRUMENTS){const opt=document.createElement("option");opt.value=id;opt.textContent=labelText;sel.append(opt)}
+  sel.value=group.instrument;
+  sel.onchange=()=>{group.instrument=sel.value;clearAudio()};
+  instBox.append(sel);
+  row.append(title,minus,n,plus,volume,instBox);$("voices").append(row);
  }
 }
 async function load(file){
@@ -127,7 +179,7 @@ const drop=$("drop");
 drop.addEventListener("dragover",e=>{e.preventDefault();drop.classList.add("drag")});
 drop.addEventListener("dragleave",()=>drop.classList.remove("drag"));
 drop.addEventListener("drop",e=>{e.preventDefault();drop.classList.remove("drag");load(e.dataTransfer.files[0])});
-$("reset").onclick=()=>{if(!state.score)return;for(const g of state.score.groups){g.offset=0;g.volume=100}makeVoiceRows();clearAudio()};
+$("reset").onclick=()=>{if(!state.score)return;for(const g of state.score.groups){g.offset=0;g.volume=100;g.instrument=inferInstrument(g.name)}makeVoiceRows();clearAudio()};
 $("stop").onclick=()=>{$("player").pause();$("player").currentTime=0};
 function encodeWav(samples,rate){
  const buffer=new ArrayBuffer(44+samples.length*2),view=new DataView(buffer);
@@ -146,7 +198,7 @@ async function synthesize(){
  const maxQuarter=Math.max(...state.score.notes.map(n=>n.start+n.duration));
  const lengthSeconds=maxQuarter*60/tempo+1;
  if(lengthSeconds>300){problem("Esta versión admite hasta 5 minutos de audio. Aumenta la velocidad o usa una partitura más corta.");return}
- const total=Math.ceil(lengthSeconds*rate),buf=new Float32Array(total),timbre=$("timbre").value;
+ const total=Math.ceil(lengthSeconds*rate),buf=new Float32Array(total);
  state.busy=true;$("render").disabled=true;problem("");status("Generando audio...");
  try{
   let count=0;
@@ -158,17 +210,25 @@ async function synthesize(){
    const start=Math.max(0,Math.round(note.start*60/tempo*rate));
    const maxDur=note.duration*60/tempo;
    const dur=Math.min(maxDur,5*60),len=Math.min(Math.round(dur*rate),total-start);
-   const gain=g.volume/100*0.27;
+   const patch=PATCH[g.instrument]||PATCH.piano;
+   const gain=g.volume/100*0.20;
    const dphase=2*Math.PI*freq/rate;
+   const attack=patch.a,release=Math.min(patch.r,dur*.48);
+   const harmonicScale=patch.h.reduce((a,b)=>a+Math.abs(b),0);
    let phase=0;
    for(let j=0;j<len;j++){
-    const t=j/rate,attack=Math.min(1,t/0.014),release=Math.min(1,(dur-t)/Math.min(.08,dur*.3));
-    const env=attack*Math.max(0,release)*(timbre==="soft"?Math.exp(-t/Math.max(.4,dur*1.2)):1);
-    let wave=Math.sin(phase);
-    if(timbre==="soft")wave+=0.23*Math.sin(phase*2)+0.09*Math.sin(phase*3);
-    if(timbre==="bright")wave+=0.33*Math.sin(phase*2)+0.19*Math.sin(phase*3);
-    buf[start+j]+=wave*env*gain;
-    phase+=dphase;
+    const t=j/rate;
+    const fadeIn=Math.min(1,t/attack);
+    const fadeOut=Math.min(1,(dur-t)/Math.max(.008,release));
+    const pluck=patch.pluck?Math.exp(-t/Math.max(.06,patch.d)):1;
+    const vibrato=patch.vib?1+.005*Math.sin(2*Math.PI*patch.vib*t):1;
+    phase+=dphase*vibrato;
+    let wave=0;
+    for(let k=0;k<patch.h.length;k++)wave+=patch.h[k]*Math.sin(phase*(k+1));
+    wave/=harmonicScale;
+    if(g.instrument==="guitar-drive")wave=Math.tanh(wave*2.5);
+    const trem=patch.trem?(.88+.12*Math.sin(2*Math.PI*patch.trem*t)):1;
+    buf[start+j]+=wave*fadeIn*Math.max(0,fadeOut)*pluck*trem*gain;
    }
    count++;
    if(count%100===0){status("Generando audio: "+Math.round(count/state.score.notes.length*100)+"%");await new Promise(resolve=>setTimeout(resolve,0))}
