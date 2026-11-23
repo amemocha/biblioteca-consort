@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Convertidor MusicXML a audio | Consort</title>
+<style>
+:root{font:16px system-ui,-apple-system,"Segoe UI",sans-serif;color:#172b46;background:#f4f7fb}*{box-sizing:border-box}body{margin:0}header{background:#172b46;color:white;padding:23px max(18px,calc((100vw - 1050px)/2))}header h1{margin:0;font-size:clamp(23px,4vw,32px)}header p{color:#c5d5e8;margin:8px 0 0}main{max-width:1050px;padding:22px 16px 45px;margin:auto;display:grid;gap:17px}.card{border:1px solid #dce6f1;background:#fff;border-radius:15px;padding:20px;box-shadow:0 6px 20px #172b460b}h2{font-size:19px;margin:0 0 10px}.small{font-size:14px;color:#64748b;line-height:1.55}.drop{display:block;border:2px dashed #91b4df;background:#f8fbff;border-radius:12px;padding:32px 15px;text-align:center;cursor:pointer}.drop.drag,.drop:hover{border-color:#2563eb;background:#eaf2ff}input[type=file]{display:none}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}button,a.action{border:1px solid #cbd9e8;background:#fff;color:#234768;border-radius:9px;padding:11px 15px;font-weight:650;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;font:650 14px system-ui}button.primary{background:#2563eb;border-color:#2563eb;color:white}button:disabled{opacity:.5;cursor:not-allowed}.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-top:15px}label{font-weight:650;font-size:14px}label>input[type=number],select{display:block;width:100%;margin-top:7px;padding:10px;border:1px solid #cbd9e8;border-radius:9px;background:#fff;color:#172b46;font:inherit}.voice{display:grid;grid-template-columns:minmax(155px,1fr) auto auto auto minmax(140px,190px);gap:11px;align-items:center;padding:13px;border:1px solid #dbe5f0;border-radius:12px;margin:9px 0;background:#f8fbff}.voice strong{font-size:14px;display:block}.voice small{color:#64748b;display:block;margin-top:3px;font-size:12px}.voice output{min-width:56px;text-align:center;color:#1d4ed8;font-weight:700;font-size:13px}.vol{min-width:120px;font-size:13px}.vol label{display:flex;justify-content:space-between;gap:8px;font-weight:550}.vol input{width:100%;accent-color:#2563eb}.group-title{font-size:14px;font-weight:750;margin:17px 0 5px;color:#28496c}.audio{display:block;width:100%;margin-top:12px}#error{white-space:pre-wrap;color:#aa283e;font-size:14px;font-weight:650}#status{white-space:pre-wrap;font-size:14px;color:#365774}#info{font-size:14px;color:#436485;margin-top:12px}.foot{font-size:13px;color:#64748b}a{color:#2563eb}@media(max-width:650px){.voice{grid-template-columns:auto auto auto 1fr}.voice .title{grid-column:1/-1}.vol{grid-column:1/-1}.card{padding:15px}}
+</style></head>
+<body><header><h1>MusicXML a audio</h1><p>Herramienta independiente · Tonalidad y volumen de cada voz · Colores 1</p></header>
+<main>
+<section class="card"><h2>1. Sube tu partitura</h2><label class="drop" id="drop">Selecciona o arrastra un archivo <strong>.musicxml</strong> o <strong>.xml</strong><br><span class="small">Se procesa en tu navegador, sin subirlo a servidores.</span><input id="file" type="file" accept=".musicxml,.xml,text/xml,application/xml"></label><p class="small">Compatible con MusicXML sin comprimir, tipo «score-partwise». Si tienes un .mxl, expórtalo desde MuseScore como MusicXML sin comprimir.</p><div id="info" hidden></div><div id="error" role="alert"></div></section>
+<section id="settings" class="card" hidden><h2>2. Ajusta cada voz por separado</h2><p class="small">Usa + y − para subir o bajar semitonos. Con el deslizador puedes ajustar el volumen de cada voz, incluso dejarla en silencio. Estos cambios afectan el audio, no la partitura original.</p><div id="voices"></div><div class="controls"><label>Velocidad (negras/minuto)<input id="tempo" type="number" value="100" min="30" max="240"></label><label>Sonido<select id="timbre"><option value="soft">Piano suave sintetizado</option><option value="sine">Puro</option><option value="bright">Brillante</option></select></label></div><div class="actions"><button id="reset">Restablecer voces</button><button id="render" class="primary">Generar audio</button></div><p id="status" aria-live="polite"></p></section>
+<section id="result" class="card" hidden><h2>3. Escucha y descarga</h2><audio id="player" class="audio" controls preload="metadata"></audio><div class="actions"><button id="download" class="primary">Descargar audio WAV</button><button id="stop">Detener</button></div><p class="small">Audio instrumental sintetizado. No contiene los instrumentos reales de MuseScore ni todas las indicaciones de expresión.</p></section>
+<p class="foot"><a href="./">Volver a Biblioteca Consort</a> · Los archivos no se modifican ni se guardan en la biblioteca automáticamente.</p></main>
+<script>
+(()=>{
+"use strict";
+const $=id=>document.getElementById(id);
+const state={score:null,url:null,blob:null,busy:false};
+const semis={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+const int=(v,def=0)=>{const x=Number(v);return Number.isFinite(x)?x:def};
+const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+const kids=(n,t)=>Array.from(n?.children||[]).filter(x=>x.localName===t);
+const one=(n,t)=>kids(n,t)[0]||null;
+const text=(n,t,def="")=>one(n,t)?.textContent?.trim()??def;
+function problem(msg){$("error").textContent=msg||""}
+function status(msg){$("status").textContent=msg||""}
+function clearAudio(){const player=$("player");player.pause();player.removeAttribute("src");player.load();if(state.url)URL.revokeObjectURL(state.url);state.url=null;state.blob=null;$("result").hidden=true;}
+function parse(xml){
+ const doc=new DOMParser().parseFromString(xml,"application/xml");
+ if(doc.querySelector("parsererror"))throw Error("El XML no tiene una estructura válida.");
+ const root=doc.documentElement;
+ if(root.localName!=="score-partwise")throw Error("Se necesita una partitura MusicXML score-partwise (no un XML genérico).");
+ const partNames=new Map();
+ for(const part of kids(one(root,"part-list"),"score-part"))partNames.set(part.getAttribute("id"),text(part,"part-name","Instrumento"));
+ const groups=[],notes=[],tempi=[];
+ for(const [pi,part] of kids(root,"part").entries()){
+  const pid=part.getAttribute("id")||String(pi);
+  const name=partNames.get(pid)||"Instrumento "+(pi+1);
+  const byId=new Map(),ties=new Map();
+  let divisions=1,measureStart=0,offset=0;
+  for(const measure of kids(part,"measure")){
+   let cursor=measureStart,lastOnset=cursor,end=cursor;
+   for(const e of Array.from(measure.children)){
+    const tag=e.localName;
+    if(tag==="attributes"){
+     divisions=clamp(int(text(e,"divisions","1"),1),1,1000000);
+     const trans=one(e,"transpose");
+     if(trans)offset=int(text(trans,"chromatic","0"))+12*int(text(trans,"octave-change","0"));
+     continue;
+    }
+    if(tag==="direction"){
+     const sound=one(e,"sound"),bpm=int(sound?.getAttribute("tempo"),0);
+     if(pi===0&&bpm>0)tempi.push({quarter:cursor,bpm});
+     continue;
+    }
+    if(tag==="backup"||tag==="forward"){
+     const duration=clamp(int(text(e,"duration","0"))/divisions,0,1000);
+     cursor=Math.max(measureStart,cursor+(tag==="backup"?-duration:duration));
+     continue;
+    }
+    if(tag!=="note")continue;
+    const chord=!!one(e,"chord"),grace=!!one(e,"grace");
+    const duration=grace?0:clamp(int(text(e,"duration","0"))/divisions,0,1000);
+    const at=chord?lastOnset:cursor;
+    if(!chord){lastOnset=cursor;cursor+=duration}
+    end=Math.max(end,cursor,at+duration);
+    if(grace||duration<=0||one(e,"rest")||one(e,"unpitched"))continue;
+    const pitch=one(e,"pitch");
+    if(!pitch)continue;
+    const step=text(pitch,"step");
+    if(!(step in semis))continue;
+    const midi=12*(int(text(pitch,"octave","4"))+1)+semis[step]+int(text(pitch,"alter","0"))+offset;
+    if(midi<12||midi>120)continue;
+    const staff=text(e,"staff","1"),voice=text(e,"voice","1"),gid=pid+"|"+staff+"|"+voice;
+    if(!byId.has(gid)){const g={id:gid,part:pi,name,staff,voice,offset:0,volume:100,count:0};byId.set(gid,g);groups.push(g)}
+    const tieTypes=kids(e,"tie").map(t=>t.getAttribute("type"));
+    const key=gid+"|"+midi;
+    if(tieTypes.includes("stop")&&ties.has(key)){
+     const n=ties.get(key);n.duration=Math.max(n.duration,at+duration-n.start);
+     if(!tieTypes.includes("start"))ties.delete(key);
+    }else{
+     const n={group:gid,midi,start:at,duration};notes.push(n);byId.get(gid).count++;
+     if(tieTypes.includes("start"))ties.set(key,n);
+    }
+   }
+   measureStart=end;
+  }
+ }
+ if(!notes.length)throw Error("La partitura no contiene notas musicales compatibles.");
+ if(notes.length>13000)throw Error("La partitura supera las 13.000 notas admitidas en esta versión.");
+ groups.sort((a,b)=>a.part-b.part||int(a.staff)-int(b.staff)||int(a.voice)-int(b.voice));
+ const title=text(one(root,"work"),"work-title")||text(root,"movement-title")||"Partitura";
+ return {title,groups,notes,tempo:tempi[0]?.bpm||100};
+}
+function makeVoiceRows(){
+ $("voices").replaceChildren();
+ let part=null;
+ for(const group of state.score.groups){
+  if(group.part!==part){part=group.part;const h=document.createElement("div");h.className="group-title";h.textContent=group.name;$("voices").append(h)}
+  const row=document.createElement("div");row.className="voice";
+  const title=document.createElement("div");title.className="title";const name=document.createElement("strong");name.textContent="Voz "+group.voice+(group.staff!=="1"?" · Pentagrama "+group.staff:"");const count=document.createElement("small");count.textContent=group.count+" notas";title.append(name,count);
+  const minus=document.createElement("button");minus.textContent="− 1";minus.setAttribute("aria-label","Bajar un semitono en "+group.name+" voz "+group.voice);
+  const plus=document.createElement("button");plus.textContent="+ 1";plus.setAttribute("aria-label","Subir un semitono en "+group.name+" voz "+group.voice);
+  const n=document.createElement("output");n.textContent="0 semitonos";
+  function change(delta){group.offset=clamp(group.offset+delta,-24,24);n.textContent=(group.offset>0?"+":"")+group.offset+" semitonos";clearAudio()}
+  minus.onclick=()=>change(-1);plus.onclick=()=>change(1);
+  const volume=document.createElement("div");volume.className="vol";
+  const label=document.createElement("label"),caption=document.createElement("span");caption.textContent="Volumen";
+  const val=document.createElement("span");val.textContent="100%";label.append(caption,val);
+  const range=document.createElement("input");range.type="range";range.min="0";range.max="100";range.step="1";range.value="100";range.setAttribute("aria-label","Volumen de "+group.name+" voz "+group.voice);
+  range.oninput=()=>{group.volume=int(range.value);val.textContent=group.volume+"%";clearAudio()};
+  volume.append(label,range);row.append(title,minus,n,plus,volume);$("voices").append(row);
+ }
+}
+async function load(file){
+ if(!file)return;
+ problem("");status("");$("info").hidden=true;$("settings").hidden=true;clearAudio();
+ if(file.size>12*1024*1024){problem("Archivo demasiado grande (máximo 12 MB).");return}
+ if(!/\.(xml|musicxml)$/i.test(file.name)){problem("Selecciona un archivo XML o MusicXML sin comprimir.");return}
+ try{
+  const score=parse(await file.text());state.score=score;
+  $("tempo").value=clamp(Math.round(score.tempo),30,240);
+  $("info").hidden=false;$("info").textContent=score.title+" · "+score.groups.length+" voces · "+score.notes.length+" notas";
+  makeVoiceRows();$("settings").hidden=false;
+ }catch(err){state.score=null;problem(err.message||String(err))}
+}
+$("file").addEventListener("change",e=>load(e.target.files[0]));
+const drop=$("drop");
+drop.addEventListener("dragover",e=>{e.preventDefault();drop.classList.add("drag")});
+drop.addEventListener("dragleave",()=>drop.classList.remove("drag"));
+drop.addEventListener("drop",e=>{e.preventDefault();drop.classList.remove("drag");load(e.dataTransfer.files[0])});
+$("reset").onclick=()=>{if(!state.score)return;for(const g of state.score.groups){g.offset=0;g.volume=100}makeVoiceRows();clearAudio()};
+$("stop").onclick=()=>{$("player").pause();$("player").currentTime=0};
+function encodeWav(samples,rate){
+ const buffer=new ArrayBuffer(44+samples.length*2),view=new DataView(buffer);
+ function str(off,s){for(let i=0;i<s.length;i++)view.setUint8(off+i,s.charCodeAt(i))}
+ str(0,"RIFF");view.setUint32(4,36+samples.length*2,true);str(8,"WAVE");str(12,"fmt ");
+ view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);
+ view.setUint32(24,rate,true);view.setUint32(28,rate*2,true);view.setUint16(32,2,true);view.setUint16(34,16,true);
+ str(36,"data");view.setUint32(40,samples.length*2,true);
+ for(let i=0;i<samples.length;i++){const v=clamp(samples[i],-1,1);view.setInt16(44+i*2,Math.round(v<0?v*32768:v*32767),true)}
+ return new Blob([buffer],{type:"audio/wav"});
+}
+async function synthesize(){
+ if(state.busy||!state.score)return;
+ const tempo=clamp(int($("tempo").value,100),30,240),rate=22050;
+ const groups=new Map(state.score.groups.map(g=>[g.id,g]));
+ const maxQuarter=Math.max(...state.score.notes.map(n=>n.start+n.duration));
+ const lengthSeconds=maxQuarter*60/tempo+1;
+ if(lengthSeconds>300){problem("Esta versión admite hasta 5 minutos de audio. Aumenta la velocidad o usa una partitura más corta.");return}
+ const total=Math.ceil(lengthSeconds*rate),buf=new Float32Array(total),timbre=$("timbre").value;
+ state.busy=true;$("render").disabled=true;problem("");status("Generando audio...");
+ try{
+  let count=0;
+  for(const note of state.score.notes){
+   const g=groups.get(note.group);if(!g||!g.volume)continue;
+   const midi=note.midi+g.offset;
+   if(midi<20||midi>115)continue;
+   const freq=440*Math.pow(2,(midi-69)/12);
+   const start=Math.max(0,Math.round(note.start*60/tempo*rate));
+   const maxDur=note.duration*60/tempo;
+   const dur=Math.min(maxDur,5*60),len=Math.min(Math.round(dur*rate),total-start);
+   const gain=g.volume/100*0.27;
+   const dphase=2*Math.PI*freq/rate;
+   let phase=0;
+   for(let j=0;j<len;j++){
+    const t=j/rate,attack=Math.min(1,t/0.014),release=Math.min(1,(dur-t)/Math.min(.08,dur*.3));
+    const env=attack*Math.max(0,release)*(timbre==="soft"?Math.exp(-t/Math.max(.4,dur*1.2)):1);
+    let wave=Math.sin(phase);
+    if(timbre==="soft")wave+=0.23*Math.sin(phase*2)+0.09*Math.sin(phase*3);
+    if(timbre==="bright")wave+=0.33*Math.sin(phase*2)+0.19*Math.sin(phase*3);
+    buf[start+j]+=wave*env*gain;
+    phase+=dphase;
+   }
+   count++;
+   if(count%100===0){status("Generando audio: "+Math.round(count/state.score.notes.length*100)+"%");await new Promise(resolve=>setTimeout(resolve,0))}
+  }
+  let peak=0;for(const x of buf)peak=Math.max(peak,Math.abs(x));
+  if(peak>0.94){const factor=.94/peak;for(let i=0;i<buf.length;i++)buf[i]*=factor}
+  clearAudio();state.blob=encodeWav(buf,rate);state.url=URL.createObjectURL(state.blob);
+  $("player").src=state.url;$("result").hidden=false;status("Audio generado. Puedes escucharlo o descargarlo.");
+ }catch(err){problem("No se pudo generar el audio: "+(err.message||err));status("")}
+ finally{state.busy=false;$("render").disabled=false}
+}
+$("render").onclick=synthesize;
+$("download").onclick=()=>{
+ if(!state.blob)return;
+ const a=document.createElement("a");a.href=state.url;
+ const name=state.score?.title||"partitura";
+ a.download=name.replace(/[^\w \-À-ÿ]/g,"").trim().slice(0,75).replace(/ +/g,"_")+"_consort.wav";
+ document.body.append(a);a.click();a.remove();
+};
+})();
+</script></body></html>
