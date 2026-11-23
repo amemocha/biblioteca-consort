@@ -16,7 +16,7 @@
 <p class="small" style="margin:14px 0 0">Si tu teléfono dice «Ningún archivo coincide», pulsa <strong>Ver todos los archivos</strong> y busca tu partitura en Descargas o Archivos.</p>
 </div><p class="small">Admite partituras MusicXML (.xml, .musicxml y .mxl comprimido). Si tienes un archivo de proyecto MuseScore (.mscz o .mscx), primero expórtalo desde MuseScore a MusicXML.</p><div id="info" hidden></div><div id="error" role="alert"></div></section>
 <section id="settings" class="card" hidden><h2>2. Ajusta cada voz por separado</h2><p class="small">Usa + y − para cambiar semitonos, elige el instrumento que quieres escuchar y regula el volumen de cada voz, incluso hasta silencio. Estos cambios afectan el audio, no la partitura original.</p><div id="voices"></div><div class="controls"><label>Velocidad (negras/minuto)<input id="tempo" type="number" value="100" min="30" max="240"></label><label><span class="small">Elige un instrumento diferente en cada voz. Los sonidos son sintetizados.</span></label></div><div class="actions"><button id="reset">Restablecer voces</button><button id="render" class="primary">Generar audio</button></div><p id="status" aria-live="polite"></p></section>
-<section id="result" class="card" hidden><h2>3. Escucha y descarga</h2><audio id="player" class="audio" controls preload="metadata"></audio><div class="actions"><button id="download" class="primary">Descargar audio WAV</button><button id="stop">Detener</button></div><p class="small">Audio instrumental sintetizado. No contiene los instrumentos reales de MuseScore ni todas las indicaciones de expresión.</p></section>
+<section id="result" class="card" hidden><h2>3. Escucha y descarga</h2><audio id="player" class="audio" controls preload="metadata"></audio><div class="actions"><button id="download" class="primary">Descargar audio WAV</button><button id="stop">Detener</button></div><p class="small">Audio instrumental sintetizado. Para partituras extensas se ajusta la calidad de exportación para proteger la memoria del dispositivo. No contiene los instrumentos reales de MuseScore ni todas las indicaciones de expresión.</p></section>
 <p class="foot"><a href="./">Volver a Biblioteca Consort</a> · Los archivos no se modifican ni se guardan en la biblioteca automáticamente.</p></main>
 <script>
 (()=>{
@@ -261,6 +261,7 @@ async function load(file){
   $("tempo").value=clamp(Math.round(score.tempo),30,240);
   $("info").hidden=false;$("info").textContent=score.title+" · "+score.groups.length+" voces · "+score.notes.length+" notas";
   makeVoiceRows();$("settings").hidden=false;
+  updateDurationEstimate();
  }catch(err){state.score=null;problem(err.message||String(err))}
 }
 $("chooseMxl").onclick=()=>$("file").click();
@@ -282,13 +283,26 @@ function encodeWav(samples,rate){
  for(let i=0;i<samples.length;i++){const v=clamp(samples[i],-1,1);view.setInt16(44+i*2,Math.round(v<0?v*32768:v*32767),true)}
  return new Blob([buffer],{type:"audio/wav"});
 }
+function updateDurationEstimate(){
+ if(!state.score)return;
+ const tempo=clamp(int($("tempo").value,100),30,240);
+ const beats=Math.max(...state.score.notes.map(n=>n.start+n.duration));
+ const secs=Math.round(beats*60/tempo);
+ const minutes=Math.floor(secs/60),rest=String(secs%60).padStart(2,"0");
+ status("Duración estimada: "+minutes+":"+rest+" a "+tempo+" negras/minuto. Pulsa Generar audio.");
+}
+$("tempo").addEventListener("input",()=>{if(state.score){clearAudio();updateDurationEstimate()}});
 async function synthesize(){
  if(state.busy||!state.score)return;
- const tempo=clamp(int($("tempo").value,100),30,240),rate=22050;
+ const tempo=clamp(int($("tempo").value,100),30,240);
  const groups=new Map(state.score.groups.map(g=>[g.id,g]));
  const maxQuarter=Math.max(...state.score.notes.map(n=>n.start+n.duration));
  const lengthSeconds=maxQuarter*60/tempo+1;
- if(lengthSeconds>300){problem("Esta versión admite hasta 5 minutos de audio. Aumenta la velocidad o usa una partitura más corta.");return}
+ // The previous arbitrary five-minute restriction rejected otherwise valid scores.
+ // Adapt output sample rate for longer pieces to reduce browser memory pressure.
+ if(!Number.isFinite(lengthSeconds)||lengthSeconds<=0){problem("La duración calculada de la partitura no es válida.");return}
+ if(lengthSeconds>1200){problem("La partitura supera los 20 minutos a esta velocidad. Divide la partitura en secciones para evitar que el navegador se quede sin memoria.");return}
+ const rate=lengthSeconds>480?16000:22050;
  const total=Math.ceil(lengthSeconds*rate),buf=new Float32Array(total);
  state.busy=true;$("render").disabled=true;problem("");status("Generando audio...");
  try{
