@@ -9,7 +9,7 @@ const $=id=>{
 },ns="http://www.w3.org/2000/svg";
 const root=$("scoreTabSection");
 if(!root)return;
-let page=0;
+let page=0,lastTuningGroup=null;
 function el(name,attrs={},text){
  const node=document.createElementNS(ns,name);
  for(const [key,value] of Object.entries(attrs))node.setAttribute(key,String(value));
@@ -24,6 +24,23 @@ const tunings={
  guitar:[40,45,50,55,59,64],
  bass:[28,33,38,43]
 };
+function parseTuning(textValue){
+ const tokens=String(textValue||"").trim().replace(/[,;]+/g," ").split(/\s+/).filter(Boolean);
+ if(tokens.length<4||tokens.length>8)return null;
+ const semitones={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+ const syllables={DO:"C",RE:"D",MI:"E",FA:"F",SOL:"G",LA:"A",SI:"B"};
+ const pitches=[];
+ for(const item of tokens){
+  const match=item.normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+   .toUpperCase().match(/^(DO|RE|MI|FA|SOL|LA|SI|[A-G])([#B♯♭]?)([0-8])$/);
+  if(!match)return null;
+  const letter=syllables[match[1]]||match[1],accidental=match[2];
+  const semitone=semitones[letter]+(["#","♯"].includes(accidental)?1:["B","♭"].includes(accidental)?-1:0);
+  pitches.push(12*(Number(match[3])+1)+semitone);
+ }
+ if(!pitches.every((p,i)=>i===0||p>pitches[i-1]))return null;
+ return pitches;
+}
 function groupNotes(score,id){return (score.notes||[]).filter(n=>n.group===id&&Number.isFinite(n.start)).sort((a,b)=>a.start-b.start||b.midi-a.midi)}
 // Written MIDI comes from the original MusicXML <pitch> rather than
 // the score's <transpose> or the mixer's editable semitone offset.
@@ -105,10 +122,22 @@ function render(){
  const begin=page*beatsPerPage,end=begin+beatsPerPage;
  const layout=$("tabLayout").value;
  const selectedTuning=$("tabTuning").value;
- const originalTuning=Array.isArray(g.tabTuning)&&g.tabTuning.length>=4&&g.tabTuning.every(Number.isFinite)
+ const originalTuning=Array.isArray(g.tabTuning)&&g.tabTuning.length>=4&&
+  Array.from({length:g.tabTuning.length},(_,i)=>g.tabTuning[i]).every(Number.isFinite)
   ?g.tabTuning:null;
- const open=selectedTuning==="original"?(originalTuning||tunings.guitar)
+ const input=$("tabCustomTuning"),labelInput=$("tabCustomLabel");
+ labelInput.style.display=selectedTuning==="custom"?"grid":"none";
+ if(lastTuningGroup!==id){
+  input.value=(g.tabCustomTuning||originalTuning||tunings.guitar).map(note=>t(note)).join(" ");
+  lastTuningGroup=id;
+ }
+ const open=selectedTuning==="custom"?parseTuning(input.value):
+  selectedTuning==="original"?(originalTuning||tunings.guitar)
   :(tunings[selectedTuning]||tunings.guitar);
+ if(!open){
+  $("tabScore").textContent="La afinación personalizada no es válida. Escribe de cuatro a ocho notas de grave a aguda, por ejemplo E2 A2 D3 G3 B3 E4.";
+  return;
+ }
  const strings=[...open].reverse(),both=layout==="both";
  const svg=el("svg",{viewBox:both?"0 0 1100 380":"0 0 1100 245",width:1100,
   role:"img","aria-label":"Tablatura de "+g.name+", página "+(page+1)});
@@ -170,14 +199,24 @@ function render(){
  foot.textContent="Mostrando negras "+(begin+1)+" a "+Math.min(end,Math.max(end,maxBeat))+
   " · "+byStart.size+" posiciones musicales · tablatura una octava más grave que el original"+
   (selectedTuning==="original"&&!originalTuning
-   ?" · el MusicXML no incluye afinación de cuerdas: se usa EADGBE estándar":"")+
+   ?" · el MusicXML no incluye afinación de cuerdas: se usa EADGBE estándar; puedes corregirla con Afinación personalizada":"")+
   (omitted?" · "+omitted+" notas sin posición válida en cuerdas distintas: marcadas con ?":"")+".";
  container.append(foot);
 }
-function refresh(){page=0;render()}
+function refresh(){page=0;lastTuningGroup=null;render()}
 $("tabInstrument").onchange=refresh;
 $("tabLayout").onchange=refresh;
-$("tabTuning").onchange=refresh;
+$("tabTuning").onchange=()=>{page=0;render()};
+$("tabCustomTuning").onchange=()=>{
+ const score=window.consorteStudioGetScore?.();
+ const group=score?.groups?.find(g=>g.id===$("tabInstrument").value);
+ const tuning=parseTuning($("tabCustomTuning").value);
+ if(group&&tuning){
+  group.tabCustomTuning=tuning;
+  window.consorteStudioAutosave?.();
+ }
+ render();
+};
 $("tabPrev").onclick=()=>{page=Math.max(0,page-1);render()};
 $("tabNext").onclick=()=>{page++;render()};
 $("tabPrint").onclick=()=>window.print();
