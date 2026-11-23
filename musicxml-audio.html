@@ -5,7 +5,16 @@
 </style></head>
 <body><header><h1>MusicXML a audio</h1><p>Herramienta independiente · Instrumento, tonalidad y volumen por voz · Colores 1</p></header>
 <main>
-<section class="card"><h2>1. Sube tu partitura</h2><label class="drop" id="drop">Selecciona o arrastra una partitura <strong>.musicxml, .xml o .mxl</strong><br><span class="small">Se procesa en tu navegador, sin subirlo a servidores.</span><input id="file" type="file"></label><p class="small">Admite partituras MusicXML (.xml, .musicxml y .mxl comprimido). Si tienes un archivo de proyecto MuseScore (.mscz o .mscx), primero expórtalo desde MuseScore a MusicXML.</p><div id="info" hidden></div><div id="error" role="alert"></div></section>
+<section class="card"><h2>1. Sube tu partitura</h2><div class="drop" id="drop">
+<strong>Subir partitura MusicXML</strong><p class="small">Admite .mxl, .musicxml y .xml. También puedes arrastrar el archivo aquí.</p>
+<div class="actions" style="justify-content:center;margin-top:12px">
+<button type="button" class="primary" id="chooseMxl">Elegir archivo .mxl / MusicXML</button>
+<button type="button" id="chooseAny">Ver todos los archivos</button>
+</div>
+<input id="file" type="file" accept=".mxl,.musicxml,.xml,application/vnd.recordare.musicxml,application/vnd.recordare.musicxml+xml,application/xml,text/xml">
+<input id="fileAny" type="file">
+<p class="small" style="margin:14px 0 0">Si tu teléfono dice «Ningún archivo coincide», pulsa <strong>Ver todos los archivos</strong> y busca tu partitura en Descargas o Archivos.</p>
+</div><p class="small">Admite partituras MusicXML (.xml, .musicxml y .mxl comprimido). Si tienes un archivo de proyecto MuseScore (.mscz o .mscx), primero expórtalo desde MuseScore a MusicXML.</p><div id="info" hidden></div><div id="error" role="alert"></div></section>
 <section id="settings" class="card" hidden><h2>2. Ajusta cada voz por separado</h2><p class="small">Usa + y − para cambiar semitonos, elige el instrumento que quieres escuchar y regula el volumen de cada voz, incluso hasta silencio. Estos cambios afectan el audio, no la partitura original.</p><div id="voices"></div><div class="controls"><label>Velocidad (negras/minuto)<input id="tempo" type="number" value="100" min="30" max="240"></label><label><span class="small">Elige un instrumento diferente en cada voz. Los sonidos son sintetizados.</span></label></div><div class="actions"><button id="reset">Restablecer voces</button><button id="render" class="primary">Generar audio</button></div><p id="status" aria-live="polite"></p></section>
 <section id="result" class="card" hidden><h2>3. Escucha y descarga</h2><audio id="player" class="audio" controls preload="metadata"></audio><div class="actions"><button id="download" class="primary">Descargar audio WAV</button><button id="stop">Detener</button></div><p class="small">Audio instrumental sintetizado. No contiene los instrumentos reales de MuseScore ni todas las indicaciones de expresión.</p></section>
 <p class="foot"><a href="./">Volver a Biblioteca Consort</a> · Los archivos no se modifican ni se guardan en la biblioteca automáticamente.</p></main>
@@ -196,7 +205,9 @@ async function load(file){
   makeVoiceRows();$("settings").hidden=false;
  }catch(err){state.score=null;problem(err.message||String(err))}
 }
-$("file").addEventListener("change",e=>load(e.target.files[0]));
+$("chooseMxl").onclick=()=>$("file").click();
+$("chooseAny").onclick=()=>$("fileAny").click();
+for(const id of ["file","fileAny"])$(id).addEventListener("change",e=>{load(e.target.files[0]);e.target.value=""});
 const drop=$("drop");
 drop.addEventListener("dragover",e=>{e.preventDefault();drop.classList.add("drag")});
 drop.addEventListener("dragleave",()=>drop.classList.remove("drag"));
