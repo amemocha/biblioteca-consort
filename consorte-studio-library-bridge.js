@@ -93,6 +93,35 @@ async function folderOptions(){
  return folders.map(f=>({id:f.id,label:hierarchy(f)}))
   .sort((a,b)=>a.label.localeCompare(b.label,"es"));
 }
+// Read library items in the same origin without asking users to re-upload.
+// When Studio is embedded in Biblioteca, ask the parent library to hydrate
+// files that are only stored in the user's synced cloud account.
+async function readableRecord(id){
+ let record=await get(id);
+ if(!record||record.type!=="file")throw Error("El archivo ya no está en Biblioteca Consort.");
+ if(record.blob instanceof Blob&&!record.cloudNeedsDownload)return record;
+ try{
+  if(window.parent&&window.parent!==window&&
+     window.parent.location.origin===window.location.origin&&
+     typeof window.parent.consorteEnsureCloudFile==="function"){
+   const hydrated=await window.parent.consorteEnsureCloudFile(record);
+   if(hydrated?.blob instanceof Blob)return hydrated;
+  }
+ }catch(err){
+  if(!(record.blob instanceof Blob))throw Error("No se pudo recuperar el archivo sincronizado: "+(err.message||err));
+ }
+ if(record.blob instanceof Blob)return record;
+ throw Error("El archivo está solo en la nube. Ábrelo primero en Biblioteca Consort para descargarlo en este dispositivo.");
+}
+async function musicXMLFile(id){
+ const record=await readableRecord(id);
+ if(!/\.(mxl|musicxml|xml)$/i.test(String(record.name||"")))
+  throw Error("Selecciona un archivo .xml, .musicxml o .mxl.");
+ if(record.blob.size>12*1024*1024)
+  throw Error("La partitura supera el límite de 12 MB del generador.");
+ return new File([record.blob],record.name,{type:record.blob.type||"application/octet-stream"});
+}
+
 let current=null;
 const editorBridge={
  current:()=>current,
@@ -112,11 +141,11 @@ const editorBridge={
  async replace(blob,name){const updated=await replaceAudio(current,blob,name);await this.load(updated);return updated}
 };
 window.consorteStudioAudioBridge=editorBridge;
-window.consorteStudioLibrary={get,list,saveCopy,replaceAudio,folderOptions,
+window.consorteStudioLibrary={get,list,saveCopy,replaceAudio,folderOptions,musicXMLFile,
  async openFromLibrary(id){
-  const record=await get(id);
-  if(!record)throw Error("Audio no encontrado. Ábrelo desde Biblioteca Consort.");
-  if(!(record.blob instanceof Blob))throw Error("Este audio todavía no está descargado en este navegador. Ábrelo primero en Biblioteca Consort.");
+  const record=await readableRecord(id);
+  if(record.kind!=="audio"&&!/\.(wav|mp3|m4a|aac|ogg)$/i.test(record.name||""))
+   throw Error("El archivo elegido no es un audio.");
   await editorBridge.load(record);
   window.dispatchEvent(new CustomEvent("consorte-studio-audio-ready"));
   return record;
