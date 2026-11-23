@@ -720,6 +720,16 @@ function renderLibrary(){
    nav('consortstudio');
   }catch(error){alert('No se pudo abrir el audio en Studio: '+(error.message||error))}
  },'primary'));
+ if(r.type==='file'&&/\.(xml|musicxml|mxl)$/i.test(r.name||''))actions.append(createButton('Generar audio en Studio',async()=>{
+  try{
+   const selected=await window.consorteEnsureCloudFile?.(r)||r;
+   if(!(selected.blob instanceof Blob))throw Error('La partitura aún no está descargada en este dispositivo.');
+   const frame=$('consortStudioFrame');
+   if(!frame)throw Error('No se encontró Consort Studio.');
+   frame.src='./musicxml-audio.html?editScore='+encodeURIComponent(selected.id);
+   nav('consortstudio');
+  }catch(error){alert('No se pudo cargar la partitura en Studio: '+(error.message||error))}
+ },'primary'));
  if(r.type==='file'&&(['pdf','image'].includes(r.kind)||r.scoreId))actions.append(createButton('🖨 Imprimir partitura',()=>printScoreRecord(r),'print-visible'));
  const menu=document.createElement('details');menu.className='library-more-menu';
  const summary=document.createElement('summary');summary.textContent='⋯';summary.title='Más opciones';summary.setAttribute('aria-label','Más opciones de '+r.name);menu.append(summary);
