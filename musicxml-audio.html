@@ -94,7 +94,7 @@ button.primary{box-shadow:0 3px 10px #2563eb2b}
 @media(max-width:580px){.studio-save-row>* ,.studio-audio-import>*{flex:1 1 100%}.tab-toolbar>*{flex:1 1 45%}}
 @media print{body>*:not(main){display:none!important}main>*:not(#scoreTabSection){display:none!important}#scoreTabSection{display:block!important;border:0!important;box-shadow:none!important}#scoreTabSection button,#scoreTabSection select{display:none!important}}
 </style></head>
-<body><header class="studio-header"><div class="header-inner"><div class="brand-kicker">CONSORT STUDIO</div><div class="build-version">Versión 2026.11.23-12 · Studio integrado, audio y tablaturas</div><h1>Tu música, a tu manera.</h1><p>Importa tu partitura, ajusta cada instrumento y crea el audio que necesitas.</p></div></header>
+<body><header class="studio-header"><div class="header-inner"><div class="brand-kicker">CONSORT STUDIO</div><div class="build-version">Versión 2026.11.23-13 · Tablatura: notas originales, una octava inferior</div><h1>Tu música, a tu manera.</h1><p>Importa tu partitura, ajusta cada instrumento y crea el audio que necesitas.</p></div></header>
 <main>
 <section class="card project-library" id="library">
 <div class="library-head"><div><div class="eyebrow">TU ESPACIO DE TRABAJO</div><h2>Mis proyectos</h2>
@@ -137,7 +137,7 @@ button.primary{box-shadow:0 3px 10px #2563eb2b}
 <p id="studioSaveMessage" class="small" role="status" aria-live="polite"></p><p class="small">Audio instrumental sintetizado. Para partituras extensas se ajusta la calidad de exportación para proteger la memoria del dispositivo. No contiene los instrumentos reales de MuseScore ni todas las indicaciones de expresión.</p></section>
 <section id="scoreTabSection" class="card" hidden>
 <div class="eyebrow">PARTITURA Y TABLATURA</div><h2>Crear tablatura</h2>
-<p class="small">Convierte notas MusicXML en números de traste. Elige si la tablatura reemplaza la vista de partitura o aparece debajo, y configura la afinación.</p>
+<p class="small">La tablatura usa las notas escritas en el MusicXML original, una octava más grave (−12 semitonos). No utiliza la transposición del archivo ni los cambios de tono del mezclador. Puedes verla sola o debajo de la partitura.</p>
 <div class="tab-toolbar"><label>Instrumento <select id="tabInstrument"></select></label><label>Presentación <select id="tabLayout"><option value="both">Partitura y tablatura debajo</option><option value="tab">Solo tablatura</option></select></label><label>Afinación <select id="tabTuning"><option value="guitar">Guitarra de 6 cuerdas (E A D G B E)</option><option value="bass">Bajo de 4 cuerdas (E A D G)</option></select></label></div>
 <div class="tab-toolbar"><button id="tabPrev" type="button">Página anterior</button><span id="tabPageLabel" class="small">Página 1</span><button id="tabNext" type="button">Página siguiente</button><button id="tabPrint" type="button">Imprimir tablatura</button></div>
 <div id="tabScore" class="tab-score" role="region" aria-label="Partitura y tablatura generada"></div>
@@ -268,6 +268,32 @@ async function openSavedProject(id){
     }
    }
    wasMigrated=true;
+  }
+  // Restore source pitches for older saved projects without changing any
+  // mixer volume, instrument, semitone, note or user-edited voice settings.
+  if(record.sourceXML&&restoredScore.notes?.some(n=>!Number.isFinite(n.writtenMidi))){
+   try{
+    const fromDocument=parse(record.sourceXML,record.title||"Partitura");
+    const pitchKey=n=>n.midi+"|"+n.start.toFixed(7)+"|"+n.duration.toFixed(7);
+    const sourceGroups=new Map(fromDocument.groups.map(g=>[g.id,g.name]));
+    const targetGroups=new Map(restoredScore.groups.map(g=>[g.id,g.name]));
+    const byKey=new Map();
+    for(const note of fromDocument.notes){
+     const key=pitchKey(note),entries=byKey.get(key)||[];
+     entries.push({name:sourceGroups.get(note.group),writtenMidi:note.writtenMidi});
+     byKey.set(key,entries);
+    }
+    for(const note of restoredScore.notes){
+     if(Number.isFinite(note.writtenMidi))continue;
+     const candidates=byKey.get(pitchKey(note))||[];
+     const name=targetGroups.get(note.group);
+     const exact=candidates.find(c=>c.name===name);
+     const chosen=exact||(candidates.length===1?candidates[0]:null);
+     if(chosen)note.writtenMidi=chosen.writtenMidi;
+    }
+    if(restoredScore.notes.every(n=>Number.isFinite(n.writtenMidi)))
+     wasMigrated=true;
+   }catch(err){console.warn("No se pudo restaurar la afinación escrita del MusicXML original",err)}
   }
   state.score=restoredScore;state.sourceXML=record.sourceXML||null;
   state.projectId=record.id;state.projectName=record.title||record.score.title;
@@ -797,7 +823,11 @@ function parse(xml,filename=""){
     if(!pitch)continue;
     const step=text(pitch,"step");
     if(!(step in semis))continue;
-    const midi=12*(int(text(pitch,"octave","4"))+1)+semis[step]+int(text(pitch,"alter","0"))+offset;
+    // Written pitch comes directly from <pitch> in the original MusicXML.
+    // Playback pitch may include the document's <transpose>, but tablature
+    // must use written pitch, one octave lower, without mixer transposition.
+    const writtenMidi=12*(int(text(pitch,"octave","4"))+1)+semis[step]+int(text(pitch,"alter","0"));
+    const midi=writtenMidi+offset;
     if(midi<12||midi>120)continue;
     const staff=text(e,"staff","1"),voice=text(e,"voice","1"),gid=pid+"|"+staff+"|"+voice;
     if(!byId.has(gid)){const g={id:gid,part:pi,name,staff,voice,offset:0,volume:100,instrument:inferInstrument(name),count:0};byId.set(gid,g);groups.push(g)}
@@ -807,7 +837,7 @@ function parse(xml,filename=""){
      const n=ties.get(key);n.duration=Math.max(n.duration,at+duration-n.start);
      if(!tieTypes.includes("start"))ties.delete(key);
     }else{
-     const n={group:gid,midi,start:at,duration,measureIndex};notes.push(n);byId.get(gid).count++;
+     const n={group:gid,midi,writtenMidi,start:at,duration,measureIndex};notes.push(n);byId.get(gid).count++;
      if(tieTypes.includes("start"))ties.set(key,n);
     }
    }
