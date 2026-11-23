@@ -6,7 +6,7 @@
 <body><header><h1>MusicXML a audio</h1><p>Herramienta independiente · Instrumento, tonalidad y volumen por voz · Colores 1</p></header>
 <main>
 <section class="card"><h2>1. Sube tu partitura</h2><div class="drop" id="drop">
-<strong>Subir partitura MusicXML</strong><p class="small">Admite .mxl, .musicxml y .xml. También puedes arrastrar el archivo aquí.</p>
+<strong>Subir partitura MusicXML (.mxl incluido)</strong><p class="small">Admite .mxl, .musicxml y .xml. También puedes arrastrar el archivo aquí.</p>
 <div class="actions" style="justify-content:center;margin-top:12px">
 <button type="button" class="primary" id="chooseMxl">Elegir archivo .mxl / MusicXML</button>
 <button type="button" id="chooseAny">Ver todos los archivos</button>
@@ -18,7 +18,6 @@
 <section id="settings" class="card" hidden><h2>2. Ajusta cada voz por separado</h2><p class="small">Usa + y − para cambiar semitonos, elige el instrumento que quieres escuchar y regula el volumen de cada voz, incluso hasta silencio. Estos cambios afectan el audio, no la partitura original.</p><div id="voices"></div><div class="controls"><label>Velocidad (negras/minuto)<input id="tempo" type="number" value="100" min="30" max="240"></label><label><span class="small">Elige un instrumento diferente en cada voz. Los sonidos son sintetizados.</span></label></div><div class="actions"><button id="reset">Restablecer voces</button><button id="render" class="primary">Generar audio</button></div><p id="status" aria-live="polite"></p></section>
 <section id="result" class="card" hidden><h2>3. Escucha y descarga</h2><audio id="player" class="audio" controls preload="metadata"></audio><div class="actions"><button id="download" class="primary">Descargar audio WAV</button><button id="stop">Detener</button></div><p class="small">Audio instrumental sintetizado. No contiene los instrumentos reales de MuseScore ni todas las indicaciones de expresión.</p></section>
 <p class="foot"><a href="./">Volver a Biblioteca Consort</a> · Los archivos no se modifican ni se guardan en la biblioteca automáticamente.</p></main>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 (()=>{
 "use strict";
@@ -172,25 +171,54 @@ function makeVoiceRows(){
   row.append(title,minus,n,plus,volume,instBox);$("voices").append(row);
  }
 }
+
+// Lector MXL ZIP integrado: funciona sin bibliotecas externas.
+async function unpackMxl(file){
+ const bytes=new Uint8Array(await file.arrayBuffer()),view=new DataView(bytes.buffer);
+ const u16=p=>view.getUint16(p,true),u32=p=>view.getUint32(p,true);
+ let end=-1;
+ for(let p=bytes.length-22;p>=Math.max(0,bytes.length-65557);p--){if(u32(p)===0x06054b50){end=p;break}}
+ if(end<0)throw Error("El .mxl no tiene una estructura ZIP válida.");
+ const total=u16(end+10);let p=u32(end+16);
+ if(total>2500||p>bytes.length)throw Error("Archivo .mxl incompatible.");
+ const decode=new TextDecoder("utf-8"),entries=new Map();
+ for(let i=0;i<total;i++){
+  if(p+46>bytes.length||u32(p)!==0x02014b50)throw Error("Índice ZIP dañado.");
+  const e={flags:u16(p+8),method:u16(p+10),length:u32(p+20),local:u32(p+42)};
+  const fn=u16(p+28),ex=u16(p+30),comment=u16(p+32);
+  const name=decode.decode(bytes.subarray(p+46,p+46+fn));
+  entries.set(name,e);p+=46+fn+ex+comment;
+ }
+ async function extract(entry){
+  const at=entry.local;
+  if(at+30>bytes.length||u32(at)!==0x04034b50)throw Error("Contenido ZIP dañado.");
+  if(entry.flags&1)throw Error("Archivo ZIP protegido por contraseña.");
+  const a=at+30+u16(at+26)+u16(at+28),b=a+entry.length;
+  if(b>bytes.length)throw Error("Archivo ZIP incompleto.");
+  const packed=bytes.slice(a,b);
+  let raw=packed;
+  if(entry.method===8){
+   if(typeof DecompressionStream!=="function")throw Error("Este navegador no puede descomprimir .mxl. Prueba Chrome actualizado.");
+   try{raw=new Uint8Array(await new Response(new Blob([packed]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer())}
+   catch(e){throw Error("Error al descomprimir .mxl: "+(e.message||e))}
+  }else if(entry.method!==0)throw Error("Compresión ZIP no admitida: "+entry.method);
+  if(raw.length>12*1024*1024)throw Error("XML descomprimido demasiado grande.");
+  return decode.decode(raw);
+ }
+ let preferred="";
+ if(entries.has("META-INF/container.xml")){
+  const meta=new DOMParser().parseFromString(await extract(entries.get("META-INF/container.xml")),"application/xml");
+  preferred=meta.querySelector("rootfile")?.getAttribute("full-path")||"";
+ }
+ const key=(preferred&&entries.has(preferred)?preferred:null)||Array.from(entries.keys()).find(n=>/\.(musicxml|xml)$/i.test(n)&&!n.startsWith("META-INF/"));
+ if(!key)throw Error("No se encontró una partitura dentro del .mxl.");
+ return extract(entries.get(key));
+}
+
 async function readMusicXML(file){
  const lower=file.name.toLowerCase();
  if(/\.(mscz|mscx)$/.test(lower))throw Error("Este es un archivo de proyecto de MuseScore. Abre la partitura en MuseScore Studio y usa Archivo → Exportar → MusicXML (.mxl o .musicxml).");
- if(/\.mxl$/.test(lower)){
-  if(!window.JSZip)throw Error("No se pudo cargar el lector de MusicXML comprimido. Comprueba tu conexión a internet o exporta como .musicxml.");
-  const zip=await window.JSZip.loadAsync(file);
-  let path="";
-  const containerFile=zip.file("META-INF/container.xml");
-  if(containerFile){
-   const doc=new DOMParser().parseFromString(await containerFile.async("string"),"application/xml");
-   path=doc.querySelector("rootfile")?.getAttribute("full-path")||"";
-  }
-  let entry=path?zip.file(path):null;
-  if(!entry)entry=Object.values(zip.files).find(f=>!f.dir&&/\.(musicxml|xml)$/i.test(f.name)&&!f.name.startsWith("META-INF/"));
-  if(!entry)throw Error("El archivo .mxl no contiene una partitura MusicXML válida.");
-  const xml=await entry.async("string");
-  if(xml.length>12*1024*1024)throw Error("La partitura descomprimida supera 12 MB.");
-  return xml;
- }
+ if(/\.mxl$/.test(lower))return unpackMxl(file);
  if(/\.(xml|musicxml)$/i.test(lower))return file.text();
  throw Error("El archivo seleccionado no es una partitura MusicXML. Admite .xml, .musicxml o .mxl. Si es .mscz, expórtalo desde MuseScore.");
 }
