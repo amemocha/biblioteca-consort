@@ -8,7 +8,7 @@
 body{background:#f4f7fb}
 .studio-header{background:linear-gradient(120deg,#13263f 0%,#1b385d 70%,#244b7b 100%);padding:34px 22px 38px}
 .header-inner{max-width:1120px;margin:auto}
-.brand-kicker{font-size:11px;letter-spacing:.18em;color:#93b9f1;font-weight:800;margin-bottom:9px}
+.build-version{display:inline-block;margin:7px 0 0;color:#a7c8f1;font-size:12px;font-weight:550}.brand-kicker{font-size:11px;letter-spacing:.18em;color:#93b9f1;font-weight:800;margin-bottom:9px}
 .studio-header h1{font-size:clamp(25px,4vw,36px);font-weight:780;letter-spacing:-.04em}
 .studio-header p{font-size:15px;line-height:1.5;max-width:650px}
 main{max-width:1152px;gap:19px;padding:24px 16px 44px}
@@ -41,6 +41,7 @@ main{max-width:1152px;gap:19px;padding:24px 16px 44px}
 .volume-value{color:#2563eb;font-weight:750;font-size:12px;font-variant-numeric:tabular-nums}
 .channel-volume input{width:100%;min-height:20px;margin:0;accent-color:#2563eb}
 .channel-instrument{grid-column:1/-1}
+.channel-reassign{grid-column:1/-1;display:grid;gap:7px;border-top:1px solid #e8eef6;padding-top:12px}.channel-reassign select{width:100%;min-width:0;padding:9px 11px;border:1px solid #dbe5f0;border-radius:9px;font-size:12px;color:#55708d;background:#fff}
 .channel-instrument select{width:100%;max-width:100%;min-width:0;display:block;margin:0;height:43px;border:1px solid #d4e0ee;border-radius:10px;background:#f8fbff;color:#173550;padding:0 12px;font-size:14px;font-weight:650}
 .studio-mixer>.controls{border-top:1px solid #e7edf5;margin-top:22px;padding-top:18px}
 .studio-mixer>.actions{margin-top:18px}
@@ -49,7 +50,7 @@ button.primary{box-shadow:0 3px 10px #2563eb2b}
 @media(max-width:780px){.mixer-grid{grid-template-columns:minmax(0,1fr)}.studio-mixer{padding:17px}.mixer-top{flex-direction:column;align-items:flex-start;gap:12px}.mixer-channel.voice{padding:15px}}
 @media(max-width:390px){.mixer-channel.voice{column-gap:10px}.stepper{max-width:160px}.mixer-channel .stepper button{width:31px;flex-basis:31px}.card{padding:15px}}
 </style></head>
-<body><header class="studio-header"><div class="header-inner"><div class="brand-kicker">CONSORT STUDIO</div><h1>Tu música, a tu manera.</h1><p>Importa tu partitura, ajusta cada instrumento y crea el audio que necesitas.</p></div></header>
+<body><header class="studio-header"><div class="header-inner"><div class="brand-kicker">CONSORT STUDIO</div><div class="build-version">Versión del mezclador: 2026.11.23-03 · Identificación de instrumentos</div><h1>Tu música, a tu manera.</h1><p>Importa tu partitura, ajusta cada instrumento y crea el audio que necesitas.</p></div></header>
 <main>
 <section class="card"><div class="eyebrow">PROYECTO MUSICAL</div><h2>Importar partitura</h2><div class="drop" id="drop">
 <strong>Subir partitura MusicXML (.mxl incluido)</strong><p class="small">Admite .mxl, .musicxml y .xml. También puedes arrastrar el archivo aquí.</p>
@@ -216,12 +217,24 @@ function parse(xml,filename=""){
  const root=doc.documentElement;
  if(root.localName!=="score-partwise")throw Error("Se necesita una partitura MusicXML score-partwise (no un XML genérico).");
  const partNames=new Map();
- for(const part of kids(one(root,"part-list"),"score-part"))partNames.set(part.getAttribute("id"),text(part,"part-name","Instrumento"));
+ for(const part of kids(one(root,"part-list"),"score-part")){
+  partNames.set(part.getAttribute("id"),{
+   name:text(part,"part-name",""),
+   abbr:text(part,"part-abbreviation",""),
+   instrument:text(one(part,"score-instrument"),"instrument-name","")
+  });
+ }
  const metadata=kids(one(root,"identification"),"creator").map(c=>c.textContent?.trim()).filter(Boolean);
+ const scoreParts=kids(root,"part");
  const groups=[],notes=[],tempi=[];
- for(const [pi,part] of kids(root,"part").entries()){
+ for(const [pi,part] of scoreParts.entries()){
   const pid=part.getAttribute("id")||String(pi);
-  const name=inferPartName(partNames.get(pid)||"",filename,metadata);
+  const entry=partNames.get(pid)||{};
+  const rawName=entry.name||"";
+  const explicit=[rawName,entry.abbr,entry.instrument];
+  const identified=explicit.map(t=>voiceIdentity(t,true)).find(Boolean);
+  const name=identified?identified.name:inferPartName(rawName,scoreParts.length===1?filename:"",scoreParts.length===1?metadata:[]);
+ 
   const byId=new Map(),ties=new Map();
   let divisions=1,measureStart=0,offset=0;
   for(const measure of kids(part,"measure")){
@@ -277,7 +290,8 @@ function parse(xml,filename=""){
  groups.sort((a,b)=>a.part-b.part||int(a.staff)-int(b.staff)||int(a.voice)-int(b.voice));
  const title=text(one(root,"work"),"work-title")||text(root,"movement-title")||"Partitura";
  const merged=combineInstrumentVoices(groups,notes);
- return {title,groups:merged.groups,notes:merged.notes,tempo:tempi[0]?.bpm||100,originalVoices:groups.length};
+ return {title,groups:merged.groups,notes:merged.notes,tempo:tempi[0]?.bpm||100,
+   originalVoices:groups.length, originalParts:scoreParts.length};
 }
 function makeVoiceRows(){
  const root=$("voices");
@@ -321,6 +335,40 @@ function makeVoiceRows(){
   sel.onchange=()=>{group.instrument=sel.value;clearAudio()};
   instBox.append(instTitle,sel);
   row.append(header,pitch,volume,instBox);
+  const reassign=document.createElement("label");reassign.className="channel-reassign";
+  const reassignTitle=document.createElement("span");reassignTitle.className="control-caption";reassignTitle.textContent="CORREGIR IDENTIFICACIÓN";
+  const reassignSelect=document.createElement("select");
+  const current=document.createElement("option");current.value="";current.textContent="Cambiar o unir con otro instrumento…";
+  reassignSelect.append(current);
+  for(const role of ["soprano","alto","tenor","bajo","contra"]){
+   const opt=document.createElement("option");opt.value=role;opt.textContent=GUITAR_ROLES[role].name;
+   reassignSelect.append(opt);
+  }
+  reassignSelect.setAttribute("aria-label","Corregir instrumento de "+displayName);
+  reassignSelect.onchange=()=>{
+   if(!reassignSelect.value)return;
+   const role=reassignSelect.value,canonical=GUITAR_ROLES[role];
+   if(group.name===canonical.name){reassignSelect.value="";return}
+   const target=state.score.groups.find(g=>g!==group&&g.name===canonical.name);
+   if(target){
+    for(const note of state.score.notes)if(note.group===group.id)note.group=target.id;
+    const dedup=new Set();
+    state.score.notes=state.score.notes.filter(note=>{
+     const key=note.group+"|"+note.midi+"|"+note.start.toFixed(7)+"|"+note.duration.toFixed(7);
+     if(dedup.has(key))return false;dedup.add(key);return true;
+    });
+    target.sourceCount+=group.sourceCount;
+    state.score.groups=state.score.groups.filter(g=>g!==group);
+   }else{
+    group.name=canonical.name;group.instrument=canonical.sound;
+   }
+   for(const g of state.score.groups)g.count=state.score.notes.filter(note=>note.group===g.id).length;
+   const order={soprano:0,alto:1,tenor:2,bajo:3,contra:4};
+   state.score.groups.sort((a,b)=>(order[instrumentRole(a.name,true)]??10)-(order[instrumentRole(b.name,true)]??10));
+   clearAudio();makeVoiceRows();
+   $("info").textContent=state.score.title+" · "+state.score.originalVoices+" pistas del XML reunidas en "+state.score.groups.length+" instrumentos · "+state.score.notes.length+" notas";
+  };
+  reassign.append(reassignTitle,reassignSelect);row.append(reassign);
   root.append(row);
  }
  updateMixerSummary();
@@ -389,7 +437,7 @@ async function load(file){
  try{
   const score=parse(await readMusicXML(file),file.name);state.score=score;
   $("tempo").value=clamp(Math.round(score.tempo),30,240);
-  $("info").hidden=false;$("info").textContent=score.title+" · "+score.groups.length+" voces instrumentales (de "+score.originalVoices+" pistas MusicXML) · "+score.notes.length+" notas";
+  $("info").hidden=false;$("info").textContent=score.title+" · "+score.originalVoices+" pistas del XML reunidas en "+score.groups.length+" instrumentos · "+score.notes.length+" notas";
   makeVoiceRows();$("settings").hidden=false;
   updateDurationEstimate();
  }catch(err){state.score=null;problem(err.message||String(err))}
