@@ -635,7 +635,7 @@ function parse(xml,filename=""){
   const identified=explicit.map(t=>voiceIdentity(t,true)).find(Boolean);
   const name=identified?identified.name:inferPartName(rawName,scoreParts.length===1?filename:"",scoreParts.length===1?metadata:[]);
  
-  const byId=new Map(),ties=new Map();
+  const byId=new Map(),ties=new Map(),staffTunings=new Map();
   let divisions=1,offset=0;
   for(const [measureIndex,measure] of kids(part,"measure").entries()){
    const measureStart=measureStarts[measureIndex]||0;
@@ -647,6 +647,25 @@ function parse(xml,filename=""){
      if(divisionNode)divisions=clamp(int(divisionNode.textContent,divisions),1,1000000);
      const trans=one(e,"transpose");
      if(trans)offset=int(text(trans,"chromatic","0"))+12*int(text(trans,"octave-change","0"));
+     // MusicXML may specify the real open pitches of each string.
+     // line="1" is the lowest staff line / lowest string. Use these
+     // before assuming six-string EADGBE, especially for guitar consorts.
+     for(const details of kids(e,"staff-details")){
+      const staffNumber=details.getAttribute("number")||"1";
+      const openStrings=[];
+      for(const tuning of kids(details,"staff-tuning")){
+       const line=int(tuning.getAttribute("line"),0);
+       const step=text(tuning,"tuning-step");
+       const octave=int(text(tuning,"tuning-octave","-1"),-1);
+       const alter=int(text(tuning,"tuning-alter","0"),0);
+       if(line>=1&&line<=12&&step in semis&&octave>=0&&octave<=8)
+        openStrings[line-1]=12*(octave+1)+semis[step]+alter;
+      }
+      if(openStrings.length>=4&&openStrings.every(Number.isFinite)){
+       staffTunings.set(staffNumber,openStrings);
+       for(const g of byId.values())if(g.staff===staffNumber)g.tabTuning=openStrings.slice();
+      }
+     }
      continue;
     }
     if(tag==="direction"){
@@ -687,14 +706,19 @@ function parse(xml,filename=""){
     const midi=writtenMidi+offset;
     if(midi<12||midi>120)continue;
     const staff=text(e,"staff","1"),voice=text(e,"voice","1"),gid=pid+"|"+staff+"|"+voice;
-    if(!byId.has(gid)){const g={id:gid,part:pi,name,staff,voice,offset:0,volume:100,instrument:inferInstrument(name),count:0};byId.set(gid,g);groups.push(g)}
+    if(!byId.has(gid)){const g={id:gid,part:pi,name,staff,voice,offset:0,volume:100,instrument:inferInstrument(name),count:0,tabTuning:staffTunings.get(staff)?.slice()||null};byId.set(gid,g);groups.push(g)}
     const tieTypes=kids(e,"tie").map(t=>t.getAttribute("type"));
     const key=gid+"|"+midi;
     if(tieTypes.includes("stop")&&ties.has(key)){
      const n=ties.get(key);n.duration=Math.max(n.duration,at+duration-n.start);
      if(!tieTypes.includes("start"))ties.delete(key);
     }else{
-     const n={group:gid,midi,writtenMidi,start:at,duration,measureIndex};notes.push(n);byId.get(gid).count++;
+     const technical=one(one(e,"notations"),"technical");
+     const originalString=int(text(technical,"string","0"),0);
+     const originalFret=int(text(technical,"fret","-1"),-1);
+     const n={group:gid,midi,writtenMidi,start:at,duration,measureIndex,
+      originalString:originalString>0?originalString:null,
+      originalFret:originalFret>=0?originalFret:null};notes.push(n);byId.get(gid).count++;
      if(tieTypes.includes("start"))ties.set(key,n);
     }
    }
