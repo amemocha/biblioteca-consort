@@ -5,10 +5,11 @@
 </style></head>
 <body><header><h1>MusicXML a audio</h1><p>Herramienta independiente · Instrumento, tonalidad y volumen por voz · Colores 1</p></header>
 <main>
-<section class="card"><h2>1. Sube tu partitura</h2><label class="drop" id="drop">Selecciona o arrastra un archivo <strong>.musicxml</strong> o <strong>.xml</strong><br><span class="small">Se procesa en tu navegador, sin subirlo a servidores.</span><input id="file" type="file" accept=".musicxml,.xml,text/xml,application/xml"></label><p class="small">Compatible con MusicXML sin comprimir, tipo «score-partwise». Si tienes un .mxl, expórtalo desde MuseScore como MusicXML sin comprimir.</p><div id="info" hidden></div><div id="error" role="alert"></div></section>
+<section class="card"><h2>1. Sube tu partitura</h2><label class="drop" id="drop">Selecciona o arrastra una partitura <strong>.musicxml, .xml o .mxl</strong><br><span class="small">Se procesa en tu navegador, sin subirlo a servidores.</span><input id="file" type="file"></label><p class="small">Admite partituras MusicXML (.xml, .musicxml y .mxl comprimido). Si tienes un archivo de proyecto MuseScore (.mscz o .mscx), primero expórtalo desde MuseScore a MusicXML.</p><div id="info" hidden></div><div id="error" role="alert"></div></section>
 <section id="settings" class="card" hidden><h2>2. Ajusta cada voz por separado</h2><p class="small">Usa + y − para cambiar semitonos, elige el instrumento que quieres escuchar y regula el volumen de cada voz, incluso hasta silencio. Estos cambios afectan el audio, no la partitura original.</p><div id="voices"></div><div class="controls"><label>Velocidad (negras/minuto)<input id="tempo" type="number" value="100" min="30" max="240"></label><label><span class="small">Elige un instrumento diferente en cada voz. Los sonidos son sintetizados.</span></label></div><div class="actions"><button id="reset">Restablecer voces</button><button id="render" class="primary">Generar audio</button></div><p id="status" aria-live="polite"></p></section>
 <section id="result" class="card" hidden><h2>3. Escucha y descarga</h2><audio id="player" class="audio" controls preload="metadata"></audio><div class="actions"><button id="download" class="primary">Descargar audio WAV</button><button id="stop">Detener</button></div><p class="small">Audio instrumental sintetizado. No contiene los instrumentos reales de MuseScore ni todas las indicaciones de expresión.</p></section>
 <p class="foot"><a href="./">Volver a Biblioteca Consort</a> · Los archivos no se modifican ni se guardan en la biblioteca automáticamente.</p></main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 (()=>{
 "use strict";
@@ -162,13 +163,34 @@ function makeVoiceRows(){
   row.append(title,minus,n,plus,volume,instBox);$("voices").append(row);
  }
 }
+async function readMusicXML(file){
+ const lower=file.name.toLowerCase();
+ if(/\.(mscz|mscx)$/.test(lower))throw Error("Este es un archivo de proyecto de MuseScore. Abre la partitura en MuseScore Studio y usa Archivo → Exportar → MusicXML (.mxl o .musicxml).");
+ if(/\.mxl$/.test(lower)){
+  if(!window.JSZip)throw Error("No se pudo cargar el lector de MusicXML comprimido. Comprueba tu conexión a internet o exporta como .musicxml.");
+  const zip=await window.JSZip.loadAsync(file);
+  let path="";
+  const containerFile=zip.file("META-INF/container.xml");
+  if(containerFile){
+   const doc=new DOMParser().parseFromString(await containerFile.async("string"),"application/xml");
+   path=doc.querySelector("rootfile")?.getAttribute("full-path")||"";
+  }
+  let entry=path?zip.file(path):null;
+  if(!entry)entry=Object.values(zip.files).find(f=>!f.dir&&/\.(musicxml|xml)$/i.test(f.name)&&!f.name.startsWith("META-INF/"));
+  if(!entry)throw Error("El archivo .mxl no contiene una partitura MusicXML válida.");
+  const xml=await entry.async("string");
+  if(xml.length>12*1024*1024)throw Error("La partitura descomprimida supera 12 MB.");
+  return xml;
+ }
+ if(/\.(xml|musicxml)$/i.test(lower))return file.text();
+ throw Error("El archivo seleccionado no es una partitura MusicXML. Admite .xml, .musicxml o .mxl. Si es .mscz, expórtalo desde MuseScore.");
+}
 async function load(file){
  if(!file)return;
  problem("");status("");$("info").hidden=true;$("settings").hidden=true;clearAudio();
  if(file.size>12*1024*1024){problem("Archivo demasiado grande (máximo 12 MB).");return}
- if(!/\.(xml|musicxml)$/i.test(file.name)){problem("Selecciona un archivo XML o MusicXML sin comprimir.");return}
  try{
-  const score=parse(await file.text());state.score=score;
+  const score=parse(await readMusicXML(file));state.score=score;
   $("tempo").value=clamp(Math.round(score.tempo),30,240);
   $("info").hidden=false;$("info").textContent=score.title+" · "+score.groups.length+" voces · "+score.notes.length+" notas";
   makeVoiceRows();$("settings").hidden=false;
