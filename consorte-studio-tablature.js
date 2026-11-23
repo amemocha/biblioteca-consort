@@ -2,7 +2,11 @@
    A simplified visual notation system, not MuseScore engraving. */
 (function(){
 "use strict";
-const $=id=>document.getElementById(id),ns="http://www.w3.org/2000/svg";
+const $=id=>{
+ const mount=document.getElementById("consortStudioMount");
+ const key=mount&&["tabPrev","tabPageLabel","tabNext"].includes(id)?"cs-"+id:id;
+ return (mount?.querySelector('[id="'+key+'"]'))||document.getElementById(key);
+},ns="http://www.w3.org/2000/svg";
 const root=$("scoreTabSection");
 if(!root)return;
 let page=0;
@@ -26,16 +30,51 @@ function groupNotes(score,id){return (score.notes||[]).filter(n=>n.group===id&&N
 function writtenPitch(note){return Number.isFinite(note.writtenMidi)?note.writtenMidi:note.midi}
 function tablaturePitch(note){return writtenPitch(note)-12}
 function selectFrets(chord,open){
- const reversed=open.map((pitch,string)=>({pitch,string})).reverse();
- const used=new Set();
- return chord.map(note=>{
-  const candidates=reversed.map(({pitch,string})=>({string,fret:tablaturePitch(note)-pitch}))
-   .filter(x=>x.fret>=0&&x.fret<=24)
-   .sort((a,b)=>(used.has(a.string)?100:0)+a.fret-(used.has(b.string)?100:0)-b.fret);
-  const best=candidates[0]||null;
-  if(best)used.add(best.string);
-  return {note,best};
- });
+ // Match each pitch to a DIFFERENT physical string when played together.
+ // Greedy allocation reused strings for multiple simultaneous notes, giving
+ // chords that cannot be performed on a guitar.
+ const candidates=chord.map(note=>open.map((pitch,string)=>{
+   const fret=tablaturePitch(note)-pitch;
+   if(!Number.isInteger(fret)||fret<0||fret>24)return null;
+   const preferred=Number(note.originalString)>0&&
+       open.length-Number(note.originalString)===string;
+   return {string,fret,cost:fret+(fret>12?(fret-12)*2:0)+(preferred?-3:0)};
+  }).filter(Boolean));
+ let best=null,bestCount=-1,bestCost=Infinity;
+ const current=Array(chord.length).fill(null);
+ const order=[...chord.keys()].sort((a,b)=>candidates[a].length-candidates[b].length);
+ function walk(i,used,count,cost,minFret,maxFret){
+  if(count+order.length-i<bestCount)return;
+  if(i===order.length){
+   const stretch=count>1?Math.max(0,maxFret-minFret-4)*8:0;
+   const total=cost+stretch;
+   if(count>bestCount||count===bestCount&&total<bestCost){
+    bestCount=count;bestCost=total;best=current.slice();
+   }
+   return;
+  }
+  const k=order[i];
+  for(const candidate of candidates[k]){
+   if(used.has(candidate.string))continue;
+   used.add(candidate.string);current[k]=candidate;
+   walk(i+1,used,count+1,cost+candidate.cost,
+    Math.min(minFret,candidate.fret),Math.max(maxFret,candidate.fret));
+   used.delete(candidate.string);
+  }
+  current[k]=null;
+  walk(i+1,used,count,cost,minFret,maxFret);
+ }
+ // MusicXML may include multiple independent voices in one staff. The
+ // search is bounded to typical physical guitar chords.
+ if(chord.length<=9)walk(0,new Set(),0,0,Infinity,-Infinity);
+ else{
+  const used=new Set();best=chord.map((_,i)=>{
+   const next=candidates[i].find(c=>!used.has(c.string))||null;
+   if(next)used.add(next.string);
+   return next;
+  });
+ }
+ return chord.map((note,i)=>({note,best:best?.[i]||null}));
 }
 function svgLine(svg,x1,y1,x2,y2,attrs={}){
  svg.append(el("line",{x1,y1,x2,y2,stroke:"#8398b5","stroke-width":1,...attrs}));
@@ -64,7 +103,12 @@ function render(){
  $("tabPageLabel").textContent="Página "+(page+1)+" / "+pages;
  $("tabPrev").disabled=page<=0;$("tabNext").disabled=page>=pages-1;
  const begin=page*beatsPerPage,end=begin+beatsPerPage;
- const layout=$("tabLayout").value,open=tunings[$("tabTuning").value]||tunings.guitar;
+ const layout=$("tabLayout").value;
+ const selectedTuning=$("tabTuning").value;
+ const originalTuning=Array.isArray(g.tabTuning)&&g.tabTuning.length>=4&&g.tabTuning.every(Number.isFinite)
+  ?g.tabTuning:null;
+ const open=selectedTuning==="original"?(originalTuning||tunings.guitar)
+  :(tunings[selectedTuning]||tunings.guitar);
  const strings=[...open].reverse(),both=layout==="both";
  const svg=el("svg",{viewBox:both?"0 0 1100 380":"0 0 1100 245",width:1100,
   role:"img","aria-label":"Tablatura de "+g.name+", página "+(page+1)});
@@ -125,7 +169,9 @@ function render(){
  const foot=document.createElement("p");foot.className="small";
  foot.textContent="Mostrando negras "+(begin+1)+" a "+Math.min(end,Math.max(end,maxBeat))+
   " · "+byStart.size+" posiciones musicales · tablatura una octava más grave que el original"+
-  (omitted?" · "+omitted+" notas fuera del rango de esta afinación":"")+".";
+  (selectedTuning==="original"&&!originalTuning
+   ?" · el MusicXML no incluye afinación de cuerdas: se usa EADGBE estándar":"")+
+  (omitted?" · "+omitted+" notas sin posición válida en cuerdas distintas: marcadas con ?":"")+".";
  container.append(foot);
 }
 function refresh(){page=0;render()}
