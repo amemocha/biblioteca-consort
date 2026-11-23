@@ -21,11 +21,15 @@ const tunings={
  bass:[28,33,38,43]
 };
 function groupNotes(score,id){return (score.notes||[]).filter(n=>n.group===id&&Number.isFinite(n.start)).sort((a,b)=>a.start-b.start||b.midi-a.midi)}
+// Written MIDI comes from the original MusicXML <pitch> rather than
+// the score's <transpose> or the mixer's editable semitone offset.
+function writtenPitch(note){return Number.isFinite(note.writtenMidi)?note.writtenMidi:note.midi}
+function tablaturePitch(note){return writtenPitch(note)-12}
 function selectFrets(chord,open){
  const reversed=open.map((pitch,string)=>({pitch,string})).reverse();
  const used=new Set();
  return chord.map(note=>{
-  const candidates=reversed.map(({pitch,string})=>({string,fret:note.midi-pitch}))
+  const candidates=reversed.map(({pitch,string})=>({string,fret:tablaturePitch(note)-pitch}))
    .filter(x=>x.fret>=0&&x.fret<=24)
    .sort((a,b)=>(used.has(a.string)?100:0)+a.fret-(used.has(b.string)?100:0)-b.fret);
   const best=candidates[0]||null;
@@ -66,7 +70,7 @@ function render(){
   role:"img","aria-label":"Tablatura de "+g.name+", página "+(page+1)});
  svg.append(el("rect",{x:0,y:0,width:1100,height:both?380:245,fill:"#ffffff"}));
  label(svg,36,32,g.name+" · "+(both?"Partitura y tablatura":"Tablatura"),{"font-size":19,"font-weight":"700"});
- label(svg,36,55,"Cifras = trastes · Línea superior = cuerda más aguda",{"font-size":12,fill:"#64748b"});
+ label(svg,36,55,"Trastes = notas originales − 1 octava · Sin transposición del mezclador",{"font-size":12,fill:"#64748b"});
  const left=97,right=1046,width=right-left,staffTop=91;
  const tabTop=both?235:117,step=17;
  if(both){
@@ -100,7 +104,7 @@ function render(){
   const x=xFor(chord[0].start);
   for(const {note,best} of selectFrets(chord,open)){
    if(both){
-    const E4=4*7+2,y=staffTop+60-(noteStaffStep(note.midi)-E4)*7.5;
+    const E4=4*7+2,y=staffTop+60-(noteStaffStep(writtenPitch(note))-E4)*7.5;
     const py=Math.max(68,Math.min(205,y));
     svg.append(el("ellipse",{cx:x,cy:py,rx:6,ry:4.2,fill:"#172b46",transform:"rotate(-14 "+x+" "+py+")"}));
     svgLine(svg,x+5,py,x+5,py-27,{stroke:"#172b46","stroke-width":1.3});
@@ -120,7 +124,8 @@ function render(){
  const container=$("tabScore");container.replaceChildren(svg);
  const foot=document.createElement("p");foot.className="small";
  foot.textContent="Mostrando negras "+(begin+1)+" a "+Math.min(end,Math.max(end,maxBeat))+
-  " · "+byStart.size+" posiciones musicales"+(omitted?" · "+omitted+" notas fuera del rango de esta afinación":"")+".";
+  " · "+byStart.size+" posiciones musicales · tablatura una octava más grave que el original"+
+  (omitted?" · "+omitted+" notas fuera del rango de esta afinación":"")+".";
  container.append(foot);
 }
 function refresh(){page=0;render()}
