@@ -2,10 +2,56 @@
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Convertidor MusicXML a audio | Consort</title>
 <style>
 :root{font:16px system-ui,-apple-system,"Segoe UI",sans-serif;color:#172b46;background:#f4f7fb}*{box-sizing:border-box}body{margin:0}header{background:#172b46;color:white;padding:23px max(18px,calc((100vw - 1050px)/2))}header h1{margin:0;font-size:clamp(23px,4vw,32px)}header p{color:#c5d5e8;margin:8px 0 0}main{max-width:1050px;padding:22px 16px 45px;margin:auto;display:grid;gap:17px}.card{border:1px solid #dce6f1;background:#fff;border-radius:15px;padding:20px;box-shadow:0 6px 20px #172b460b}h2{font-size:19px;margin:0 0 10px}.small{font-size:14px;color:#64748b;line-height:1.55}.drop{display:block;border:2px dashed #91b4df;background:#f8fbff;border-radius:12px;padding:32px 15px;text-align:center;cursor:pointer}.drop.drag,.drop:hover{border-color:#2563eb;background:#eaf2ff}input[type=file]{display:none}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}button,a.action{border:1px solid #cbd9e8;background:#fff;color:#234768;border-radius:9px;padding:11px 15px;font-weight:650;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;font:650 14px system-ui}button.primary{background:#2563eb;border-color:#2563eb;color:white}button:disabled{opacity:.5;cursor:not-allowed}.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-top:15px}label{font-weight:650;font-size:14px}label>input[type=number],select{display:block;width:100%;margin-top:7px;padding:10px;border:1px solid #cbd9e8;border-radius:9px;background:#fff;color:#172b46;font:inherit}.voice{display:grid;grid-template-columns:minmax(155px,1fr) auto auto auto minmax(130px,160px) minmax(165px,210px);gap:11px;align-items:center;padding:13px;border:1px solid #dbe5f0;border-radius:12px;margin:9px 0;background:#f8fbff}.voice strong{font-size:14px;display:block}.voice small{color:#64748b;display:block;margin-top:3px;font-size:12px}.voice output{min-width:56px;text-align:center;color:#1d4ed8;font-weight:700;font-size:13px}.vol{min-width:120px;font-size:13px}.vol label{display:flex;justify-content:space-between;gap:8px;font-weight:550}.vol input{width:100%;accent-color:#2563eb}.group-title{font-size:14px;font-weight:750;margin:17px 0 5px;color:#28496c}.audio{display:block;width:100%;margin-top:12px}#error{white-space:pre-wrap;color:#aa283e;font-size:14px;font-weight:650}#status{white-space:pre-wrap;font-size:14px;color:#365774}#info{font-size:14px;color:#436485;margin-top:12px}.foot{font-size:13px;color:#64748b}a{color:#2563eb}@media(max-width:650px){.voice{grid-template-columns:auto auto auto 1fr}.voice .title{grid-column:1/-1}.vol,.instrument{grid-column:1/-1}.card{padding:15px}}
+
+/* Consort Studio — redesigned compact instrument mixer */
+:root{--navy:#172b46;--blue:#2563eb;--line:#dce6f2;--muted:#64748b}
+body{background:#f4f7fb}
+.studio-header{background:linear-gradient(120deg,#13263f 0%,#1b385d 70%,#244b7b 100%);padding:34px 22px 38px}
+.header-inner{max-width:1120px;margin:auto}
+.brand-kicker{font-size:11px;letter-spacing:.18em;color:#93b9f1;font-weight:800;margin-bottom:9px}
+.studio-header h1{font-size:clamp(25px,4vw,36px);font-weight:780;letter-spacing:-.04em}
+.studio-header p{font-size:15px;line-height:1.5;max-width:650px}
+main{max-width:1152px;gap:19px;padding:24px 16px 44px}
+.card{border:1px solid #dce6f2;border-radius:18px;box-shadow:0 7px 28px #142e4f0b;padding:24px}
+.eyebrow{font-size:11px;letter-spacing:.13em;color:#2563eb;font-weight:800;margin-bottom:7px}
+.card h2{font-size:21px;letter-spacing:-.025em}
+.drop{border-radius:13px;background:#f7faff;padding:24px 16px}
+.studio-mixer{padding:26px}
+.mixer-top{display:flex;gap:24px;justify-content:space-between;align-items:center;margin-bottom:19px}
+.mixer-top h2{margin-bottom:5px;font-size:24px}
+.mixer-top .small{max-width:610px;margin:0}
+.mixer-summary{white-space:nowrap;background:#eaf2ff;border:1px solid #cbddfa;border-radius:999px;color:#1c559b;font-size:12px;font-weight:750;padding:9px 13px}
+.mixer-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.mixer-channel.voice{min-width:0;margin:0;padding:18px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:18px;row-gap:17px;align-items:center;border:1px solid #dce6f2;background:#fff;border-radius:14px;box-shadow:0 2px 9px #172b4608;transition:border-color .15s,box-shadow .15s}
+.mixer-channel:hover{border-color:#a8c5e8;box-shadow:0 5px 20px #172b4610}
+.channel-heading{display:flex;align-items:center;gap:11px;grid-column:1/-1;min-width:0;padding-bottom:13px;border-bottom:1px solid #edf2f8}
+.channel-symbol{flex:0 0 42px;width:42px;height:42px;border-radius:12px;background:#eaf2ff;color:#2563eb;display:grid;place-items:center;font-size:23px;font-weight:700}
+.channel-title{min-width:0;overflow-wrap:anywhere}
+.channel-title strong{font-weight:760;color:#172b46;font-size:15px;line-height:1.25}
+.channel-title small{margin-top:4px;color:#64748b;font-size:12px}
+.channel-control{min-width:0;display:grid;gap:8px}
+.control-caption{display:block;font-size:10px;font-weight:800;letter-spacing:.1em;color:#6b819a}
+.channel-pitch{grid-column:1}
+.stepper{display:flex;align-items:center;max-width:180px;background:#f4f7fc;border:1px solid #dce6f1;border-radius:10px;padding:3px}
+.mixer-channel .stepper button{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border-radius:8px;border:1px solid #d5e2f0;background:#fff;color:#184d8d;font-size:20px;line-height:1;padding:0;box-shadow:none}
+.mixer-channel .stepper button:hover{background:#eaf2ff}
+.stepper output{min-width:0;flex:1;text-align:center;font-size:15px;font-variant-numeric:tabular-nums;color:#1e4fa3;font-weight:760}
+.channel-volume{grid-column:2}
+.volume-heading{display:flex;align-items:center;justify-content:space-between;gap:5px}
+.volume-value{color:#2563eb;font-weight:750;font-size:12px;font-variant-numeric:tabular-nums}
+.channel-volume input{width:100%;min-height:20px;margin:0;accent-color:#2563eb}
+.channel-instrument{grid-column:1/-1}
+.channel-instrument select{width:100%;max-width:100%;min-width:0;display:block;margin:0;height:43px;border:1px solid #d4e0ee;border-radius:10px;background:#f8fbff;color:#173550;padding:0 12px;font-size:14px;font-weight:650}
+.studio-mixer>.controls{border-top:1px solid #e7edf5;margin-top:22px;padding-top:18px}
+.studio-mixer>.actions{margin-top:18px}
+button.primary{box-shadow:0 3px 10px #2563eb2b}
+#info:not([hidden]){background:#eaf2ff;border-radius:9px;padding:10px 13px;font-weight:650}
+@media(max-width:780px){.mixer-grid{grid-template-columns:minmax(0,1fr)}.studio-mixer{padding:17px}.mixer-top{flex-direction:column;align-items:flex-start;gap:12px}.mixer-channel.voice{padding:15px}}
+@media(max-width:390px){.mixer-channel.voice{column-gap:10px}.stepper{max-width:160px}.mixer-channel .stepper button{width:31px;flex-basis:31px}.card{padding:15px}}
 </style></head>
-<body><header><h1>MusicXML a audio</h1><p>Herramienta independiente · Instrumento, tonalidad y volumen por voz · Colores 1</p></header>
+<body><header class="studio-header"><div class="header-inner"><div class="brand-kicker">CONSORT STUDIO</div><h1>Tu música, a tu manera.</h1><p>Importa tu partitura, ajusta cada instrumento y crea el audio que necesitas.</p></div></header>
 <main>
-<section class="card"><h2>1. Sube tu partitura</h2><div class="drop" id="drop">
+<section class="card"><div class="eyebrow">PROYECTO MUSICAL</div><h2>Importar partitura</h2><div class="drop" id="drop">
 <strong>Subir partitura MusicXML (.mxl incluido)</strong><p class="small">Admite .mxl, .musicxml y .xml. También puedes arrastrar el archivo aquí.</p>
 <div class="actions" style="justify-content:center;margin-top:12px">
 <button type="button" class="primary" id="chooseMxl">Elegir archivo .mxl / MusicXML</button>
@@ -15,8 +61,8 @@
 <input id="fileAny" type="file">
 <p class="small" style="margin:14px 0 0">Si tu teléfono dice «Ningún archivo coincide», pulsa <strong>Ver todos los archivos</strong> y busca tu partitura en Descargas o Archivos.</p>
 </div><p class="small">Admite partituras MusicXML (.xml, .musicxml y .mxl comprimido). Si tienes un archivo de proyecto MuseScore (.mscz o .mscx), primero expórtalo desde MuseScore a MusicXML.</p><div id="info" hidden></div><div id="error" role="alert"></div></section>
-<section id="settings" class="card" hidden><h2>2. Ajusta cada voz por separado</h2><p class="small">Las pistas del mismo instrumento, como G.B y Guitarra bajo, se agrupan. Usa + y − para cambiar semitonos, elige su sonido y regula el volumen de cada voz instrumental. Estos cambios afectan el audio, no la partitura original.</p><div id="voices"></div><div class="controls"><label>Velocidad (negras/minuto)<input id="tempo" type="number" value="100" min="30" max="240"></label><label><span class="small">Elige un instrumento diferente en cada voz. Los sonidos son sintetizados.</span></label></div><div class="actions"><button id="reset">Restablecer voces</button><button id="render" class="primary">Generar audio</button></div><p id="status" aria-live="polite"></p></section>
-<section id="result" class="card" hidden><h2>3. Escucha y descarga</h2><audio id="player" class="audio" controls preload="metadata"></audio><div class="actions"><button id="download" class="primary">Descargar audio WAV</button><button id="stop">Detener</button></div><p class="small">Audio instrumental sintetizado. Para partituras extensas se ajusta la calidad de exportación para proteger la memoria del dispositivo. No contiene los instrumentos reales de MuseScore ni todas las indicaciones de expresión.</p></section>
+<section id="settings" class="card studio-mixer" hidden><div class="mixer-top"><div><div class="eyebrow">MESA DE MEZCLAS</div><h2>Instrumentos y voces</h2><p class="small">Cada instrumento tiene un solo canal. Ajusta el tono, el volumen y el sonido sin modificar tu partitura.</p></div><div class="mixer-summary" id="mixerSummary"></div></div><div id="voices"></div><div class="controls"><label>Velocidad (negras/minuto)<input id="tempo" type="number" value="100" min="30" max="240"></label><label><span class="small">Elige un instrumento diferente en cada voz. Los sonidos son sintetizados.</span></label></div><div class="actions"><button id="reset">Restablecer voces</button><button id="render" class="primary">Generar audio</button></div><p id="status" aria-live="polite"></p></section>
+<section id="result" class="card" hidden><div class="eyebrow">RESULTADO</div><h2>Escuchar y exportar</h2><audio id="player" class="audio" controls preload="metadata"></audio><div class="actions"><button id="download" class="primary">Descargar audio WAV</button><button id="stop">Detener</button></div><p class="small">Audio instrumental sintetizado. Para partituras extensas se ajusta la calidad de exportación para proteger la memoria del dispositivo. No contiene los instrumentos reales de MuseScore ni todas las indicaciones de expresión.</p></section>
 <p class="foot"><a href="./">Volver a Biblioteca Consort</a> · Los archivos no se modifican ni se guardan en la biblioteca automáticamente.</p></main>
 <script>
 (()=>{
@@ -223,32 +269,56 @@ function parse(xml,filename=""){
  return {title,groups:merged.groups,notes:merged.notes,tempo:tempi[0]?.bpm||100,originalVoices:groups.length};
 }
 function makeVoiceRows(){
- $("voices").replaceChildren();
- let part=null;
+ const root=$("voices");
+ root.replaceChildren();
+ root.className="mixer-grid";
  for(const group of state.score.groups){
-  if(group.part!==part){part=group.part;const h=document.createElement("div");h.className="group-title";h.textContent=identityLabel(group.name);$("voices").append(h)}
-  const row=document.createElement("div");row.className="voice";
-  const title=document.createElement("div");title.className="title";const name=document.createElement("strong");name.textContent=identityLabel(group.name);const count=document.createElement("small");count.textContent=group.count+" notas"+(group.sourceCount>1?" · "+group.sourceCount+" pistas reunidas":"");title.append(name,count);
-  const minus=document.createElement("button");minus.textContent="− 1";minus.setAttribute("aria-label","Bajar un semitono en "+group.name+" voz "+group.voice);
-  const plus=document.createElement("button");plus.textContent="+ 1";plus.setAttribute("aria-label","Subir un semitono en "+group.name+" voz "+group.voice);
-  const n=document.createElement("output");n.textContent="0 semitonos";
-  function change(delta){group.offset=clamp(group.offset+delta,-24,24);n.textContent=(group.offset>0?"+":"")+group.offset+" semitonos";clearAudio()}
+  const row=document.createElement("article");
+  row.className="voice mixer-channel";
+  const displayName=identityLabel(group.name);
+  const header=document.createElement("div");header.className="channel-heading";
+  const symbol=document.createElement("div");symbol.className="channel-symbol";symbol.textContent="♫";symbol.setAttribute("aria-hidden","true");
+  const title=document.createElement("div");title.className="channel-title";
+  const name=document.createElement("strong");name.textContent=displayName;
+  const count=document.createElement("small");count.textContent=group.count+" notas"+(group.sourceCount>1?" · "+group.sourceCount+" pistas combinadas":"");
+  title.append(name,count);header.append(symbol,title);
+  const pitch=document.createElement("div");pitch.className="channel-control channel-pitch";
+  const pitchTitle=document.createElement("div");pitchTitle.className="control-caption";pitchTitle.textContent="TONO";
+  const steps=document.createElement("div");steps.className="stepper";
+  const minus=document.createElement("button");minus.type="button";minus.textContent="−";minus.setAttribute("aria-label","Bajar un semitono: "+displayName);
+  const plus=document.createElement("button");plus.type="button";plus.textContent="+";plus.setAttribute("aria-label","Subir un semitono: "+displayName);
+  const n=document.createElement("output");n.textContent="0";n.title="Semitonos";
+  function change(delta){group.offset=clamp(group.offset+delta,-24,24);n.textContent=(group.offset>0?"+":"")+group.offset;clearAudio();updateMixerSummary()}
   minus.onclick=()=>change(-1);plus.onclick=()=>change(1);
-  const volume=document.createElement("div");volume.className="vol";
-  const label=document.createElement("label"),caption=document.createElement("span");caption.textContent="Volumen";
-  const val=document.createElement("span");val.textContent="100%";label.append(caption,val);
-  const range=document.createElement("input");range.type="range";range.min="0";range.max="100";range.step="1";range.value="100";range.setAttribute("aria-label","Volumen de "+group.name+" voz "+group.voice);
-  range.oninput=()=>{group.volume=int(range.value);val.textContent=group.volume+"%";clearAudio()};
-  volume.append(label,range);
-  const instBox=document.createElement("label");instBox.className="instrument";
-  instBox.textContent="Instrumento";
-  const sel=document.createElement("select");sel.setAttribute("aria-label","Instrumento de "+group.name+" voz "+group.voice);
-  for(const [id,labelText] of INSTRUMENTS){const opt=document.createElement("option");opt.value=id;opt.textContent=labelText;sel.append(opt)}
+  steps.append(minus,n,plus);pitch.append(pitchTitle,steps);
+  const volume=document.createElement("div");volume.className="channel-control channel-volume";
+  const volHeader=document.createElement("div");volHeader.className="volume-heading";
+  const volTitle=document.createElement("span");volTitle.className="control-caption";volTitle.textContent="VOLUMEN";
+  const val=document.createElement("span");val.className="volume-value";val.textContent=group.volume+"%";
+  volHeader.append(volTitle,val);
+  const range=document.createElement("input");range.type="range";range.min="0";range.max="100";range.step="1";range.value=String(group.volume);
+  range.setAttribute("aria-label","Volumen de "+displayName);
+  range.oninput=()=>{group.volume=int(range.value);val.textContent=group.volume+"%";clearAudio();updateMixerSummary()};
+  volume.append(volHeader,range);
+  const instBox=document.createElement("label");instBox.className="channel-control channel-instrument";
+  const instTitle=document.createElement("span");instTitle.className="control-caption";instTitle.textContent="INSTRUMENTO";
+  const sel=document.createElement("select");sel.setAttribute("aria-label","Sonido de "+displayName);
+  for(const [id,labelText] of INSTRUMENTS){
+   const opt=document.createElement("option");opt.value=id;opt.textContent=labelText;sel.append(opt);
+  }
   sel.value=group.instrument;
   sel.onchange=()=>{group.instrument=sel.value;clearAudio()};
-  instBox.append(sel);
-  row.append(title,minus,n,plus,volume,instBox);$("voices").append(row);
+  instBox.append(instTitle,sel);
+  row.append(header,pitch,volume,instBox);
+  root.append(row);
  }
+ updateMixerSummary();
+}
+function updateMixerSummary(){
+ if(!state.score)return;
+ const active=state.score.groups.filter(g=>g.volume>0).length;
+ const label=$("mixerSummary");
+ if(label)label.textContent=state.score.groups.length+" instrumentos · "+active+" con sonido";
 }
 
 // Lector MXL ZIP integrado: funciona sin bibliotecas externas.
