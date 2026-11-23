@@ -79,7 +79,7 @@ button.primary{box-shadow:0 3px 10px #2563eb2b}
 <p class="small">Abre tus partituras guardadas para seguir editando instrumentos, volumen y tono.</p></div>
 <span id="projectCounter" class="library-counter">0 proyectos</span></div>
 <div id="projectsList" class="project-list"><p class="small">Buscando proyectos guardados…</p></div>
-<p class="small">Se guardan únicamente en este navegador. Si borras sus datos o usas otro dispositivo, no aparecerán allí. El audio se vuelve a generar al abrir un proyecto.</p>
+<p class="small">Se guardan automáticamente en este navegador, incluyendo el volumen, los instrumentos y los semitonos. En otros dispositivos no aparecerán y, al abrirlos, el audio se debe generar otra vez.</p>
 </section>
 <section class="card"><div class="eyebrow">PROYECTO MUSICAL</div><h2>Importar partitura</h2><div class="drop" id="drop">
 <strong>Subir partitura MusicXML (.mxl incluido)</strong><p class="small">Admite .mxl, .musicxml y .xml. También puedes arrastrar el archivo aquí.</p>
@@ -615,7 +615,7 @@ function makeVoiceRows(){
   const steps=document.createElement("div");steps.className="stepper";
   const minus=document.createElement("button");minus.type="button";minus.textContent="−";minus.setAttribute("aria-label","Bajar un semitono: "+displayName);
   const plus=document.createElement("button");plus.type="button";plus.textContent="+";plus.setAttribute("aria-label","Subir un semitono: "+displayName);
-  const n=document.createElement("output");n.textContent="0";n.title="Semitonos";
+  const n=document.createElement("output");n.textContent=(group.offset>0?"+":"")+group.offset;n.title="Semitonos";
   function change(delta){group.offset=clamp(group.offset+delta,-24,24);n.textContent=(group.offset>0?"+":"")+group.offset;clearAudio();updateMixerSummary();scheduleProjectSave()}
   minus.onclick=()=>change(-1);plus.onclick=()=>change(1);
   steps.append(minus,n,plus);pitch.append(pitchTitle,steps);
