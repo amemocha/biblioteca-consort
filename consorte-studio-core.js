@@ -152,6 +152,22 @@ async function openSavedProject(id){
      wasMigrated=true;
    }catch(err){console.warn("No se pudo restaurar la afinación escrita del MusicXML original",err)}
   }
+  // Recover documented string tunings for previously saved projects.
+  // Old projects already have written pitches but predate tabTuning parsing.
+  if(record.sourceXML&&restoredScore.groups.some(g=>!Array.isArray(g.tabTuning))){
+   try{
+    const source=parse(record.sourceXML,record.title||"Partitura");
+    for(const group of restoredScore.groups){
+     if(Array.isArray(group.tabTuning))continue;
+     const match=source.groups.find(g=>g.name===group.name)||
+                 source.groups.find(g=>g.id===group.id);
+     if(Array.isArray(match?.tabTuning)){
+      group.tabTuning=match.tabTuning.slice();
+      wasMigrated=true;
+     }
+    }
+   }catch(err){console.warn("No se pudo recuperar la afinación del documento original",err)}
+  }
   state.score=restoredScore;state.sourceXML=record.sourceXML||null;
   state.projectId=record.id;state.projectName=record.title||record.score.title;
   $("tempo").value=clamp(int(record.tempo,100),30,240);
@@ -661,7 +677,7 @@ function parse(xml,filename=""){
        if(line>=1&&line<=12&&step in semis&&octave>=0&&octave<=8)
         openStrings[line-1]=12*(octave+1)+semis[step]+alter;
       }
-      if(openStrings.length>=4&&openStrings.every(Number.isFinite)){
+      if(openStrings.length>=4&&Array.from({length:openStrings.length},(_,i)=>openStrings[i]).every(Number.isFinite)){
        staffTunings.set(staffNumber,openStrings);
        for(const g of byId.values())if(g.staff===staffNumber)g.tabTuning=openStrings.slice();
       }
