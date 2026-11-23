@@ -173,7 +173,8 @@ function fileName(){
   .replace(/[^\w\- ]/g,"").trim().replace(/\s+/g,"_").slice(0,80)||"Partitura";
 }
 function makeFile(){
- return new File([validXML()],fileName()+".musicxml",{type:"application/vnd.recordare.musicxml+xml"});
+ const ext=$("xmlComposerExtension")?.value==="xml"?"xml":"musicxml";
+ return new File([validXML()],fileName()+"."+ext,{type:"application/vnd.recordare.musicxml+xml"});
 }
 function refreshParts(){
  const select=$("xmlComposerPart");select.replaceChildren();
