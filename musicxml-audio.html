@@ -72,7 +72,7 @@ button.primary{box-shadow:0 3px 10px #2563eb2b}
 #saveStatus{min-height:1.1em;margin:7px 0 0}
 @media(max-width:480px){.library-head{flex-direction:column}.project-list{grid-template-columns:1fr}}
 </style></head>
-<body><header class="studio-header"><div class="header-inner"><div class="brand-kicker">CONSORT STUDIO</div><div class="build-version">Versión 2026.11.23-06 · Mis proyectos y notas continuas</div><h1>Tu música, a tu manera.</h1><p>Importa tu partitura, ajusta cada instrumento y crea el audio que necesitas.</p></div></header>
+<body><header class="studio-header"><div class="header-inner"><div class="brand-kicker">CONSORT STUDIO</div><div class="build-version">Versión 2026.11.23-07 · Sin pausas artificiales entre compases</div><h1>Tu música, a tu manera.</h1><p>Importa tu partitura, ajusta cada instrumento y crea el audio que necesitas.</p></div></header>
 <main>
 <section class="card project-library" id="library">
 <div class="library-head"><div><div class="eyebrow">TU ESPACIO DE TRABAJO</div><h2>Mis proyectos</h2>
@@ -106,7 +106,7 @@ const $=id=>document.getElementById(id);
 const state={score:null,url:null,blob:null,busy:false,exporting:false,stems:new Map(),
  sampleRate:22050,duration:0,context:null,sources:[],gains:new Map(),
  playing:false,startedAt:0,pauseOffset:0,animationFrame:0,
- projectId:null,projectName:"",dbPromise:null,saveTimer:0};
+ projectId:null,projectName:"",dbPromise:null,saveTimer:0,sourceXML:null};
 
 // Proyectos editables guardados localmente en IndexedDB (no almacenamiento en la nube).
 function openProjectDatabase(){
@@ -179,7 +179,8 @@ async function renderProjects(){
 async function saveCurrentProject(expectedId=state.projectId){
  if(!state.score||!expectedId||expectedId!==state.projectId)return;
  const record={id:expectedId,title:state.projectName||state.score.title||"Partitura",
-  updatedAt:Date.now(),tempo:clamp(int($("tempo").value,100),30,240),score:state.score};
+  updatedAt:Date.now(),tempo:clamp(int($("tempo").value,100),30,240),
+  sourceXML:state.sourceXML,score:state.score};
  await projectOperation("readwrite","put",record);
  if(expectedId===state.projectId)projectNotice("Proyecto guardado en este navegador.");
  await renderProjects();
@@ -204,12 +205,17 @@ async function openSavedProject(id){
   const record=await projectOperation("readonly","get",id);
   if(!record||!record.score)throw Error("Proyecto no encontrado.");
   clearAudio();
-  state.score=record.score;state.projectId=record.id;state.projectName=record.title||record.score.title;
+  state.score=record.score;state.sourceXML=record.sourceXML||null;
+  state.projectId=record.id;state.projectName=record.title||record.score.title;
   $("tempo").value=clamp(int(record.tempo,100),30,240);
   $("info").hidden=false;
   $("info").textContent=state.projectName+" · "+state.score.groups.length+" instrumentos · "+state.score.notes.length+" notas";
   $("settings").hidden=false;
-  makeVoiceRows();updateDurationEstimate();projectNotice("Proyecto abierto para editar. Genera el audio cuando quieras.");
+  makeVoiceRows();updateDurationEstimate();
+  projectNotice(record.sourceXML
+   ?"Proyecto abierto. Se conservan tus ajustes; genera el audio cuando quieras."
+   :"Este proyecto se guardó antes de la corrección de compases. Para corregir su ritmo, vuelve a importar el MusicXML original.");
+
   await renderProjects();
   $("settings").scrollIntoView({behavior:"smooth",block:"start"});
  }catch(err){problem("No se pudo abrir el proyecto: "+(err.message||err))}
@@ -219,7 +225,7 @@ async function removeSavedProject(id){
  try{
   if(state.projectId===id){
    if(state.saveTimer)clearTimeout(state.saveTimer);state.saveTimer=0;
-   clearAudio();state.projectId=null;state.projectName="";state.score=null;
+   clearAudio();state.projectId=null;state.projectName="";state.score=null;state.sourceXML=null;
    $("settings").hidden=true;$("info").hidden=true;
   }
   await projectOperation("readwrite","delete",id);
@@ -471,6 +477,7 @@ $("seek").onchange=()=>{
 // MusicXML usa divisiones locales y "backup" para voces simultáneas.
 function sharedMeasureStarts(parts){
  const lengths=[],counts=parts.map(p=>kids(p,"measure"));
+ let partialBars=0;
  for(const measures of counts){
   let divisions=1,meter=4;
   for(const [i,measure] of measures.entries()){
@@ -502,15 +509,19 @@ function sharedMeasureStarts(parts){
     if(!chord){lastOnset=cursor;cursor+=d}
     furthest=Math.max(furthest,cursor,at+d);
    }
-   // Conserva la anacrusa; el resto de los compases dura la métrica escrita.
-   const pickup=measure.getAttribute("implicit")==="yes"||
-       (i===0&&furthest>0&&furthest<meter-.001);
-   const length=pickup?furthest:Math.max(furthest,meter);
+   // MusicXML codifica notas y silencios con duración. No añadir silencios
+   // al final de un compás parcialmente escrito: eso creó pausas falsas
+   // entre compases, especialmente en exportaciones simplificadas.
+   // Solo usar la métrica como respaldo cuando el compás está vacío.
+   const length=furthest>0?furthest:meter;
+   if(furthest>0&&furthest<meter-0.001)partialBars++;
    lengths[i]=Math.max(lengths[i]||0,length);
   }
  }
  let position=0;
- return lengths.map(len=>{const start=position;position+=len;return start});
+ const starts=lengths.map(len=>{const start=position;position+=len;return start});
+ starts.shortBars=partialBars;
+ return starts;
 }
 
 function parse(xml,filename=""){
@@ -553,7 +564,18 @@ function parse(xml,filename=""){
      continue;
     }
     if(tag==="direction"){
-     const sound=one(e,"sound"),bpm=int(sound?.getAttribute("tempo"),0);
+     const sound=one(e,"sound");
+     let bpm=Number(sound?.getAttribute("tempo"))||0;
+     if(!(bpm>0)){
+      const metronome=one(one(e,"direction-type"),"metronome");
+      const perMinute=Number(text(metronome,"per-minute","0"));
+      if(perMinute>0){
+       const noteUnit=text(metronome,"beat-unit","quarter").toLowerCase();
+       const unit={whole:4,half:2,quarter:1,eighth:.5,"16th":.25,"32nd":.125}[noteUnit]||1;
+       const dotted=one(metronome,"beat-unit-dot")?1.5:1;
+       bpm=perMinute*unit*dotted;
+      }
+     }
      if(pi===0&&bpm>0)tempi.push({quarter:cursor,bpm});
      continue;
     }
@@ -594,7 +616,8 @@ function parse(xml,filename=""){
  const title=text(one(root,"work"),"work-title")||text(root,"movement-title")||"Partitura";
  const merged=combineInstrumentVoices(groups,notes);
  return {title,groups:merged.groups,notes:merged.notes,tempo:tempi[0]?.bpm||100,
-   originalVoices:groups.length, originalParts:scoreParts.length};
+   originalVoices:groups.length, originalParts:scoreParts.length,
+   shortBars:measureStarts.shortBars};
 }
 function makeVoiceRows(){
  const root=$("voices");
@@ -739,14 +762,17 @@ async function load(file){
  try{
   problem("");status("");
   await flushProjectSave();
-  const score=parse(await readMusicXML(file),file.name);
+  const xml=await readMusicXML(file);
+  const score=parse(xml,file.name);
   clearAudio();
-  state.score=score;
+  state.sourceXML=xml;state.score=score;
   state.projectId="project-"+Date.now()+"-"+Math.random().toString(36).slice(2);
   state.projectName=score.title&&score.title!=="Partitura"?score.title:file.name.replace(/\.(mxl|musicxml|xml)$/i,"");
   $("tempo").value=clamp(Math.round(score.tempo),30,240);
   $("info").hidden=false;$("info").textContent=state.projectName+" · "+score.originalVoices+" pistas del XML reunidas en "+score.groups.length+" instrumentos · "+score.notes.length+" notas";
   makeVoiceRows();$("settings").hidden=false;updateDurationEstimate();
+  if(score.shortBars)status("Partitura importada. "+score.shortBars+
+    " compases parciales identificados; no se añaden pausas al final de ellos.");
   try{await saveCurrentProject();}catch(err){projectNotice("No se pudo guardar el proyecto automáticamente: "+(err.message||err))}
  }catch(err){problem(err.message||String(err))}
 }
