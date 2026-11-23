@@ -108,9 +108,22 @@ button.primary{box-shadow:0 3px 10px #2563eb2b}
 <p class="small">Se guardan automáticamente en este navegador, incluyendo el volumen, los instrumentos y los semitonos. En otros dispositivos no aparecerán y, al abrirlos, el audio se debe generar otra vez.</p>
 </section>
 
+
+<section class="card" id="pdfOmrSection" aria-labelledby="pdfOmrHeading" style="scroll-margin-top:14px">
+ <div class="eyebrow">PDF A PARTITURA DIGITAL</div>
+ <h2 id="pdfOmrHeading">Convertir PDF de partitura a MusicXML</h2>
+ <p class="small">Esto es reconocimiento óptico de música (OMR): identifica pentagramas, notas, compases y voces a partir de un PDF o escaneo. No es lo mismo que crear una partitura escribiéndola manualmente.</p>
+ <div class="actions" style="margin-top:12px">
+  <a class="action primary" href="https://dsalex1.github.io/sheetscan/" target="_blank" rel="noopener noreferrer" style="background:#2563eb;color:white;border-color:#2563eb">Abrir conversor PDF → MusicXML (Sheetscan)</a>
+  <button type="button" id="pdfOmrImport" class="primary">Importar MusicXML convertido en Studio</button>
+ </div>
+ <p class="small">1. Abre el conversor y selecciona allí tu PDF. 2. Revisa las notas y descarga el MusicXML. 3. Vuelve a Studio y pulsa «Importar MusicXML convertido» para generar audio o editar las voces.</p>
+ <p class="small"><strong>Estado:</strong> el reconocimiento se ejecuta en el conversor externo, no dentro del motor de Biblioteca. Según su documentación, procesa la partitura en tu dispositivo y descarga aproximadamente 150 MB de modelos la primera vez. Puede confundir notas, silencios, claves y repeticiones; comprueba el resultado antes de usarlo.</p>
+</section>
+
 <section class="card" id="xmlComposerSection" aria-labelledby="xmlComposerHeading">
  <div class="eyebrow">COMPOSICIÓN MUSICAL</div>
- <h2 id="xmlComposerHeading">Crear archivo MusicXML</h2>
+ <h2 id="xmlComposerHeading">Crear partitura manualmente</h2>
  <p class="small">Escribe notas y silencios por instrumento, organiza compases y genera un documento musical que puedas abrir en MuseScore o convertir a audio aquí mismo.</p>
  <div class="xml-composer-fields">
   <label>Título de la obra<input id="xmlComposerTitle" type="text" maxlength="120" value="Nueva composición" placeholder="Nombre de la composición"></label>
@@ -210,4 +223,5 @@ button.primary{box-shadow:0 3px 10px #2563eb2b}
 <script src="./consorte-studio-audio-editor.js"></script>
 <script src="./consorte-studio-tablature.js?v=20261123native6"></script>
 <script src="./consorte-studio-xml-composer.js?v=20261123xml4"></script>
+<script>(function(){const b=document.getElementById("pdfOmrImport");if(b)b.addEventListener("click",()=>{const x=document.getElementById("chooseMxl");if(x){x.click();return}const f=document.getElementById("file");if(f)f.click();});})();</script>
 </body></html>
