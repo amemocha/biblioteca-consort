@@ -121,6 +121,7 @@ function render(){
  $("tabPrev").disabled=page<=0;$("tabNext").disabled=page>=pages-1;
  const begin=page*beatsPerPage,end=begin+beatsPerPage;
  const layout=$("tabLayout").value;
+ if(lastTuningGroup!==id)$("tabTuning").value=Array.isArray(g.tabCustomTuning)?"custom":"original";
  const selectedTuning=$("tabTuning").value;
  const originalTuning=Array.isArray(g.tabTuning)&&g.tabTuning.length>=4&&
   Array.from({length:g.tabTuning.length},(_,i)=>g.tabTuning[i]).every(Number.isFinite)
