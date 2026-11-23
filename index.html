@@ -146,6 +146,7 @@ body:has(#consorteEditDock.active) #resizeHandle{z-index:11999!important;bottom:
 }
 #scoreview{overscroll-behavior-y:contain;scroll-behavior:auto}
 </style><link rel="stylesheet" href="./consorte-studio-native.css?v=20261123native5">
+<link rel="stylesheet" href="./consorte-studio-xml-composer.css?v=20261123xml1">
 <link rel="stylesheet" href="./consorte-audio-editor.css?v=2">
 </head><body><div class="app"><aside class="sidebar"><div class="logos"><img id="logA"><img id="logB"></div><button class="nav active" data-page="library">▦ Biblioteca</button><button class="nav" data-page="study">♫ Partitura + audio</button><button class="nav" data-page="consortstudio">♫ Consort Studio</button><button class="nav" data-page="calendar">▣ Calendario</button><button class="nav" data-page="backup">⇩ Respaldo</button><div class="sidefoot">Fundación Consorte · Orquesta Juvenil de Guitarras<br>Almacenamiento local en este navegador</div></aside><main class="main"><header class="top"><strong>Biblioteca Consorte · Orquesta Juvenil de Guitarras</strong><img id="headerLogo" alt="Logo Orquesta"></header><div class="content">
 <section class="page active" id="library"><h1>Tu biblioteca musical</h1><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 16px"><button id="printLibraryScore" type="button" style="background:#fff;color:#202020;border:2px solid #333;font-size:16px;font-weight:800;padding:13px 20px;box-shadow:0 2px 8px #0002">🖨 IMPRIMIR PARTITURA</button><span class="small">Selecciona cualquier partitura PDF o imagen para imprimirla completa.</span></div><p class="sub">Organiza canciones, carpetas, partituras y audios. Toca un archivo para abrirlo.</p><div class="card"><div class="flex"><input class="fill" id="search" placeholder="Buscar canción o archivo…" aria-label="Buscar"><select id="instrumentFilter" aria-label="Filtrar guitarra"><option value="">Todas las guitarras</option><option>Soprano</option><option>Alto</option><option>Tenor</option><option>Bajo</option><option>Contrabajo</option><option>General</option></select><select id="typeFilter"><option value="">Todos los archivos</option><option value="audio">Audios</option><option value="score">Partituras</option></select><select id="songFilter" aria-label="Filtrar por canción"><option value="">Todas las canciones</option></select><select id="categoryFilter" aria-label="Filtrar por categoría"><option value="">Todas las categorías</option></select><label class="small" style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="groupBySong"> Agrupar por canción</label></div><div id="folderLocation" role="status" style="font-weight:700;margin:8px 0"></div><div id="consort-folder-duplicate-report" hidden style="margin:8px 0;padding:12px;background:#f7f1ff;border:1px solid #bca4d9;border-radius:12px"></div><div id="consort-cloud-folder-info" style="margin:10px 0;padding:12px 14px;border:1px solid #b9a2db;background:#f7f3ff;color:#3b2862;border-radius:12px;font-size:14px"><strong>Carpetas de la nube</strong> · Se recuperan al iniciar sesión. <button type="button" id="consort-cloud-recovery-shortcut" style="margin-left:8px;background:#6745a1;color:white">Verificar y recuperar carpetas</button><span id="consort-cloud-folder-info-status" style="display:block;font-size:12px;margin-top:5px"></span></div><div class="flex" id="folderNavigation" hidden style="gap:10px;margin:12px 0;flex-wrap:wrap"><button class="primary" id="backToLibraryHome" type="button" style="background:#8b522e;color:white;font-weight:750;font-size:15px;padding:12px 18px">← Volver al inicio</button><button id="backToParentFolder" type="button" style="font-size:14px;padding:11px 16px">↑ Carpeta anterior</button></div><div class="tree" id="breadcrumbs"></div><div class="flex"><button id="undoLastLibraryAction" disabled type="button">↶ Deshacer última acción</button><button id="consort-check-duplicate-folders" type="button">Revisar carpetas duplicadas</button><button id="selectLibraryFolders" type="button">☑ Seleccionar archivos y carpetas</button><button id="selectAllLibraryFolders" type="button" hidden>☑ Seleccionar todos los visibles</button><button id="clearSelectedLibraryFolders" type="button" hidden>Deseleccionar todas</button><label id="folderSizeControls" hidden style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-weight:700">Tamaño de carpetas <select id="folderSizeChoice" aria-label="Tamaño de carpetas"><option value="small">Pequeño</option><option value="normal" selected>Normal</option><option value="large">Grande</option><option value="extra">Muy grande</option></select><button id="sizeSelectedFolders" type="button">Aplicar a seleccionadas</button><button id="sizeAllFolders" type="button">Aplicar a todas</button></label><button id="moveSelectedFolders" type="button" class="primary" hidden>Mover seleccionados (0)</button><button id="deleteSelectedFolders" type="button" class="danger" hidden>Eliminar seleccionados (0)</button><button id="cancelFolderSelection" type="button" hidden>Cancelar selección</button><button class="primary" id="newFolder">＋ Nueva carpeta</button><button class="primary" id="organizeSongs" type="button" style="background:#8b522e;color:#fff;font-weight:750">↪ Organizar canciones en carpetas</button><button id="pickFiles">↑ Elegir archivos</button><span class="small">PDF, imágenes, MP3, WAV, MusicXML</span></div><div class="drop" id="drop"> Arrastra archivos aquí o toca para seleccionarlos</div><input class="hidden" type="file" multiple id="fileInput" accept=".pdf,.mp3,.wav,.ogg,.m4a,.aac,.musicxml,.xml,.png,.jpg,.jpeg,.webp,audio/*,image/*,application/pdf"><p id="uploadStatus" class="status" role="status"></p></div><div class="library-view-toolbar" aria-label="Forma de mostrar los archivos">
@@ -171,6 +172,55 @@ body:has(#consorteEditDock.active) #resizeHandle{z-index:11999!important;bottom:
 <div id="projectsList" class="project-list"><p class="small">Buscando proyectos guardados…</p></div>
 <p class="small">Se guardan automáticamente en este navegador, incluyendo el volumen, los instrumentos y los semitonos. En otros dispositivos no aparecerán y, al abrirlos, el audio se debe generar otra vez.</p>
 </section>
+
+<section class="card" id="xmlComposerSection" aria-labelledby="xmlComposerHeading">
+ <div class="eyebrow">COMPOSICIÓN MUSICAL</div>
+ <h2 id="xmlComposerHeading">Crear archivo MusicXML</h2>
+ <p class="small">Escribe notas y silencios por instrumento, organiza compases y genera un documento musical que puedas abrir en MuseScore o convertir a audio aquí mismo.</p>
+ <div class="xml-composer-fields">
+  <label>Título de la obra<input id="xmlComposerTitle" type="text" maxlength="120" value="Nueva composición" placeholder="Nombre de la composición"></label>
+  <label>Compositor o arreglista<input id="xmlComposerAuthor" type="text" maxlength="120" placeholder="Autor"></label>
+  <label>Numerador del compás<select id="xmlComposerBeats"><option value="2">2 tiempos</option><option value="3">3 tiempos</option><option value="4" selected>4 tiempos</option><option value="5">5 tiempos</option><option value="6">6 tiempos</option><option value="7">7 tiempos</option><option value="9">9 tiempos</option><option value="12">12 tiempos</option></select></label>
+  <label>Unidad de compás<select id="xmlComposerBeatType"><option value="4" selected>Negra (4)</option><option value="8">Corchea (8)</option><option value="2">Blanca (2)</option><option value="16">Semicorchea (16)</option></select></label>
+  <label>Tempo (negras/minuto)<input id="xmlComposerTempo" type="number" min="30" max="240" value="100"></label>
+ </div>
+ <div class="xml-composer-voices">
+  <label>Instrumento que estás escribiendo<select id="xmlComposerPart" aria-label="Instrumento a editar"></select></label>
+  <button id="xmlComposerAddPart" type="button">+ Añadir instrumento</button>
+  <button id="xmlComposerFiveGuitars" type="button">Plantilla de cinco guitarras</button>
+  <button id="xmlComposerRemovePart" type="button">Quitar instrumento</button>
+ </div>
+ <label class="xml-composer-part-name">Nombre del instrumento<input id="xmlComposerPartName" type="text" maxlength="80" placeholder="Guitarra soprano"></label>
+ <div class="xml-composer-entry">
+  <label>Figura<select id="xmlComposerFigure">
+   <option value="quarter" selected>Negra (1 tiempo)</option>
+   <option value="half">Blanca (2 tiempos)</option>
+   <option value="whole">Redonda (4 tiempos)</option>
+   <option value="eighth">Corchea (1/2 tiempo)</option>
+   <option value="16th">Semicorchea (1/4 tiempo)</option>
+   <option value="32nd">Fusa (1/8 tiempo)</option>
+  </select></label>
+  <label>Tipo<select id="xmlComposerKind"><option value="note">Nota</option><option value="rest">Silencio</option><option value="chord">Añadir nota al acorde anterior</option></select></label>
+  <label>Altura<input id="xmlComposerPitch" type="text" value="Mi4" placeholder="Mi4, Fa#4, Sib3" maxlength="12"></label>
+  <label class="xml-composer-dot"><input type="checkbox" id="xmlComposerDot"> Puntillo</label>
+  <button id="xmlComposerAddNote" class="primary" type="button">Añadir figura</button>
+  <button id="xmlComposerFinishBar" type="button">Completar compás con silencio</button>
+ </div>
+ <p class="small">Las alturas admiten Do, Re, Mi, Fa, Sol, La, Si o C, D, E, F, G, A, B con octava (ej.: Do4, F#3). Las notas de acorde suenan a la vez y deben caber en el mismo instrumento.</p>
+ <div class="xml-composer-preview">
+  <div class="xml-composer-preview-head"><strong id="xmlComposerPartTitle">Guitarra soprano</strong><span id="xmlComposerCount" class="small">0 figuras</span></div>
+  <div id="xmlComposerEvents" class="xml-composer-events"></div>
+ </div>
+ <p id="xmlComposerStatus" role="status" aria-live="polite" class="small"></p>
+ <div class="xml-composer-footer">
+  <label>Guardar en Biblioteca<select id="xmlComposerFolder"><option value="">Inicio de Biblioteca</option></select></label>
+  <button id="xmlComposerSaveLibrary" type="button">Guardar MusicXML en Biblioteca</button>
+  <button id="xmlComposerDownload" type="button">Descargar .musicxml</button>
+  <button id="xmlComposerUseAudio" type="button" class="primary">Abrir en generador de audio</button>
+ </div>
+ <p class="small">Los compases se completan con silencios escritos al exportar. El borrador se guarda automáticamente en este navegador; no modifica ninguna partitura original.</p>
+</section>
+
 <section class="card"><div class="eyebrow">PROYECTO MUSICAL</div><h2>Importar partitura</h2><div class="drop" id="cs-drop">
 <strong>Subir partitura MusicXML (.mxl incluido)</strong><p class="small">Admite .mxl, .musicxml y .xml. También puedes arrastrar el archivo aquí.</p>
 <div class="actions" style="justify-content:center;margin-top:12px">
@@ -3276,6 +3326,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 <script src="./consorte-studio-core.js?v=20261123native5"></script>
 <script src="./consorte-studio-library-bridge.js?v=20261123native5"></script>
 <script src="./consorte-studio-audio-editor.js?v=20261123native5"></script>
-<script src="./consorte-studio-tablature.js?v=20261123native5"></script>
+<script src="./consorte-studio-tablature.js?v=20261123native6"></script>
+<script src="./consorte-studio-xml-composer.js?v=20261123xml1"></script>
 <script>window.dispatchEvent(new Event("consorte-studio-native-ready"));</script>
 </body></html>
