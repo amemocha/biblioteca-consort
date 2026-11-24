@@ -769,8 +769,32 @@ function projectInfoText(score,name){
   (score.correctedEndings?" · "+score.correctedEndings+" casilla(s) numerada(s) incorrectamente: corregidas":"");
 }
 
+// Audio-only octave correction. Keep written pitch, MusicXML and tablature intact.
+function defaultAudioOctaveDown(score){
+ return score.groups.length>0&&score.groups.every(g=>instrumentRole(g.name,true)&&Number(g.offset||0)===0)
+  &&score.notes.length>0&&score.notes.every(n=>Number.isFinite(n.writtenMidi)&&n.midi===n.writtenMidi);
+}
+function setupAudioOctaveControl(root){
+ if(typeof state.score.audioOctaveDown!=="boolean")
+  state.score.audioOctaveDown=defaultAudioOctaveDown(state.score);
+ let label=$("consortAudioOctaveLabel");
+ if(!label){
+  label=document.createElement("label");label.id="consortAudioOctaveLabel";
+  label.className="small";label.style.cssText="display:flex;align-items:center;gap:8px;margin:8px 0 12px;flex-wrap:wrap";
+  const input=document.createElement("input");input.type="checkbox";input.id="consortAudioOctave";
+  const title=document.createElement("span");title.textContent="Audio de guitarra: bajar una octava (−12 semitonos)";
+  label.append(input,title);root.before(label);
+  input.onchange=()=>{
+   if(!state.score||state.busy||state.exporting){input.checked=!!state.score?.audioOctaveDown;return}
+   state.score.audioOctaveDown=input.checked;
+   clearAudio();scheduleProjectSave();
+  };
+ }
+ $("consortAudioOctave").checked=state.score.audioOctaveDown;
+}
 function makeVoiceRows(){
  const root=$("voices");
+ setupAudioOctaveControl(root);
  root.replaceChildren();
  root.className="mixer-grid";
  for(const group of state.score.groups){
@@ -960,6 +984,7 @@ async function synthesize(){
  if(state.busy||state.exporting||!state.score)return;
  const tempo=clamp(int($("tempo").value,100),30,240);
  const groups=new Map(state.score.groups.map(g=>[g.id,g]));
+ const audioOctaveOffset=state.score.audioOctaveDown?-12:0;
  const maxQuarter=Math.max(state.score.quarterLength||0,...state.score.notes.map(n=>n.start+n.duration));
  const lengthSeconds=maxQuarter*60/tempo+1;
  if(!Number.isFinite(lengthSeconds)||lengthSeconds<=0){problem("La duración calculada de la partitura no es válida.");return}
@@ -980,8 +1005,8 @@ async function synthesize(){
   let count=0;
   for(const note of state.score.notes){
    const g=groups.get(note.group);if(!g)continue;
-   const midi=note.midi+g.offset;
-   if(midi<20||midi>115)continue;
+   const midi=note.midi+g.offset+audioOctaveOffset;
+   if(midi<0||midi>127)continue;
    const freq=440*Math.pow(2,(midi-69)/12);
    const start=Math.max(0,Math.round(note.start*60/tempo*rate));
    const maxDur=note.duration*60/tempo;
