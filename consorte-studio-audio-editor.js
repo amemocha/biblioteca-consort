@@ -20,7 +20,7 @@ panel.innerHTML=[
 '<div class="ce-row"><button type="button" id="ce-cut">✂ Conservar selección</button><button type="button" id="ce-remove">Eliminar selección</button><button type="button" id="ce-silence">Silenciar tramo</button><button type="button" id="ce-fade">Fundido de entrada/salida</button><button type="button" id="ce-normalize">Normalizar volumen</button><button type="button" id="ce-reverse">Invertir tramo</button></div>',
 '<div class="ce-row"><button type="button" id="ce-append">＋ Agregar audio al final</button><input type="file" id="ce-append-file" accept="audio/*,.wav,.mp3,.m4a,.ogg" hidden><button type="button" id="ce-undo">↶ Deshacer última edición</button><button type="button" id="ce-original">Restablecer original</button></div>',
 '<h3>Dividir audio en partes</h3>',
-'<p>Marca un intervalo con los controles de inicio y fin y pulsa «Crear parte». Para dividir en dos por el cursor, sitúa la reproducción en el punto de corte. Puedes guardar cada fragmento por separado o todos en una misma carpeta.</p>',
+'<p>Marca un intervalo con los controles de inicio y fin y pulsa «Crear parte». Para dividir en dos por el cursor, sitúa la reproducción en el punto de corte. Puedes escuchar, descargar, reordenar y guardar cada fragmento por separado sin modificar el original.</p>',
 '<div class="ce-row"><button type="button" id="ce-create-part">Crear parte con selección</button><button type="button" id="ce-split-cursor">Dividir en dos en el segundo actual</button></div>',
 '<div class="ce-part-list" id="ce-parts"></div>',
 '<div class="ce-row"><label style="flex:1">Guardar fragmentos en <select id="ce-folder"><option value="">Inicio de Biblioteca</option></select></label><button type="button" class="ce-primary" id="ce-save-all-parts">Guardar todas las partes</button></div>',
@@ -36,7 +36,7 @@ if(playerUI)playerUI.after(toggle,panel);
 const el=id=>panel.querySelector('#'+id);
 const canvas=el('ce-wave');
 let original=null,working=null,record=null,dirty=false,busy=false,undo=null,previewUrl=null,markData=[];
-let start=0,end=0,loading=null;let parts=[];
+let start=0,end=0,loading=null;let parts=[];let partPreview=null,partPreviewUrl=null;
 const status=t=>el('ce-status').textContent=t;
 const sec=t=>Math.max(0,Number(t)||0);
 const time=t=>{t=Math.floor(sec(t));return Math.floor(t/60)+':'+String(t%60).padStart(2,'0')};
@@ -101,7 +101,13 @@ function renderParts(){
   save.onclick=()=>saveAudioPart(part,save);
   const remove=document.createElement("button");remove.type="button";remove.textContent="×";
   remove.title="Quitar de la lista";remove.onclick=()=>{parts.splice(index,1);renderParts()};
-  line.append(label,field,save,remove);list.append(line);
+  const listen=document.createElement("button");listen.type="button";listen.textContent="▶ Escuchar";
+  listen.onclick=async()=>{try{if(partPreview){partPreview.pause();URL.revokeObjectURL(partPreviewUrl)}player.pause();partPreviewUrl=URL.createObjectURL(encodeWav(part.audio));partPreview=new Audio(partPreviewUrl);await partPreview.play();status("Reproduciendo "+part.name)}catch(e){status("No se pudo reproducir: "+e.message)}};
+  const stop=document.createElement("button");stop.type="button";stop.textContent="■ Detener";stop.onclick=()=>{if(partPreview)partPreview.pause()};
+  const download=document.createElement("button");download.type="button";download.textContent="Descargar WAV";download.onclick=()=>{const url=URL.createObjectURL(encodeWav(part.audio));const a=document.createElement("a");a.href=url;a.download=part.name.replace(/\.wav$/i,"")+".wav";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)};
+  const up=document.createElement("button");up.type="button";up.textContent="↑";up.title="Mover antes";up.disabled=index===0;up.onclick=()=>{[parts[index-1],parts[index]]=[parts[index],parts[index-1]];renderParts()};
+  const down=document.createElement("button");down.type="button";down.textContent="↓";down.title="Mover después";down.disabled=index===parts.length-1;down.onclick=()=>{[parts[index+1],parts[index]]=[parts[index],parts[index+1]];renderParts()};
+  line.style.flexWrap="wrap";line.append(label,field,listen,stop,download,up,down,save,remove);list.append(line);
  }
 }
 function addPart(begin,finish){
@@ -123,7 +129,16 @@ el("ce-split-cursor").onclick=()=>{
   status("Sitúa el cursor en un punto interior del audio antes de dividir.");return;
  }
  if(parts.length>28){status("Solo caben 30 partes por sesión.");return}
- addPart(0,position);addPart(position,working.duration);
+ if(busy)return;
+ player.pause();
+ try{
+  const frame=Math.round(position*working.sampleRate);
+  const make=(a,b)=>{const out=new AudioBuffer({numberOfChannels:working.numberOfChannels,length:b-a,sampleRate:working.sampleRate});for(let c=0;c<working.numberOfChannels;c++)out.getChannelData(c).set(working.getChannelData(c).subarray(a,b));return out};
+  const base=String(record?.name||"Audio").replace(/\.[^.]+$/,"");
+  const first=make(0,frame),second=make(frame,working.length);
+  parts.push({name:base+" - parte "+(parts.length+1)+".wav",audio:first},{name:base+" - parte "+(parts.length+2)+".wav",audio:second});
+  renderParts();status("Audio dividido en dos fragmentos independientes. El original se conserva.");
+ }catch(e){status("No se pudo dividir: "+e.message)}
 };
 async function saveAudioPart(part,button){
  const api=window.consorteStudioLibrary;
@@ -159,6 +174,7 @@ el('ce-end').oninput=e=>setSelection('end',e.target.value);
 el('ce-start-now').onclick=()=>{if(working){start=Math.min(sec(player.currentTime),end-1/working.sampleRate);syncSliders()}};
 el('ce-end-now').onclick=()=>{if(working){end=Math.max(sec(player.currentTime),start+1/working.sampleRate);syncSliders()}};
 canvas.addEventListener('click',e=>{if(!working)return;const rect=canvas.getBoundingClientRect();player.currentTime=Math.min(working.duration,Math.max(0,(e.clientX-rect.left)/rect.width*working.duration));draw()});
+player.addEventListener('play',()=>{if(partPreview)partPreview.pause()});
 player.addEventListener('timeupdate',()=>{if(!panel.hidden)draw()});
 function encodeWav(buffer){
  const channels=Math.min(2,buffer.numberOfChannels),frames=buffer.length;
@@ -284,7 +300,7 @@ async function loadSelected(){
  try{
   const buffer=await decode(r.blob);if(loading!==r.id)return;
   if(previewUrl){URL.revokeObjectURL(previewUrl);previewUrl=null}
-  record=r;original=buffer;working=copyBuffer(buffer);dirty=false;undo=null;start=0;end=buffer.duration;parts=[];renderParts();await updateFolderChoices();
+  record=r;original=buffer;working=copyBuffer(buffer);dirty=false;undo=null;start=0;end=buffer.duration;parts=[];if(partPreview){partPreview.pause();URL.revokeObjectURL(partPreviewUrl);partPreview=null;partPreviewUrl=null}renderParts();await updateFolderChoices();
   markData=readMarks();renderMarks();syncSliders();status('Audio listo: '+r.name)
  }catch(e){status('No se pudo abrir el audio: '+e.message)}
 }
