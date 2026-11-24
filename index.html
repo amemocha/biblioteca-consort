@@ -1027,12 +1027,39 @@ async function openLinkedPiece(r){
  const related=own.filter(x=>sameSong(x)||(sameFolder(x)&&sameName(x)));
  const voice=x=>normalize(x.instrument||inferInstrument(x.name));
  related.sort((a,b)=>Number(voice(b)===voice(r))-Number(voice(a)===voice(r)));
+ // Resolver también vínculos guardados desde la otra tarjeta (partitura, audio o tablatura).
+ const fields=['scoreId','audioId','tabId'];
+ const linked=own.filter(x=>fields.some(k=>String(x[k]||'')===String(r.id)));
+ const direct=fields.map(k=>rec(r[k])).filter(valid);
+ const candidates=[...linked,...direct];
+ const matches=(x,k)=>valid(x)&&(k==='audioId'?x.kind==='audio':k==='scoreId'?['pdf','image'].includes(x.kind):['pdf','image','other'].includes(x.kind));
+ function reciprocal(k){
+  const found=new Map();
+  for(const x of candidates){
+   const target=rec(x[k]);
+   if(matches(target,k))found.set(target.id,target);
+   const referencesR=fields.some(f=>String(x[f]||'')===String(r.id));
+   if(referencesR&&matches(x,k)){
+    const isTab=/tablatura|\btab\b/i.test(x.name);
+    const isKnownTab=state.records.some(y=>String(y.tabId||'')===String(x.id));
+    if(k==='audioId'||(k==='scoreId'&&!isTab&&!isKnownTab)||(k==='tabId'&&(isTab||isKnownTab)))found.set(x.id,x);
+   }
+  }
+  const options=[...found.values()];
+  const same=options.filter(x=>voice(x)===voice(r));
+  return options.length===1?options[0]:same.length===1?same[0]:null;
+ }
  const first=predicate=>related.find(predicate);
  let score=valid(rec(r.scoreId))?rec(r.scoreId):null;
  let audio=valid(rec(r.audioId))?rec(r.audioId):null;
  let tablature=valid(rec(r.tabId))?rec(r.tabId):null;
- if(!score&&['pdf','image'].includes(r.kind)&&valid(r))score=r;
+ const ownTab=/tablatura|\btab\b/i.test(r.name)||state.records.some(x=>String(x.tabId||'')===String(r.id));
+ if(!score&&['pdf','image'].includes(r.kind)&&valid(r)&&!ownTab)score=r;
+ if(!tablature&&ownTab&&valid(r))tablature=r;
  if(!audio&&r.kind==='audio'&&valid(r))audio=r;
+ if(!score)score=reciprocal('scoreId');
+ if(!audio)audio=reciprocal('audioId');
+ if(!tablature)tablature=reciprocal('tabId');
  if(!score)score=first(x=>['pdf','image'].includes(x.kind)&&!/tablatura|\btab\b/i.test(x.name))||null;
  if(!audio)audio=first(x=>x.kind==='audio')||null;
  if(!tablature)tablature=first(x=>['pdf','image','other'].includes(x.kind)&&/tablatura|\btab\b/i.test(x.name))||null;
