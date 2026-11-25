@@ -148,7 +148,7 @@ body:has(#consorteEditDock.active) #resizeHandle{z-index:11999!important;bottom:
 </style><link rel="stylesheet" href="./consorte-studio-native.css?v=20261123native5">
 <link rel="stylesheet" href="./consorte-studio-xml-composer.css?v=20261123xml3">
 <link rel="stylesheet" href="./consorte-audio-editor.css?v=2">
-</head><body><div class="app"><aside class="sidebar"><div class="logos"><img id="logA"><img id="logB"></div><button class="nav active" data-page="library">▦ Biblioteca</button><button class="nav" data-page="study">♫ Partitura + audio</button><button class="nav" data-page="consortstudio">♫ Consort Studio</button><button class="nav" data-page="calendar">▣ Calendario</button><button class="nav" data-page="backup">⇩ Respaldo</button><div class="sidefoot">Fundación Consorte · Orquesta Juvenil de Guitarras<br>Almacenamiento local en este navegador</div></aside><main class="main"><header class="top"><strong>Biblioteca Consorte · Orquesta Juvenil de Guitarras</strong><img id="headerLogo" alt="Logo Orquesta"></header><div class="content">
+</head><body><div class="app"><aside class="sidebar"><div class="logos"><img id="logA"><img id="logB"></div><button class="nav active" data-page="library">▦ Biblioteca</button><button class="nav" data-page="study">♫ Partitura + audio</button><button class="nav" data-page="generalplayer">♪ Reproductor</button><button class="nav" data-page="consortstudio">♫ Consort Studio</button><button class="nav" data-page="calendar">▣ Calendario</button><button class="nav" data-page="backup">⇩ Respaldo</button><div class="sidefoot">Fundación Consorte · Orquesta Juvenil de Guitarras<br>Almacenamiento local en este navegador</div></aside><main class="main"><header class="top"><strong>Biblioteca Consorte · Orquesta Juvenil de Guitarras</strong><img id="headerLogo" alt="Logo Orquesta"></header><div class="content">
 <section class="page active" id="library"><h1>Tu biblioteca musical</h1><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 16px"><button id="printLibraryScore" type="button" style="background:#fff;color:#202020;border:2px solid #333;font-size:16px;font-weight:800;padding:13px 20px;box-shadow:0 2px 8px #0002">🖨 IMPRIMIR PARTITURA</button><span class="small">Selecciona cualquier partitura PDF o imagen para imprimirla completa.</span></div><p class="sub">Organiza canciones, carpetas, partituras y audios. Toca un archivo para abrirlo.</p><div class="card"><div class="flex"><input class="fill" id="search" placeholder="Buscar canción o archivo…" aria-label="Buscar"><select id="instrumentFilter" aria-label="Filtrar guitarra"><option value="">Todas las guitarras</option><option>Soprano</option><option>Alto</option><option>Tenor</option><option>Bajo</option><option>Contrabajo</option><option>General</option></select><select id="typeFilter"><option value="">Todos los archivos</option><option value="audio">Audios</option><option value="score">Partituras</option></select><select id="songFilter" aria-label="Filtrar por canción"><option value="">Todas las canciones</option></select><select id="categoryFilter" aria-label="Filtrar por categoría"><option value="">Todas las categorías</option></select><label class="small" style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="groupBySong"> Agrupar por canción</label></div><div id="folderLocation" role="status" style="font-weight:700;margin:8px 0"></div><div id="consort-folder-duplicate-report" hidden style="margin:8px 0;padding:12px;background:#f7f1ff;border:1px solid #bca4d9;border-radius:12px"></div><div id="consort-cloud-folder-info" style="margin:10px 0;padding:12px 14px;border:1px solid #b9a2db;background:#f7f3ff;color:#3b2862;border-radius:12px;font-size:14px"><strong>Carpetas de la nube</strong> · Se recuperan al iniciar sesión. <button type="button" id="consort-cloud-recovery-shortcut" style="margin-left:8px;background:#6745a1;color:white">Verificar y recuperar carpetas</button><span id="consort-cloud-folder-info-status" style="display:block;font-size:12px;margin-top:5px"></span></div><div class="flex" id="folderNavigation" hidden style="gap:10px;margin:12px 0;flex-wrap:wrap"><button class="primary" id="backToLibraryHome" type="button" style="background:#8b522e;color:white;font-weight:750;font-size:15px;padding:12px 18px">← Volver al inicio</button><button id="backToParentFolder" type="button" style="font-size:14px;padding:11px 16px">↑ Carpeta anterior</button></div><div class="tree" id="breadcrumbs"></div><div class="flex"><button id="undoLastLibraryAction" disabled type="button">↶ Deshacer última acción</button><button id="consort-check-duplicate-folders" type="button">Revisar carpetas duplicadas</button><button id="selectLibraryFolders" type="button">☑ Seleccionar archivos y carpetas</button><button id="selectAllLibraryFolders" type="button" hidden>☑ Seleccionar todos los visibles</button><button id="clearSelectedLibraryFolders" type="button" hidden>Deseleccionar todas</button><label id="folderSizeControls" hidden style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-weight:700">Tamaño de carpetas <select id="folderSizeChoice" aria-label="Tamaño de carpetas"><option value="small">Pequeño</option><option value="normal" selected>Normal</option><option value="large">Grande</option><option value="extra">Muy grande</option></select><button id="sizeSelectedFolders" type="button">Aplicar a seleccionadas</button><button id="sizeAllFolders" type="button">Aplicar a todas</button></label><button id="moveSelectedFolders" type="button" class="primary" hidden>Mover seleccionados (0)</button><button id="deleteSelectedFolders" type="button" class="danger" hidden>Eliminar seleccionados (0)</button><button id="cancelFolderSelection" type="button" hidden>Cancelar selección</button><button class="primary" id="newFolder">＋ Nueva carpeta</button><button class="primary" id="organizeSongs" type="button" style="background:#8b522e;color:#fff;font-weight:750">↪ Organizar canciones en carpetas</button><button id="pickFiles">↑ Elegir archivos</button><span class="small">PDF, imágenes, MP3, WAV, MusicXML</span></div><div class="drop" id="drop"> Arrastra archivos aquí o toca para seleccionarlos</div><input class="hidden" type="file" multiple id="fileInput" accept=".pdf,.mp3,.wav,.ogg,.m4a,.aac,.musicxml,.xml,.png,.jpg,.jpeg,.webp,audio/*,image/*,application/pdf"><p id="uploadStatus" class="status" role="status"></p></div><div class="library-view-toolbar" aria-label="Forma de mostrar los archivos">
  <span class="view-label">Ver archivos como:</span>
  <div class="view-switch" role="group" aria-label="Vista de biblioteca">
@@ -312,9 +312,21 @@ body:has(#consorteEditDock.active) #resizeHandle{z-index:11999!important;bottom:
 <h1>Convertir partitura a tablatura</h1>
 <p class="sub">Elige un MusicXML guardado en tu biblioteca, incluso dentro de carpetas o subcarpetas, sin salir de Biblioteca Consorte.</p>
 <iframe id="consorte-tablature-frame" src="./tablaturas.html?embedded=1" title="Conversor de tablaturas de Biblioteca Consorte" loading="eager" style="width:100%;height:calc(100dvh - 190px);min-height:760px;border:0;border-radius:16px;background:#f1e6d6"></iframe>
-</section><section class="page" id="study"><h1>Partitura + audio</h1><p class="sub">Escucha mientras lees, abre la tablatura asociada y utiliza el metrónomo sin salir de Estudio.</p><div class="view"><div class="card scorepane"><div class="flex" style="justify-content:space-between"><h2>Partitura</h2><span id="scoreName" class="small">Sin seleccionar</span></div><div id="consort-score-fullscreen-area"><div class="flex" style="margin-bottom:12px"><button id="chooseScore"> Seleccionar partitura</button><button id="printScore" type="button" title="Imprimir el PDF completo o la imagen de esta partitura">🖨 Imprimir partitura</button><button id="scorePrev">◀ Página</button><span id="pageLabel" class="time">0 / 0</span><button id="scoreNext">Página ▶</button><button id="scoreFullscreen" type="button" aria-label="Pantalla completa de partitura">⛶ Pantalla completa</button></div><div id="scoreview" class="scoreview"><p class="empty">Selecciona una partitura PDF o imagen.</p></div></div><div class="notice" id="pdfNotice" hidden>Si el PDF no aparece, usa Chrome actualizado y conexión a internet para cargar el visor. </div>
+</section><section class="page" id="study"><h1>Partitura + audio</h1><h2 id="studyPieceName" aria-live="polite" style="margin:6px 0"></h2><p class="sub">Escucha mientras lees, abre la tablatura asociada y utiliza el metrónomo sin salir de Estudio.</p><div class="view"><div class="card scorepane"><div class="flex" style="justify-content:space-between"><h2>Partitura</h2><span id="scoreName" class="small">Sin seleccionar</span></div><div id="consort-score-fullscreen-area"><div class="flex" style="margin-bottom:12px"><button id="chooseScore"> Seleccionar partitura</button><button id="printScore" type="button" title="Imprimir el PDF completo o la imagen de esta partitura">🖨 Imprimir partitura</button><button id="scorePrev">◀ Página</button><span id="pageLabel" class="time">0 / 0</span><button id="scoreNext">Página ▶</button><button id="scoreFullscreen" type="button" aria-label="Pantalla completa de partitura">⛶ Pantalla completa</button></div><div id="scoreview" class="scoreview"><p class="empty">Selecciona una partitura PDF o imagen.</p></div></div><div class="notice" id="pdfNotice" hidden>Si el PDF no aparece, usa Chrome actualizado y conexión a internet para cargar el visor. </div>
 <button id="openPDF" type="button" hidden style="display:none!important">Abrir partitura aparte</button><div class="tab-actions"><button class="primary" id="showTab"> Tablatura</button><span class="small" id="tabName">Sin tablatura asociada</span></div>
 <div id="tabView" class="tabview" hidden><div class="flex" style="margin-bottom:12px"><strong>Tablatura de esta pieza</strong><button id="tabBack" type="button">Volver a partitura</button><button id="tabPrev" type="button">◀ Página</button><span id="tabPageLabel" class="time">0 / 0</span><button id="tabNext" type="button">Página ▶</button><button id="tabFullscreen" type="button" aria-label="Pantalla completa de tablatura">⛶ Pantalla completa</button><button id="tabOpen" type="button">Abrir en otra pestaña ↗</button></div><div id="tabDisplay" class="scoreview" aria-label="Visor de tablatura"></div></div></div><div class="tools"><div class="card"><h2>Metrónomo</h2><div class="flex"><label>BPM <input id="bpm" type="number" min="30" max="260" value="100" style="width:90px"></label><label>Compás <select id="beats"><option value="2">2/4</option><option value="3">3/4</option><option value="4" selected>4/4</option><option value="6">6/8</option></select></label><span id="meterLamp"></span><button id="metronome" class="primary">▶ Iniciar</button></div><p class="small">El primer pulso lleva un acento.</p></div><div class="card stickyAudio"><h2>Audio</h2><div class="flex"><button id="chooseAudio"> Seleccionar audio</button><span id="audioName" class="small">Sin seleccionar</span></div><audio id="player" controls preload="metadata"></audio><div class="flex"><label for="speed">Velocidad</label><input class="fill" id="speed" type="range" min="50" max="150" value="100" step="5"><span id="speedText">100%</span></div><div class="small">El tono puede cambiar según el navegador y el formato del audio.</div></div><div class="card"><h2>Seguimiento por página</h2><p class="small">Pulsa «Marcar esta página» mientras suena el audio. La próxima vez la página cambiará automáticamente al llegar a ese segundo.</p><div class="flex"><button class="primary" id="addMark"> Marcar esta página</button><button id="clearMarks">Borrar marcas</button></div><div id="marks" class="notes"></div><p class="small">No es detección automática de notas; es sincronización manual por páginas.</p></div><div class="card"><h2>Archivos de la biblioteca</h2><p class="small">Puedes elegir archivos que ya subiste o seleccionar otros directamente del dispositivo.</p><input id="directScore" type="file" accept=".pdf,image/*" style="width:100%;margin-bottom:8px"><input id="directAudio" type="file" accept="audio/*,.mp3,.wav,.m4a,.ogg" style="width:100%"></div></div></div></section>
+<section class="page" id="generalplayer">
+ <div class="cg-shell">
+  <div class="cg-head"><div><p class="cg-kicker">BIBLIOTECA CONSORT</p><h1>Reproductor de estudio</h1><p>Repertorio general · cinco guitarras</p></div><div class="cg-art" aria-hidden="true">♫</div></div>
+  <div class="cg-now"><div id="cgCover" class="cg-cover" aria-hidden="true">♪</div><div class="cg-current"><small>REPRODUCIENDO</small><h2 id="cgTitle">Selecciona una canción</h2><p id="cgStatus" role="status" aria-live="polite">Solo audios generales de tu biblioteca.</p></div></div>
+  <div class="cg-controls"><button id="cgShuffle" type="button" aria-pressed="false" title="Aleatorio">⤨</button><button id="cgPrev" type="button" title="Anterior" aria-label="Canción anterior">⏮</button><button id="cgPlay" type="button" class="cg-play" aria-label="Reproducir">▶</button><button id="cgNext" type="button" title="Siguiente" aria-label="Canción siguiente">⏭</button><button id="cgRepeat" type="button" aria-pressed="false" title="Repetir canción">↻</button></div>
+  <div class="cg-progress"><span id="cgElapsed">0:00</span><input type="range" id="cgSeek" min="0" max="1000" value="0" aria-label="Posición de reproducción"><span id="cgDuration">0:00</span></div>
+  <div class="cg-options"><label>Velocidad <select id="cgSpeed"><option value=".5">0,5×</option><option value=".75">0,75×</option><option value="1" selected>1×</option><option value="1.25">1,25×</option></select></label><label>Volumen <input id="cgVolume" type="range" min="0" max="1" step=".05" value="1"></label><button id="cgStudy" type="button" disabled>Ver partitura</button></div>
+  <audio id="consortGeneralAudio" preload="metadata"></audio>
+  <div class="cg-listhead"><h2>Canciones</h2><span id="cgCount"></span></div><input id="cgSearch" type="search" placeholder="Buscar en el repertorio…" aria-label="Buscar canción"><div id="cgList" class="cg-list"></div>
+  <p class="cg-help">Se incluyen archivos identificados como General por su nombre, clasificación o carpeta. Los audios por voz no aparecen aquí.</p>
+ </div>
+</section>
 <section class="page" id="custom"><h1>Personalizar diseño</h1><p class="sub">Tus cambios se guardan en este navegador.</p><div class="grid"><div class="card"><h2>Colores</h2><div class="flex"><label>Fondo<br><input id="bgColor" class="colorinput" type="color" value="#f1e6d6"></label><label>Principal<br><input id="darkColor" class="colorinput" type="color" value="#32221e"></label><label>Botones<br><input id="accentColor" class="colorinput" type="color" value="#b86b46"></label></div><button id="resetTheme" style="margin-top:12px">Restaurar colores originales</button></div><div class="card"><h2>Logos</h2><p class="small">Puedes sustituir los logos para tu versión personal.</p><label>Logo de la orquesta <input type="file" accept="image/*" id="replaceLogo" style="width:100%;margin:9px 0"></label><button id="resetLogo">Restaurar logo original</button></div>
 <div class="card"><h2>Editor visual</h2><p class="small">Cambia la forma y el tamaño de los botones, reordena el menú y coloca imágenes libremente. Cerrar el editor guarda el diseño.</p>
 <button class="primary" id="toggleVisualEditor">✎ Abrir editor</button><div id="visualEditor" hidden>
@@ -330,11 +342,11 @@ body:has(#consorteEditDock.active) #resizeHandle{z-index:11999!important;bottom:
 <div class="flex"><button id="removeDecorations">Eliminar imágenes añadidas</button><button class="primary" id="closeVisualEditor">Guardar y cerrar editor</button></div>
 </div></div></div></section>
 <section class="page" id="backup"><h1>Respaldo y datos</h1><div class="card"><h2>Protege tu repertorio</h2><p>Los archivos se guardan en este dispositivo y se sincronizan con tu cuenta de Biblioteca Consort al iniciar sesión. Exporta un ZIP para conservar una copia independiente. No borres los datos del navegador si quedan cambios pendientes de subir.</p><button class="primary" id="export" type="button">↓ Exportar biblioteca (ZIP)</button><p id="consorte-export-status" class="small" role="status" aria-live="polite">El ZIP incluye los archivos y carpetas del repertorio; las copias de la nube se descargarán si es necesario.</p><progress id="consorte-export-progress" max="100" value="0" hidden style="width:100%;height:13px;margin:5px 0"></progress><button id="importFolder">Subir carpeta del computador</button><button id="restoreBackup">↥ Restaurar respaldo ZIP</button><button class="primary" id="importConsorteZip" type="button">Importar ZIP de partituras y audios (organizar por canción)</button><input type="file" id="consorteZipFile" class="hidden" accept=".zip,application/zip"><p id="consorteZipStatus" class="small" role="status"></p><input id="backupFile" class="hidden" type="file" accept=".zip,application/zip"><input type="file" id="folderInput" class="hidden" webkitdirectory directory multiple></div></section>
-</div></main></div><nav class="bottomnav"><button data-page="library" class="active">▦<br>Biblioteca</button><button data-page="study">♫<br>Estudio</button><button data-page="consortstudio">♫<br>Studio</button><button data-page="calendar">▣<br>Calendario</button><button data-page="backup">⇩<br>Respaldo</button></nav>
+</div></main></div><nav class="bottomnav"><button data-page="library" class="active">▦<br>Biblioteca</button><button data-page="study">♫<br>Estudio</button><button data-page="generalplayer">♪<br>Audio</button><button data-page="consortstudio">♫<br>Studio</button><button data-page="calendar">▣<br>Calendario</button><button data-page="backup">⇩<br>Respaldo</button></nav>
 <div id="consorteEditDock" aria-label="Editor de diseño global">
 <div class="dockNav" role="navigation" aria-label="Cambiar sección mientras editas">
 <button type="button" data-dock-page="library">▦ Biblioteca</button>
-<button type="button" data-dock-page="study">♫ Partitura + audio</button>
+<button type="button" data-dock-page="study">♫ Partitura + audio</button><button type="button" data-dock-page="generalplayer">♪ Reproductor</button>
 <button type="button" data-dock-page="consortstudio">♫ Consort Studio</button>
 <button type="button" data-dock-page="calendar">▣ Calendario</button><button type="button" data-dock-page="backup">⇩ Respaldo</button>
 <label style="display:flex;align-items:center;gap:9px;padding:8px 12px;color:#fff;font-size:13px;white-space:nowrap">Color de carpetas <input id="dockFolderColor" type="color" value="#7e3fb5" style="width:42px;height:34px;border:1px solid #fff8;border-radius:8px;padding:2px;background:#fff"></label><button type="button" id="dockExit">✓ Guardar y cerrar</button>
@@ -378,7 +390,7 @@ function nav(page){
  if(page==='custom'||page==='planner'||page==='tablaturas')page='consortstudio';
  const before=consorteCurrentPage();
  if(before!==page)consortePushNavigation(page);
- document.querySelectorAll('.page').forEach(e=>e.classList.toggle('active',e.id===page));document.querySelectorAll('[data-page]').forEach(e=>e.classList.toggle('active',e.dataset.page===page));if(page==='tablaturas'){try{$('consorte-tablature-frame')?.contentWindow?.refreshTabLibraryFiles?.()}catch(error){console.warn(error)}}window.scrollTo({top:0,behavior:'instant'});}
+ document.querySelectorAll('.page').forEach(e=>e.classList.toggle('active',e.id===page));document.querySelectorAll('[data-page]').forEach(e=>e.classList.toggle('active',e.dataset.page===page));if(page==='tablaturas'){try{$('consorte-tablature-frame')?.contentWindow?.refreshTabLibraryFiles?.()}catch(error){console.warn(error)}}if(page==='generalplayer')window.consortRefreshGeneralPlayer?.();window.scrollTo({top:0,behavior:'instant'});}
 document.querySelectorAll('[data-page]').forEach(b=>b.addEventListener('click',()=>nav(b.dataset.page)));
 function openDB(){return new Promise((resolve,reject)=>{let r=indexedDB.open('consorte_library_v2',1);r.onupgradeneeded=()=>{const db=r.result;const st=db.createObjectStore('files',{keyPath:'id'});st.createIndex('parent','parent')};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
 let db;
@@ -390,7 +402,7 @@ function rec(id){return state.records.find(r=>r.id===id)}
 window.consorteFindRecord=rec;
 window.consorteAllLibraryRecords=()=>state.records;
 window.consorteStudyRecord=r=>openLinkedPiece(r);
-async function refresh(){state.records=await allRecords();rebuildFilters();renderLibrary();try{$('consorte-tablature-frame')?.contentWindow?.refreshTabLibraryFiles?.()}catch(error){console.warn(error)}}
+async function refresh(){state.records=await allRecords();rebuildFilters();renderLibrary();window.consortRefreshGeneralPlayer?.();try{$('consorte-tablature-frame')?.contentWindow?.refreshTabLibraryFiles?.()}catch(error){console.warn(error)}}
 const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now()+'_'+Math.random();
 function getKind(f){if(f.type?.startsWith('audio/')||/\.(mp3|wav|ogg|m4a|aac)$/i.test(f.name))return 'audio';if(f.type?.startsWith('image/')||/\.(png|jpg|jpeg|webp)$/i.test(f.name))return 'image';if(/\.pdf$/i.test(f.name)||f.type==='application/pdf')return 'pdf';return 'other'}
 function inferInstrument(name){const x=name.toLowerCase();return ['Contrabajo','Soprano','Tenor','Alto','Bajo'].find(n=>x.includes(n.toLowerCase()))||''}
@@ -1014,19 +1026,47 @@ function editRecord(r){
 $('editCancel').onclick=()=>$('editor').close();$('editSave').onclick=async()=>{let r={...state.editing,name:safeName($('editName').value.trim()),instrument:$('editInstrument').value};if(!r.name)return alert('Indica un nombre');if(r.type==='file'){r.song=$('editSong').value.trim().slice(0,120);r.category=$('editCategory').value;r.scoreId=$('editScore').value||null;r.tabId=$('editTab').value||null;r.audioId=$('editAudio').value||null;}let f=$('editCover').files[0];if(f){if(f.size>1500000)return alert('La portada debe pesar menos de 1,5 MB');r.cover=await fileAsData(f)}await putRecord(r);$('editor').close();await refresh()};
 function selectRecordDialog(records,title){return new Promise(resolve=>{let dlg=document.createElement('dialog');let heading=document.createElement('h2');heading.textContent=title;dlg.append(heading);for(const item of records){let b=createButton(item.name,()=>{dlg.close();dlg.remove();resolve(item)});b.style.cssText='display:block;width:100%;margin:6px 0;text-align:left';dlg.append(b)}dlg.append(createButton('Cancelar',()=>{dlg.close();dlg.remove();resolve(null)}));dlg.oncancel=()=>{dlg.remove();resolve(null)};document.body.append(dlg);dlg.showModal()})}
 // Abre Estudio desde la propia tarjeta sin solicitar de nuevo los documentos.
+let studySelection=0,studyAudioRequest=0,studyScoreRequest=0;
+function consortStudyNormalize(value){return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim()}
+function consortRecordVoice(record,records=state.records){
+ const role=value=>{const v=consortStudyNormalize(value);return /\b(contrabajo|soprano|alto|tenor|bajo)\b/.exec(v)?.[1]||(/\bgeneral\b/.test(v)?'general':'')};
+ const own=role(record.name)||role(record.instrument);if(own)return own;
+ const seen=new Set();let id=record.parent;
+ while(id&&!seen.has(id)){seen.add(id);const folder=records.find(x=>x.id===id&&x.type==='folder');if(!folder)break;const v=role(folder.name);if(v)return v;id=folder.parent}
+ return '';
+}
+function clearStudySelection(){
+ ++studyAudioRequest;++studyScoreRequest;
+ state.piece=null;state.audio=null;
+ const player=$('player');player.pause();player.removeAttribute('src');player.load();
+ if(state.audioUrl)URL.revokeObjectURL(state.audioUrl);state.audioUrl=null;
+ $('audioName').textContent='Cargando selección…';
+ resetScore();state.score=null;state.scoreUrl=null;state.marks=[];renderMarks();
+ $('scoreview').hidden=false;$('tabView').hidden=true;
+ $('scoreName').textContent='Cargando selección…';$('pageLabel').textContent='0 / 0';
+ ++tabRenderGeneration;state.currentTab=null;tabPdfDocument=null;tabPdfLoad=null;
+ if(tabObjectUrl)URL.revokeObjectURL(tabObjectUrl);tabObjectUrl=null;
+ $('tabDisplay').replaceChildren();updateTabButton();
+}
 async function openLinkedPiece(r){
- nav('study');
  if(!r||r.type!=='file')return;
+ const selection=++studySelection;
+ r=rec(r.id)||r;
+ clearStudySelection();
+ $('consortGeneralAudio')?.pause();
+ nav('study');
+ $('studyPieceName').textContent=r.song||r.name;
  const valid=x=>x&&x.type==='file'&&(x.blob instanceof Blob||!!x.cloudObjectPath);
- const normalize=x=>String(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLocaleLowerCase('es');
+ const normalize=consortStudyNormalize;
  const fileStem=x=>normalize(x).replace(/\.(pdf|png|jpe?g|webp|mp3|wav|m4a|aac|ogg|xml|musicxml)$/,'').replace(/\b(soprano|alto|tenor|bajo|contrabajo|partitura|tablatura|audio|guitarra|voz|score|tab)\b/g,'').replace(/[_\-]+/g,' ').replace(/\s+/g,' ').trim();
  const sameSong=x=>r.song&&x.song&&normalize(r.song)===normalize(x.song);
  const sameName=x=>fileStem(r.name)&&fileStem(r.name)===fileStem(x.name);
  const sameFolder=x=>(x.parent??null)===(r.parent??null);
  const own=state.records.filter(x=>x.type==='file'&&x.id!==r.id&&valid(x));
- const related=own.filter(x=>sameSong(x)||(sameFolder(x)&&sameName(x)));
- const voice=x=>normalize(x.instrument||inferInstrument(x.name));
- related.sort((a,b)=>Number(voice(b)===voice(r))-Number(voice(a)===voice(r)));
+ const voice=x=>consortRecordVoice(x);
+ const compatible=x=>voice(x)===voice(r);
+ const related=own.filter(x=>compatible(x)&&(sameSong(x)||sameName(x)&&(sameFolder(x)||voice(r)!=='')));
+ related.sort((a,b)=>Number(sameFolder(b))-Number(sameFolder(a)));
  // Resolver también vínculos guardados desde la otra tarjeta (partitura, audio o tablatura).
  const fields=['scoreId','audioId','tabId'];
  const linked=own.filter(x=>fields.some(k=>String(x[k]||'')===String(r.id)));
@@ -1050,13 +1090,13 @@ async function openLinkedPiece(r){
   return options.length===1?options[0]:same.length===1?same[0]:null;
  }
  const first=predicate=>related.find(predicate);
- let score=valid(rec(r.scoreId))?rec(r.scoreId):null;
- let audio=valid(rec(r.audioId))?rec(r.audioId):null;
- let tablature=valid(rec(r.tabId))?rec(r.tabId):null;
+ let score=matches(rec(r.scoreId),'scoreId')?rec(r.scoreId):null;
+ let audio=matches(rec(r.audioId),'audioId')?rec(r.audioId):null;
+ let tablature=matches(rec(r.tabId),'tabId')?rec(r.tabId):null;
  const ownTab=/tablatura|\btab\b/i.test(r.name)||state.records.some(x=>String(x.tabId||'')===String(r.id));
- if(!score&&['pdf','image'].includes(r.kind)&&valid(r)&&!ownTab)score=r;
- if(!tablature&&ownTab&&valid(r))tablature=r;
- if(!audio&&r.kind==='audio'&&valid(r))audio=r;
+ if(['pdf','image'].includes(r.kind)&&valid(r)&&!ownTab)score=r;
+ if(ownTab&&valid(r))tablature=r;
+ if(r.kind==='audio'&&valid(r))audio=r;
  if(!score)score=reciprocal('scoreId');
  if(!audio)audio=reciprocal('audioId');
  if(!tablature)tablature=reciprocal('tabId');
@@ -1064,13 +1104,11 @@ async function openLinkedPiece(r){
  if(!audio)audio=first(x=>x.kind==='audio')||null;
  if(!tablature)tablature=first(x=>['pdf','image','other'].includes(x.kind)&&/tablatura|\btab\b/i.test(x.name))||null;
  state.piece={...r,scoreId:score?.id||null,audioId:audio?.id||null,tabId:tablature?.id||null};
- // Cargar primero el audio para ver enseguida el reproductor al tocar un archivo.
- if(!audio){if(state.audioUrl)URL.revokeObjectURL(state.audioUrl);state.audioUrl=null;state.audio=null;$('player').pause();$('player').removeAttribute('src');$('player').load();$('audioName').textContent='Sin audio asociado'}
- else{try{audio=await window.consorteEnsureCloudFile?.(audio)||audio;await chooseAudio(audio)}catch(error){console.error('Error mostrando audio',error);$('audioName').textContent='No se pudo cargar el audio'}}
- // Reiniciar el documento anterior cuando falta una asociación.
- if(!score){resetScore();state.score=null;state.scoreUrl=null;$('scoreName').textContent='Sin partitura asociada';$('scoreview').append(document.createTextNode('No hay partitura asociada a esta canción. Puedes vincularla con ⋯ → Editar.'));$('pageLabel').textContent='0 / 0'}
- else{try{score=await window.consorteEnsureCloudFile?.(score)||score;await chooseScore(score)}catch(error){console.error('Error mostrando partitura',error);$('pdfNotice').hidden=false;$('pdfNotice').textContent='No se pudo mostrar la partitura: '+error.message}}
  updateTabButton();
+ const current=()=>selection===studySelection;
+ const audioTask=audio?chooseAudio(audio,selection).catch(error=>{if(current())$('audioName').textContent='No se pudo cargar '+audio.name+': '+error.message}):Promise.resolve().then(()=>{if(current())$('audioName').textContent='Sin audio asociado'});
+ const scoreTask=score?chooseScore(score,selection).catch(error=>{if(current()){$('scoreName').textContent='No se pudo cargar '+score.name;$('pdfNotice').hidden=false;$('pdfNotice').textContent=error.message}}):Promise.resolve().then(()=>{if(current()){$('scoreName').textContent='Sin partitura asociada';$('scoreview').textContent='No hay partitura asociada. Puedes vincularla desde Editar.'}});
+ await Promise.all([audioTask,scoreTask]);
 }
 
 let tabObjectUrl=null,tabPdfDocument=null,tabPdfLoad=null,tabPage=1,tabRenderGeneration=0;
@@ -1126,7 +1164,9 @@ async function showTabPage(requestedPage){
  }
 }
 async function showLinkedTab(r){
+ const selection=studySelection;
  r=await window.consorteEnsureCloudFile?.(r)||r;
+ if(selection!==studySelection)return;
  if(!(r.blob instanceof Blob)){alert('Este archivo no está descargado en el dispositivo. Sincroniza primero la biblioteca.');return}
  ++tabRenderGeneration;
  if(tabPdfDocument){try{await tabPdfDocument.destroy()}catch(e){}}
@@ -1220,8 +1260,11 @@ function resetScore(){
  if(state.scoreUrl)URL.revokeObjectURL(state.scoreUrl);
  state.pdf=null;state.page=1;$('pdfNotice').hidden=true;
 }
-async function chooseScore(r){
+async function chooseScore(r,selection=studySelection){
+ const request=++studyScoreRequest;
  r=await window.consorteEnsureCloudFile?.(r)||r;
+ if(selection!==studySelection||request!==studyScoreRequest)return;
+ if(!(r.blob instanceof Blob))throw Error('Partitura no disponible');
  $('tabView').hidden=true;$('scoreview').hidden=false;
  resetScore();state.score=r;state.scoreUrl=URL.createObjectURL(r.blob);
  $('scoreName').textContent=r.name;
@@ -1350,7 +1393,14 @@ async function showPage(requested){
  }
 }
 $('scorePrev').onclick=()=>showPage(state.page-1);$('scoreNext').onclick=()=>showPage(state.page+1);$('openPDF').onclick=()=>{if(state.scoreUrl)window.open(state.scoreUrl,'_blank');else alert('Selecciona una partitura')};
-async function chooseAudio(r){r=await window.consorteEnsureCloudFile?.(r)||r;if(state.audioUrl)URL.revokeObjectURL(state.audioUrl);state.audio=r;state.audioUrl=URL.createObjectURL(r.blob);$('player').src=state.audioUrl;$('audioName').textContent=r.name;$('player').load()}
+async function chooseAudio(r,selection=studySelection){
+ const request=++studyAudioRequest;
+ r=await window.consorteEnsureCloudFile?.(r)||r;
+ if(selection!==studySelection||request!==studyAudioRequest)return;
+ if(!(r.blob instanceof Blob))throw Error('Audio no disponible');
+ $('player').pause();if(state.audioUrl)URL.revokeObjectURL(state.audioUrl);
+ state.audio=r;state.audioUrl=URL.createObjectURL(r.blob);$('player').src=state.audioUrl;$('audioName').textContent=r.name;$('player').load();
+}
 
 // Audio editor integration: expose only controlled library operations.
 window.consorteAudioEditorBridge={
@@ -3380,4 +3430,69 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 <script src="./consorte-studio-xml-composer.js?v=20261123xml4"></script>
 <script>(function(){const b=document.getElementById("pdfOmrImport");if(b)b.addEventListener("click",()=>{const x=document.getElementById("chooseMxl");if(x){x.click();return}const f=document.getElementById("file");if(f)f.click();});})();</script>
 <script>window.dispatchEvent(new Event("consorte-studio-native-ready"));</script>
+
+<style>
+#generalplayer .cg-shell{max-width:950px;margin:0 auto;background:#14181c;color:#f5f7f9;border-radius:20px;padding:clamp(16px,4vw,32px);font-family:system-ui,sans-serif}
+#generalplayer .cg-head{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 0 25px;border-bottom:1px solid #ffffff16}
+#generalplayer h1,#generalplayer h2{color:#f5f7f9!important;margin:0}#generalplayer .cg-head h1{font-size:clamp(24px,5vw,38px)}#generalplayer p,#generalplayer small,#generalplayer .cg-kicker{color:#a8b4bd!important;margin:6px 0}#generalplayer .cg-kicker{font-size:11px;letter-spacing:2px}
+#generalplayer .cg-art,#generalplayer .cg-cover{display:grid;place-items:center;flex-shrink:0;background:linear-gradient(145deg,#196b4d,#253943);border-radius:14px;color:white;font-size:40px;width:90px;height:90px}
+#generalplayer .cg-now{display:flex;align-items:center;gap:16px;padding:22px 0 12px}#generalplayer .cg-cover{width:70px;height:70px;font-size:30px}#generalplayer .cg-current{min-width:0;overflow-wrap:anywhere}#generalplayer .cg-current h2{font-size:22px}
+#generalplayer .cg-controls,#generalplayer .cg-options{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
+#generalplayer button{background:#242b30!important;color:#f5f7f9!important;border:1px solid #ffffff1c!important;border-radius:10px!important}
+#generalplayer .cg-controls button{min-width:44px;min-height:44px;font-size:20px;padding:8px!important}#generalplayer .cg-controls .cg-play{border-radius:50%!important;width:58px;height:58px;background:#2bd576!important;color:#0b281a!important}#generalplayer button[aria-pressed=true]{color:#2bd576!important;border-color:#2bd576!important}
+#generalplayer input[type=range]{accent-color:#2bd576;min-width:0;padding:0!important}#generalplayer .cg-progress{display:flex;align-items:center;gap:10px;font-size:12px;color:#bac4cc;margin:16px 0}#generalplayer #cgSeek{flex:1;width:100%}#generalplayer .cg-options{justify-content:space-between;font-size:13px}#generalplayer select,#generalplayer input[type=search]{background:#22292f!important;color:white!important;border:1px solid #ffffff30!important}#generalplayer #cgVolume{width:85px}
+#generalplayer .cg-listhead{display:flex;justify-content:space-between;align-items:center;margin:28px 0 12px}#generalplayer #cgSearch{width:100%;margin-bottom:12px}
+#generalplayer .cg-track{display:flex;gap:12px;align-items:center;width:100%;text-align:left;margin:5px 0;padding:12px!important;min-height:54px}#generalplayer .cg-track[aria-current=true]{background:#183c30!important;color:#65e99e!important}#generalplayer .cg-track span:nth-child(2){flex:1;overflow-wrap:anywhere}#generalplayer .cg-track small{display:block;font-weight:400}#generalplayer .cg-help{font-size:12px;margin-top:18px}
+@media(max-width:600px){#generalplayer .cg-art{width:58px;height:58px;font-size:28px}#generalplayer .cg-controls{gap:6px}#generalplayer .cg-options{justify-content:flex-start}.bottomnav button{font-size:10px!important;min-width:0}}
+</style>
+<script id="consort-general-player">
+(function(){
+ const el=id=>document.getElementById(id),audio=el('consortGeneralAudio');
+ let currentId=null,url=null,loading=0,shuffle=false,repeat=false,list=[];
+ const time=v=>Number.isFinite(v)?Math.floor(v/60)+':'+String(Math.floor(v%60)).padStart(2,'0'):'0:00';
+ function title(r){return r.song||r.name.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ').replace(/\b(audio|general)\b/gi,'').replace(/\s+/g,' ').trim()||r.name}
+ function isGeneral(r){return r.type==='file'&&r.kind==='audio'&&consortRecordVoice(r)==='general'&&(r.blob instanceof Blob||r.cloudObjectPath)}
+ function draw(){
+  list=state.records.filter(isGeneral).sort((a,b)=>title(a).localeCompare(title(b),'es'));
+  const q=consortStudyNormalize(el('cgSearch').value),shown=list.filter(r=>consortStudyNormalize(title(r)+' '+r.name).includes(q));
+  el('cgCount').textContent=shown.length+' de '+list.length;
+  const root=el('cgList');root.replaceChildren();
+  if(!shown.length){const p=document.createElement('p');p.textContent=q?'No hay coincidencias.':'No hay audios generales. Clasifica tus mezclas como General en la biblioteca.';root.append(p)}
+  for(const r of shown){const b=document.createElement('button');b.type='button';b.className='cg-track';b.setAttribute('aria-current',String(r.id===currentId));
+   const icon=document.createElement('span');icon.textContent=r.id===currentId&&!audio.paused?'♫':'▶';
+   const label=document.createElement('span');label.textContent=title(r);const sub=document.createElement('small');sub.textContent='General';label.append(sub);
+   b.append(icon,label);b.onclick=()=>play(r.id);root.append(b)}
+ }
+ async function play(id){
+  const r=state.records.find(x=>x.id===id&&isGeneral(x));if(!r)return;
+  if(currentId===id&&audio.src){try{await audio.play()}catch(e){el('cgStatus').textContent='Pulsa reproducir para iniciar el audio.'}return}
+  const token=++loading;audio.pause();audio.removeAttribute('src');audio.load();if(url)URL.revokeObjectURL(url);url=null;
+  currentId=id;el('cgTitle').textContent=title(r);el('cgStatus').textContent='Cargando audio…';el('cgStudy').disabled=false;draw();
+  try{const ready=await window.consorteEnsureCloudFile?.(r)||r;if(token!==loading)return;
+   if(!(ready.blob instanceof Blob))throw Error('Archivo no disponible');
+   url=URL.createObjectURL(ready.blob);audio.src=url;audio.playbackRate=Number(el('cgSpeed').value);
+   el('cgStatus').textContent='Mezcla general';await audio.play();
+  }catch(e){if(token===loading)el('cgStatus').textContent='No se pudo iniciar: '+e.message+' · pulsa reproducir para reintentar.'}
+ }
+ function step(dir){if(!list.length)return;let i=list.findIndex(r=>r.id===currentId);if(shuffle&&dir>0&&list.length>1){const choices=list.filter(r=>r.id!==currentId);play(choices[Math.floor(Math.random()*choices.length)].id);return}play(list[(i<0?0:(i+dir+list.length)%list.length)].id)}
+ el('cgSearch').oninput=draw;
+ el('cgPlay').onclick=()=>{if(!audio.paused){audio.pause();return}if(currentId)play(currentId);else if(list.length)play(list[0].id)};
+ el('cgPrev').onclick=()=>{if(audio.currentTime>3){audio.currentTime=0;return}step(-1)};
+ el('cgNext').onclick=()=>step(1);
+ el('cgShuffle').onclick=()=>{shuffle=!shuffle;el('cgShuffle').setAttribute('aria-pressed',String(shuffle))};
+ el('cgRepeat').onclick=()=>{repeat=!repeat;audio.loop=repeat;el('cgRepeat').setAttribute('aria-pressed',String(repeat))};
+ el('cgSpeed').onchange=()=>{audio.playbackRate=Number(el('cgSpeed').value);audio.preservesPitch=true};
+ el('cgVolume').oninput=()=>{audio.volume=Number(el('cgVolume').value)};
+ el('cgSeek').oninput=()=>{if(Number.isFinite(audio.duration))audio.currentTime=Number(el('cgSeek').value)*audio.duration/1000};
+ function progress(){el('cgElapsed').textContent=time(audio.currentTime);el('cgDuration').textContent=time(audio.duration);el('cgSeek').value=audio.duration>0?Math.round(audio.currentTime/audio.duration*1000):0}
+ audio.addEventListener('timeupdate',progress);audio.addEventListener('loadedmetadata',progress);
+ audio.addEventListener('play',()=>{el('player').pause();el('cgPlay').textContent='Ⅱ';el('cgPlay').setAttribute('aria-label','Pausar');draw()});
+ audio.addEventListener('pause',()=>{el('cgPlay').textContent='▶';el('cgPlay').setAttribute('aria-label','Reproducir');draw()});
+ audio.addEventListener('ended',()=>{if(!repeat){const i=list.findIndex(r=>r.id===currentId);if(shuffle||i<list.length-1)step(1)}});
+ audio.addEventListener('error',()=>{if(audio.getAttribute('src'))el('cgStatus').textContent='No se pudo reproducir este archivo.'});
+ el('player').addEventListener('play',()=>audio.pause());
+ el('cgStudy').onclick=()=>{const r=state.records.find(x=>x.id===currentId);if(r)openLinkedPiece(r).catch(e=>{el('cgStatus').textContent=e.message})};
+ window.consortRefreshGeneralPlayer=draw;draw();
+})();
+</script>
 </body></html>
