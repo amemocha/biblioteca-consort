@@ -323,8 +323,13 @@ body:has(#consorteEditDock.active) #resizeHandle{z-index:11999!important;bottom:
   <div class="cg-progress"><span id="cgElapsed">0:00</span><input type="range" id="cgSeek" min="0" max="1000" value="0" aria-label="Posición de reproducción"><span id="cgDuration">0:00</span></div>
   <div class="cg-options"><label>Velocidad <select id="cgSpeed"><option value=".5">0,5×</option><option value=".75">0,75×</option><option value="1" selected>1×</option><option value="1.25">1,25×</option></select></label><label>Volumen <input id="cgVolume" type="range" min="0" max="1" step=".05" value="1"></label><button id="cgStudy" type="button" disabled>Ver partitura</button></div>
   <audio id="consortGeneralAudio" controls playsinline preload="metadata" style="display:block;width:100%;margin:12px 0;color-scheme:dark" aria-label="Controles de audio"></audio>
-  <div class="cg-listhead"><h2>Mi lista de estudio</h2><span id="cgCount"></span></div><div class="cg-add"><button id="cgAddLibrary" type="button">＋ Elegir de biblioteca</button><button id="cgUpload" type="button">＋ Subir audios</button><button id="cgClear" type="button">Vaciar lista</button><input id="cgFiles" type="file" accept="audio/*,.mp3,.wav,.m4a,.ogg,.aac,.flac,.opus" multiple hidden></div><dialog id="cgPicker"><h2>Elegir audios</h2><p>Selecciona solo las mezclas que quieras escuchar.</p><input id="cgPickerSearch" type="search" placeholder="Buscar audio…" aria-label="Buscar audio de biblioteca"><div id="cgPickerList"></div><div class="cg-add"><button id="cgPickerCancel" type="button">Cancelar</button><button id="cgPickerApply" type="button">Agregar seleccionados</button></div></dialog><input id="cgSearch" type="search" placeholder="Buscar en el repertorio…" aria-label="Buscar canción"><div id="cgList" class="cg-list"></div>
-  <p class="cg-help">La lista comienza vacía. Solo aparecen los audios que agregues. Quitar un audio de esta lista no lo elimina de la biblioteca.</p>
+  <div class="cg-listhead"><h2>Tu biblioteca musical</h2><span id="cgCount"></span></div>
+<div class="cg-collectionbar"><button id="cgHome" type="button" aria-pressed="true">♫ Canciones</button><button id="cgFavorites" type="button" aria-pressed="false">♡ Favoritas</button><button id="cgQueue" type="button" aria-pressed="false">☰ Cola</button><button id="cgNewPlaylist" type="button">＋ Crear playlist</button></div>
+<div id="cgPlaylists" class="cg-playlists" aria-label="Tus playlists"></div>
+<div class="cg-viewhead"><h2 id="cgViewTitle">Mi lista de estudio</h2><div class="cg-viewactions"><button id="cgPlayAll" type="button">▶ Reproducir lista</button><button id="cgRenamePlaylist" type="button" hidden>Renombrar</button><button id="cgDeletePlaylist" type="button" hidden>Eliminar playlist</button></div></div>
+<dialog id="cgTrackMenu"><h2 id="cgMenuTitle">Opciones de canción</h2><div id="cgMenuActions" class="cg-menu-actions"></div><button id="cgMenuClose" type="button">Cerrar</button></dialog>
+<dialog id="cgPlaylistDialog"><h2 id="cgPlaylistDialogTitle">Crear playlist</h2><label>Nombre <input id="cgPlaylistName" maxlength="100" placeholder="Ej.: Ensayo de Navidad"></label><div class="cg-add"><button id="cgPlaylistCancel" type="button">Cancelar</button><button id="cgPlaylistSave" type="button">Guardar</button></div></dialog><div class="cg-add"><button id="cgAddLibrary" type="button">＋ Elegir de biblioteca</button><button id="cgUpload" type="button">＋ Subir audios</button><button id="cgClear" type="button">Vaciar lista</button><input id="cgFiles" type="file" accept="audio/*,.mp3,.wav,.m4a,.ogg,.aac,.flac,.opus" multiple hidden></div><dialog id="cgPicker"><h2>Elegir audios</h2><p>Selecciona solo las mezclas que quieras escuchar.</p><input id="cgPickerSearch" type="search" placeholder="Buscar audio…" aria-label="Buscar audio de biblioteca"><div id="cgPickerList"></div><div class="cg-add"><button id="cgPickerCancel" type="button">Cancelar</button><button id="cgPickerApply" type="button">Agregar seleccionados</button></div></dialog><input id="cgSearch" type="search" placeholder="Buscar en el repertorio…" aria-label="Buscar canción"><div id="cgList" class="cg-list"></div>
+  <p class="cg-help">Crea tus propias playlists y guarda tus favoritas. Quitar canciones de una lista no borra los archivos originales.</p>
  </div>
 </section>
 <section class="page" id="custom"><h1>Personalizar diseño</h1><p class="sub">Tus cambios se guardan en este navegador.</p><div class="grid"><div class="card"><h2>Colores</h2><div class="flex"><label>Fondo<br><input id="bgColor" class="colorinput" type="color" value="#f1e6d6"></label><label>Principal<br><input id="darkColor" class="colorinput" type="color" value="#32221e"></label><label>Botones<br><input id="accentColor" class="colorinput" type="color" value="#b86b46"></label></div><button id="resetTheme" style="margin-top:12px">Restaurar colores originales</button></div><div class="card"><h2>Logos</h2><p class="small">Puedes sustituir los logos para tu versión personal.</p><label>Logo de la orquesta <input type="file" accept="image/*" id="replaceLogo" style="width:100%;margin:9px 0"></label><button id="resetLogo">Restaurar logo original</button></div>
@@ -3457,16 +3462,80 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 #generalplayer .cg-choice{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid #ffffff20;border-radius:8px;overflow-wrap:anywhere}
 #generalplayer .cg-choice input{width:18px;height:18px;flex-shrink:0;accent-color:#2bd576}
 #generalplayer .cg-choice small{display:block}
+
+#generalplayer .cg-collectionbar,#generalplayer .cg-playlists,#generalplayer .cg-viewactions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+#generalplayer .cg-playlists{margin:12px 0 18px}
+#generalplayer .cg-viewhead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+#generalplayer .cg-viewhead h2{font-size:19px}
+#generalplayer .cg-trackrow{gap:4px;border-bottom:1px solid #ffffff0c}
+#generalplayer .cg-trackrow .cg-track{background:transparent!important;border:0!important;margin:0;min-height:58px;padding:8px!important}
+#generalplayer .cg-trackrow .cg-track[aria-current=true]{background:#183c30!important}
+#generalplayer .cg-trackrow .cg-favorite,#generalplayer .cg-trackrow .cg-more{background:transparent!important;border:0!important;font-size:23px;min-width:42px;min-height:44px;padding:6px!important}
+#generalplayer .cg-trackrow .cg-favorite[aria-pressed=true]{color:#2bd576!important}
+#generalplayer #cgTrackMenu,#generalplayer #cgPlaylistDialog{width:min(92vw,460px);max-height:85dvh;overflow:auto;background:#1b2126;color:#f5f7f9;border:1px solid #59646b;border-radius:16px;padding:20px}
+#generalplayer #cgTrackMenu::backdrop,#generalplayer #cgPlaylistDialog::backdrop{background:#0009}
+#generalplayer .cg-menu-actions{display:grid;gap:8px;margin:16px 0}
+#generalplayer .cg-menu-actions button{text-align:left}
+#generalplayer #cgPlaylistName{display:block;width:100%;margin:10px 0;background:#22292f!important;color:white!important}
+#generalplayer [hidden]{display:none!important}
 </style>
 <script id="consort-general-player">
 (function(){
  const el=id=>document.getElementById(id),audio=el('consortGeneralAudio');
  let currentId=null,url=null,loading=0,shuffle=false,repeat=false,list=[],pickerSelected=new Set(),isLoading=false;
- let fallbackIds=[];
+ let fallbackIds=[],view='home',collection={favorites:[],playlists:[],queue:[]},playOrder=[],history=[],playlistEdit=null,playlistAddSong=null,pickerView='home',prefetchId=null;
  const key=()=>{try{const session=JSON.parse(localStorage.getItem('consorte_cloud_session_v1')||'null');return 'consort_manual_playlist_v1:'+ (session?.user?.id||'local')}catch{return 'consort_manual_playlist_v1:local'}};
  let activeKey=key();
  function readIds(){try{const raw=localStorage.getItem(activeKey);if(raw===null)return fallbackIds.slice();const ids=JSON.parse(raw);return Array.isArray(ids)?[...new Set(ids.filter(x=>typeof x==='string'))]:[]}catch{return fallbackIds.slice()}}
  function saveIds(ids){fallbackIds=[...new Set(ids)];try{localStorage.setItem(activeKey,JSON.stringify(fallbackIds))}catch{el('cgStatus').textContent='No se pudo guardar la lista en este navegador.'}}
+ function cleanIds(ids){return Array.isArray(ids)?[...new Set(ids.filter(x=>typeof x==='string'))]:[]}
+ function loadCollection(){try{const d=JSON.parse(localStorage.getItem(activeKey+':collections')||'{}');return {favorites:cleanIds(d.favorites),queue:cleanIds(d.queue),playlists:Array.isArray(d.playlists)?d.playlists.filter(p=>p&&typeof p.id==='string'&&typeof p.name==='string').map(p=>({id:p.id,name:p.name,ids:cleanIds(p.ids)})):[]}}catch{return {favorites:[],playlists:[],queue:[]}}}
+ function saveCollection(){try{localStorage.setItem(activeKey+':collections',JSON.stringify(collection))}catch{el('cgStatus').textContent='No se pudieron guardar las playlists.'}}
+ collection=loadCollection();
+ function playlist(id=view){return collection.playlists.find(p=>p.id===id)}
+ function viewIds(v=view){if(v==='home')return readIds();if(v==='favorites')return collection.favorites;if(v==='queue')return collection.queue;return playlist(v)?.ids||[]}
+ function setViewIds(ids,v=view){ids=cleanIds(ids);if(v==='home'){saveIds(ids);return}if(v==='favorites')collection.favorites=ids;else if(v==='queue')collection.queue=ids;else{const p=playlist(v);if(p)p.ids=ids}saveCollection()}
+ function selectView(v){view=v;el('cgSearch').value='';draw()}
+ function favorite(id){const set=new Set(collection.favorites);if(set.has(id))set.delete(id);else set.add(id);collection.favorites=[...set];saveCollection();draw()}
+ function enqueue(id,next=false){collection.queue=collection.queue.filter(x=>x!==id);if(next)collection.queue.unshift(id);else collection.queue.push(id);saveCollection();draw();el('cgStatus').textContent=next?'Se reproducirá a continuación.':'Agregada a la cola.';preloadNext()}
+ function addToView(ids,v=view){saveIds([...readIds(),...ids]);if(v!=='home')setViewIds([...viewIds(v),...ids],v)}
+ function removeFromView(id,v=view){setViewIds(viewIds(v).filter(x=>x!==id),v);playOrder=playOrder.filter(x=>x!==id);draw()}
+ function action(label,fn){const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=fn;return b}
+ function drawCollections(){
+  for(const [id,v] of [['cgHome','home'],['cgFavorites','favorites'],['cgQueue','queue']])el(id).setAttribute('aria-pressed',String(view===v));
+  const root=el('cgPlaylists');root.replaceChildren();
+  for(const p of collection.playlists){const b=action('♫ '+p.name+' · '+p.ids.length,()=>selectView(p.id));b.setAttribute('aria-pressed',String(view===p.id));root.append(b)}
+  const p=playlist();el('cgViewTitle').textContent=view==='home'?'Mis canciones':view==='favorites'?'Favoritas':view==='queue'?'Cola de reproducción':p?.name||'Playlist';
+  el('cgRenamePlaylist').hidden=!p;el('cgDeletePlaylist').hidden=!p;
+  el('cgAddLibrary').hidden=view==='queue';el('cgUpload').hidden=view==='queue';
+  el('cgClear').textContent=view==='queue'?'Vaciar cola':'Vaciar lista';
+ }
+ function openPlaylist(editId=null,addId=null){playlistEdit=editId;playlistAddSong=addId;el('cgPlaylistDialogTitle').textContent=editId?'Renombrar playlist':'Crear playlist';el('cgPlaylistName').value=playlist(editId)?.name||'';el('cgPlaylistDialog').showModal();el('cgPlaylistName').focus()}
+ function menu(r){
+  const v=view,root=el('cgMenuActions');root.replaceChildren();el('cgMenuTitle').textContent=title(r);
+  const add=(label,fn)=>root.append(action(label,()=>{el('cgTrackMenu').close();fn()}));
+  add('▶ Reproducir ahora',()=>startList(r.id,v));
+  add('Reproducir a continuación',()=>enqueue(r.id,true));add('Agregar a la cola',()=>enqueue(r.id));
+  add(collection.favorites.includes(r.id)?'Quitar de favoritas':'Guardar en favoritas',()=>favorite(r.id));
+  add('Crear playlist con esta canción',()=>openPlaylist(null,r.id));
+  for(const p of collection.playlists){if(!p.ids.includes(r.id))add('Agregar a '+p.name,()=>{p.ids.push(r.id);saveCollection();draw()})}
+  const ids=viewIds(v),i=ids.indexOf(r.id);
+  if(i>0)add('Mover hacia arriba',()=>{const a=viewIds(v).slice();[a[i-1],a[i]]=[a[i],a[i-1]];setViewIds(a,v);draw()});
+  if(i>=0&&i<ids.length-1)add('Mover hacia abajo',()=>{const a=viewIds(v).slice();[a[i],a[i+1]]=[a[i+1],a[i]];setViewIds(a,v);draw()});
+  add('Ver partitura',()=>openLinkedPiece(r).catch(e=>{el('cgStatus').textContent=e.message}));
+  add('Quitar de esta lista',()=>removeFromView(r.id,v));el('cgTrackMenu').showModal();
+ }
+ function startList(id,v=view){
+  const ids=viewIds(v).filter(id=>isAudio(state.records.find(r=>r.id===id)));
+  if(v==='queue'){playOrder=[];collection.queue=collection.queue.filter(x=>x!==id);saveCollection()}
+  else playOrder=ids;
+  history=[];play(id);
+ }
+ function nextId(){const valid=id=>isAudio(state.records.find(r=>r.id===id));const queued=collection.queue.find(id=>id!==currentId&&valid(id));if(queued)return queued;
+ const ids=playOrder.filter(valid),i=ids.indexOf(currentId);return ids[i+1]||null}
+ function preloadNext(){const id=nextId();if(!id||id===prefetchId)return;const r=state.records.find(x=>x.id===id);if(!r||r.blob instanceof Blob&&!r.cloudNeedsDownload||!window.consorteEnsureCloudFile)return;
+ if(typeof navigator!=='undefined'&&(navigator.connection?.saveData||navigator.onLine===false))return;
+ prefetchId=id;Promise.resolve(window.consorteEnsureCloudFile(r)).catch(()=>{}).finally(()=>{if(prefetchId===id)prefetchId=null})}
  const time=v=>Number.isFinite(v)?Math.floor(v/60)+':'+String(Math.floor(v%60)).padStart(2,'0'):'0:00';
  function title(r){return r.song||r.name.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ').replace(/\b(audio|general)\b/gi,'').replace(/\s+/g,' ').trim()||r.name}
  function isAudio(r){return !!r&&r.type==='file'&&r.kind==='audio'&&(r.blob instanceof Blob||!!r.cloudObjectPath)}
@@ -3477,8 +3546,8 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
   el('cgTitle').textContent='Selecciona una canción';el('cgStudy').disabled=true;progress();
  }
  function draw(){
-  const nextKey=key();if(nextKey!==activeKey){activeKey=nextKey;fallbackIds=[];resetPlayer()}
-  const ids=readIds();list=ids.map(id=>state.records.find(r=>r.id===id)).filter(isAudio);
+  const nextKey=key();if(nextKey!==activeKey){activeKey=nextKey;fallbackIds=[];collection=loadCollection();view='home';playOrder=[];history=[];resetPlayer()}
+  drawCollections();const ids=viewIds();list=ids.map(id=>state.records.find(r=>r.id===id)).filter(isAudio);
   const q=consortStudyNormalize(el('cgSearch').value),shown=list.filter(r=>consortStudyNormalize(title(r)+' '+r.name).includes(q));
   el('cgCount').textContent=shown.length+' de '+list.length;
   const root=el('cgList');root.replaceChildren();
@@ -3488,9 +3557,10 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
    const b=document.createElement('button');b.type='button';b.className='cg-track';b.setAttribute('aria-current',String(r.id===currentId));
    const icon=document.createElement('span');icon.textContent=r.id===currentId&&!audio.paused?'♫':'▶';
    const label=document.createElement('span');label.textContent=title(r);const sub=document.createElement('small');sub.textContent=consortRecordVoice(r)==='general'?'General':r.name;label.append(sub);
-   b.append(icon,label);b.onclick=()=>play(r.id);
-   const remove=document.createElement('button');remove.type='button';remove.className='cg-remove';remove.textContent='×';remove.title='Quitar de la lista';remove.setAttribute('aria-label','Quitar '+title(r));remove.onclick=()=>{saveIds(readIds().filter(id=>id!==r.id));if(currentId===r.id)resetPlayer();draw()};
-   row.append(b,remove);root.append(row);
+   b.append(icon,label);b.onclick=()=>startList(r.id);
+   const liked=collection.favorites.includes(r.id),fav=action(liked?'♥':'♡',()=>favorite(r.id));fav.className='cg-favorite';fav.setAttribute('aria-pressed',String(liked));fav.setAttribute('aria-label',liked?'Quitar de favoritas':'Agregar a favoritas');
+   const more=action('⋯',()=>menu(r));more.className='cg-more';more.title='Opciones';more.setAttribute('aria-label','Opciones de '+title(r));
+   row.append(b,fav,more);root.append(row);
   }
  }
  function prepareBlob(blob,name){
@@ -3515,12 +3585,13 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
   url=URL.createObjectURL(blob);audio.src=url;
   audio.playbackRate=Number(el('cgSpeed').value);audio.preservesPitch=true;
   el('cgStatus').textContent='Audio listo';isLoading=false;
-  startPlayback(token);
+  startPlayback(token);preloadNext();
  }
  async function play(id){
-  const r=state.records.find(x=>x.id===id&&isAudio(x));if(!r||!readIds().includes(id))return;
+  const r=state.records.find(x=>x.id===id&&isAudio(x));if(!r)return;
   if(currentId===id&&isLoading)return;
   if(currentId===id&&url&&audio.getAttribute('src')&&!audio.error){startPlayback(loading);return}
+  if(currentId&&currentId!==id)history.push(currentId);
   const token=++loading;audio.pause();audio.removeAttribute('src');audio.load();if(url)URL.revokeObjectURL(url);url=null;
   currentId=id;isLoading=true;el('cgTitle').textContent=title(r);el('cgStatus').textContent='Cargando audio…';el('cgStudy').disabled=false;draw();
   try{
@@ -3530,22 +3601,31 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
    if(token!==loading)return;setSource(ready,token);
   }catch(e){if(token===loading){isLoading=false;el('cgStatus').textContent='No se pudo cargar el archivo: '+e.message+'. Comprueba la conexión o vuelve a agregarlo.'}}
  }
- function step(dir){if(!list.length)return;let i=list.findIndex(r=>r.id===currentId);if(shuffle&&dir>0&&list.length>1){const choices=list.filter(r=>r.id!==currentId);play(choices[Math.floor(Math.random()*choices.length)].id);return}play(list[(i<0?0:(i+dir+list.length)%list.length)].id)}
+ function step(dir,manual=true){
+  const valid=id=>isAudio(state.records.find(r=>r.id===id));
+  if(dir<0&&history.length){const previous=history.pop();if(valid(previous)){currentId=null;play(previous);return}}
+  if(dir>0){const queued=collection.queue.find(id=>id!==currentId&&valid(id));if(queued){collection.queue=collection.queue.filter(id=>id!==queued);saveCollection();play(queued);return}}
+  const ids=(playOrder.length?playOrder: view==='queue'?[]:viewIds()).filter(valid);if(!ids.length)return;
+  let i=ids.indexOf(currentId);
+  if(shuffle&&dir>0&&ids.length>1){const options=ids.filter(id=>id!==currentId&&!history.includes(id));if(options.length){play(options[Math.floor(Math.random()*options.length)]);return}if(!manual)return;history=[]}
+  const next=i<0?0:i+dir;if(!manual&&(next<0||next>=ids.length))return;
+  play(ids[(next+ids.length)%ids.length]);
+ }
  function drawPicker(){
   const root=el('cgPickerList');root.replaceChildren();
-  const q=consortStudyNormalize(el('cgPickerSearch').value),added=new Set(readIds());
+  const q=consortStudyNormalize(el('cgPickerSearch').value),added=new Set(viewIds(pickerView));
   const candidates=state.records.filter(isAudio).filter(r=>!added.has(r.id)&&consortStudyNormalize(title(r)+' '+r.name).includes(q)).sort((a,b)=>Number(consortRecordVoice(b)==='general')-Number(consortRecordVoice(a)==='general')||title(a).localeCompare(title(b),'es'));
   if(!candidates.length){const p=document.createElement('p');p.textContent='No hay más audios disponibles.';root.append(p)}
   for(const r of candidates){const label=document.createElement('label');label.className='cg-choice';const box=document.createElement('input');box.type='checkbox';box.checked=pickerSelected.has(r.id);box.onchange=()=>{if(box.checked)pickerSelected.add(r.id);else pickerSelected.delete(r.id)};const desc=document.createElement('span');desc.textContent=r.name;const info=document.createElement('small');info.textContent=consortRecordVoice(r)||'Sin clasificar';desc.append(info);label.append(box,desc);root.append(label)}
  }
- el('cgAddLibrary').onclick=()=>{pickerSelected=new Set();el('cgPickerSearch').value='';drawPicker();el('cgPicker').showModal()};
+ el('cgAddLibrary').onclick=()=>{pickerView=view;pickerSelected=new Set();el('cgPickerSearch').value='';drawPicker();el('cgPicker').showModal()};
  el('cgPickerSearch').oninput=drawPicker;
  el('cgPickerCancel').onclick=()=>el('cgPicker').close();
- el('cgPickerApply').onclick=()=>{saveIds([...readIds(),...pickerSelected]);el('cgPicker').close();draw()};
+ el('cgPickerApply').onclick=()=>{addToView([...pickerSelected],pickerView);el('cgPicker').close();draw()};
  el('cgUpload').onclick=()=>el('cgFiles').click();
  el('cgFiles').onchange=async()=>{
   const files=Array.from(el('cgFiles').files||[]);el('cgFiles').value='';if(!files.length)return;
-  el('cgUpload').disabled=true;let added=[],errors=[];
+  const targetView=view;el('cgUpload').disabled=true;let added=[],errors=[];
   try{
    if(!db)throw Error('La biblioteca aún no está disponible');
    let folder=state.records.find(r=>r.type==='folder'&&r.parent==null&&r.name==='Audios del reproductor');
@@ -3558,13 +3638,21 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
      await putRecord(r);added.push(r.id);
     }catch(e){errors.push(file.name+': '+e.message)}
    }
-   saveIds([...readIds(),...added]);await refresh();draw();
+   addToView(added,targetView);await refresh();draw();
    el('cgStatus').textContent=added.length+' audios agregados'+(errors.length?' · '+errors.join('; '):'');
   }catch(e){el('cgStatus').textContent='No se pudo agregar: '+e.message}finally{el('cgUpload').disabled=false}
  };
- el('cgClear').onclick=()=>{if(!readIds().length)return;if(confirm('¿Vaciar la lista? Los archivos originales no se eliminarán.')){saveIds([]);resetPlayer();draw();el('cgStatus').textContent='Lista vacía.'}};
+ el('cgClear').onclick=()=>{if(!viewIds().length)return;if(confirm('¿Vaciar esta lista? Los archivos originales no se eliminarán.')){setViewIds([]);if(view!=='queue')playOrder=[];draw();el('cgStatus').textContent='Lista vacía.'}};
+ el('cgHome').onclick=()=>selectView('home');el('cgFavorites').onclick=()=>selectView('favorites');el('cgQueue').onclick=()=>selectView('queue');
+ el('cgNewPlaylist').onclick=()=>openPlaylist();el('cgRenamePlaylist').onclick=()=>openPlaylist(view);
+ el('cgDeletePlaylist').onclick=()=>{const p=playlist();if(p&&confirm('¿Eliminar la playlist «'+p.name+'»? Los audios se conservan.')){collection.playlists=collection.playlists.filter(x=>x.id!==p.id);saveCollection();selectView('home')}};
+ el('cgPlaylistCancel').onclick=()=>el('cgPlaylistDialog').close();
+ el('cgPlaylistSave').onclick=()=>{const name=el('cgPlaylistName').value.trim();if(!name){el('cgPlaylistName').focus();return}if(playlistEdit){const p=playlist(playlistEdit);if(p)p.name=name;saveCollection();draw()}else{const id='playlist:'+uid();collection.playlists.push({id,name,ids:playlistAddSong?[playlistAddSong]:[]});saveCollection();selectView(id)}el('cgPlaylistDialog').close()};
+ el('cgPlaylistName').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();el('cgPlaylistSave').click()}};
+ el('cgMenuClose').onclick=()=>el('cgTrackMenu').close();
+ el('cgPlayAll').onclick=()=>{const ids=viewIds().filter(id=>isAudio(state.records.find(r=>r.id===id)));if(ids.length)startList(ids[0]);else el('cgStatus').textContent='Agrega canciones a esta lista primero.'};
  el('cgSearch').oninput=draw;
- el('cgPlay').onclick=()=>{if(!audio.paused){audio.pause();return}if(currentId)play(currentId);else if(list.length)play(list[0].id)};
+ el('cgPlay').onclick=()=>{if(!audio.paused){audio.pause();return}if(currentId)play(currentId);else if(list.length)startList(list[0].id)};
  el('cgPrev').onclick=()=>{if(audio.currentTime>3){audio.currentTime=0;return}step(-1)};
  el('cgNext').onclick=()=>step(1);
  el('cgShuffle').onclick=()=>{shuffle=!shuffle;el('cgShuffle').setAttribute('aria-pressed',String(shuffle))};
@@ -3574,9 +3662,9 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
  el('cgSeek').oninput=()=>{if(Number.isFinite(audio.duration))audio.currentTime=Number(el('cgSeek').value)*audio.duration/1000};
  function progress(){el('cgElapsed').textContent=time(audio.currentTime);el('cgDuration').textContent=time(audio.duration);el('cgSeek').value=audio.duration>0?Math.round(audio.currentTime/audio.duration*1000):0}
  audio.addEventListener('timeupdate',progress);audio.addEventListener('loadedmetadata',progress);audio.addEventListener('emptied',progress);
- audio.addEventListener('play',()=>{el('player').pause();el('cgStatus').textContent='Reproduciendo';el('cgPlay').textContent='Ⅱ';el('cgPlay').setAttribute('aria-label','Pausar');draw()});
+ audio.addEventListener('play',()=>{el('player').pause();el('cgStatus').textContent='Reproduciendo';preloadNext();el('cgPlay').textContent='Ⅱ';el('cgPlay').setAttribute('aria-label','Pausar');draw()});
  audio.addEventListener('pause',()=>{el('cgPlay').textContent='▶';el('cgPlay').setAttribute('aria-label','Reproducir');draw()});
- audio.addEventListener('ended',()=>{if(!repeat){const i=list.findIndex(r=>r.id===currentId);if(shuffle||i<list.length-1)step(1)}});
+ audio.addEventListener('ended',()=>{if(!repeat)step(1,false)});
  audio.addEventListener('error',()=>{if(audio.getAttribute('src'))el('cgStatus').textContent='El navegador no puede leer este audio. Comprueba el formato o vuelve a descargarlo.'});
  el('player').addEventListener('play',()=>audio.pause());
  el('cgStudy').onclick=()=>{const r=state.records.find(x=>x.id===currentId);if(r)openLinkedPiece(r).catch(e=>{el('cgStatus').textContent=e.message})};
