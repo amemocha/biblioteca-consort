@@ -2380,8 +2380,14 @@ async function cloudSave(r,operation=pendingOperations()[r.id]){
   created:r.created||Date.now(),size:r.type==='file'?(r.cloudNeedsDownload?(existing?.metadata?.size??r.size??null):(r.blob?.size??r.size??null)):null};
  let object_path=existing?.object_path||r.cloudObjectPath||null;
  if(r.type==='file'){
-  if(r.blob instanceof Blob&&!r.cloudNeedsDownload&&(!existing||!object_path||
-    (Number.isFinite(Number(existing.metadata?.size))&&Number(existing.metadata?.size)!==r.blob.size))){
+  // Files can change without changing byte length.
+  const hasLocalContent=r.blob instanceof Blob&&!r.cloudNeedsDownload;
+  if(hasLocalContent){
+   const digest=await crypto.subtle.digest('SHA-256',await r.blob.arrayBuffer());
+   meta.content_sha256=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+  }else if(existing?.metadata?.content_sha256)meta.content_sha256=existing.metadata.content_sha256;
+  if(hasLocalContent&&(!existing||!object_path||
+    existing.metadata?.content_sha256!==meta.content_sha256)){
    // Subir solo contenido nuevo; cambios de nombre y carpeta no reenvían MP3/PDF.
    const newPath=pathFor(r);
    await api('/storage/v1/object/'+BUCKET+'/'+newPath,{
@@ -2676,8 +2682,8 @@ async function pull(){
     // al abrirla si cambió en otro dispositivo.
     copy.cloudNeedsDownload=!(original?.blob instanceof Blob)||
      Boolean(original?.cloudNeedsDownload)||
-     Boolean(original?.blob instanceof Blob&&versions[row.id]&&
-       (Date.parse(versions[row.id])!==Date.parse(remoteStamp)||
+     Boolean(original?.blob instanceof Blob&&
+       (!versions[row.id]||Date.parse(versions[row.id])!==Date.parse(remoteStamp)||
          Boolean(row.metadata?.sync_rev&&revisionTokens[row.id]!==row.metadata.sync_rev)));
     if(!copy.cloudObjectPath&&!(copy.blob instanceof Blob)){
      failed++;if(!firstError)firstError=copy.name+': falta la ruta en la nube';
@@ -2736,8 +2742,10 @@ async function pushExisting(){
    try{await cloudDelete(id,operation);deleted++}
    catch(error){failed++;if(!firstError)firstError=error.message}
   }
-  for(const item of local){
-   if(item.type==='folder'&&['audios','partituras','general'].includes(norm(item.name))&&!remoteMap.has(item.id))continue;
+  // Publish real folders before files, including Audios, Partituras and General.
+  const orderedLocal=local.slice().sort((a,b)=>Number(b.type==='folder')-Number(a.type==='folder'));
+  for(const item of orderedLocal){
+   if(item.virtual||item.id===CONSORT_UNLINKED_FOLDER_ID)continue;
    const operation=pending[item.id];
    if(operation?.kind==='delete')continue;
    if(remoteMap.has(item.id)&&!operation)continue;
@@ -2784,6 +2792,7 @@ $c('cloud-sync-now').onclick=async()=>{
     ' · '+(result.pull?.remoteFiles??localCount)+' archivos y '+(result.pull?.remoteFolders??localFolders)+' carpetas visibles en la cuenta'+
     ' · '+localCount+' archivos guardados en este dispositivo'+
     (result.pull?.cloudOnly?' · '+result.pull.cloudOnly+' archivos en nube, se descargarán al abrir':'')+
+    (result.pull?.orphans?' · '+result.pull.orphans+' elementos sin carpeta original; revisa el computador':'')+
     (result.pull?.failed?' · errores al descargar '+result.pull.failed:'')+
     (result.push?.failed?' · errores al subir '+result.push.failed:'')+(result.push?.pending?' · pendientes '+result.push.pending:'')+
     (result.pull?.error?' · '+result.pull.error:'')+
