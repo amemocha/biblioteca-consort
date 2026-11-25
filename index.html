@@ -318,13 +318,13 @@ body:has(#consorteEditDock.active) #resizeHandle{z-index:11999!important;bottom:
 <section class="page" id="generalplayer">
  <div class="cg-shell">
   <div class="cg-head"><div><p class="cg-kicker">BIBLIOTECA CONSORT</p><h1>Reproductor de estudio</h1><p>Repertorio general · cinco guitarras</p></div><div class="cg-art" aria-hidden="true">♫</div></div>
-  <div class="cg-now"><div id="cgCover" class="cg-cover" aria-hidden="true">♪</div><div class="cg-current"><small>REPRODUCIENDO</small><h2 id="cgTitle">Selecciona una canción</h2><p id="cgStatus" role="status" aria-live="polite">Solo audios generales de tu biblioteca.</p></div></div>
+  <div class="cg-now"><div id="cgCover" class="cg-cover" aria-hidden="true">♪</div><div class="cg-current"><small>REPRODUCIENDO</small><h2 id="cgTitle">Selecciona una canción</h2><p id="cgStatus" role="status" aria-live="polite">Agrega los audios generales que quieras estudiar.</p></div></div>
   <div class="cg-controls"><button id="cgShuffle" type="button" aria-pressed="false" title="Aleatorio">⤨</button><button id="cgPrev" type="button" title="Anterior" aria-label="Canción anterior">⏮</button><button id="cgPlay" type="button" class="cg-play" aria-label="Reproducir">▶</button><button id="cgNext" type="button" title="Siguiente" aria-label="Canción siguiente">⏭</button><button id="cgRepeat" type="button" aria-pressed="false" title="Repetir canción">↻</button></div>
   <div class="cg-progress"><span id="cgElapsed">0:00</span><input type="range" id="cgSeek" min="0" max="1000" value="0" aria-label="Posición de reproducción"><span id="cgDuration">0:00</span></div>
   <div class="cg-options"><label>Velocidad <select id="cgSpeed"><option value=".5">0,5×</option><option value=".75">0,75×</option><option value="1" selected>1×</option><option value="1.25">1,25×</option></select></label><label>Volumen <input id="cgVolume" type="range" min="0" max="1" step=".05" value="1"></label><button id="cgStudy" type="button" disabled>Ver partitura</button></div>
-  <audio id="consortGeneralAudio" preload="metadata"></audio>
-  <div class="cg-listhead"><h2>Canciones</h2><span id="cgCount"></span></div><input id="cgSearch" type="search" placeholder="Buscar en el repertorio…" aria-label="Buscar canción"><div id="cgList" class="cg-list"></div>
-  <p class="cg-help">Se incluyen archivos identificados como General por su nombre, clasificación o carpeta. Los audios por voz no aparecen aquí.</p>
+  <audio id="consortGeneralAudio" controls playsinline preload="metadata" style="display:block;width:100%;margin:12px 0;color-scheme:dark" aria-label="Controles de audio"></audio>
+  <div class="cg-listhead"><h2>Mi lista de estudio</h2><span id="cgCount"></span></div><div class="cg-add"><button id="cgAddLibrary" type="button">＋ Elegir de biblioteca</button><button id="cgUpload" type="button">＋ Subir audios</button><button id="cgClear" type="button">Vaciar lista</button><input id="cgFiles" type="file" accept="audio/*,.mp3,.wav,.m4a,.ogg,.aac,.flac,.opus" multiple hidden></div><dialog id="cgPicker"><h2>Elegir audios</h2><p>Selecciona solo las mezclas que quieras escuchar.</p><input id="cgPickerSearch" type="search" placeholder="Buscar audio…" aria-label="Buscar audio de biblioteca"><div id="cgPickerList"></div><div class="cg-add"><button id="cgPickerCancel" type="button">Cancelar</button><button id="cgPickerApply" type="button">Agregar seleccionados</button></div></dialog><input id="cgSearch" type="search" placeholder="Buscar en el repertorio…" aria-label="Buscar canción"><div id="cgList" class="cg-list"></div>
+  <p class="cg-help">La lista comienza vacía. Solo aparecen los audios que agregues. Quitar un audio de esta lista no lo elimina de la biblioteca.</p>
  </div>
 </section>
 <section class="page" id="custom"><h1>Personalizar diseño</h1><p class="sub">Tus cambios se guardan en este navegador.</p><div class="grid"><div class="card"><h2>Colores</h2><div class="flex"><label>Fondo<br><input id="bgColor" class="colorinput" type="color" value="#f1e6d6"></label><label>Principal<br><input id="darkColor" class="colorinput" type="color" value="#32221e"></label><label>Botones<br><input id="accentColor" class="colorinput" type="color" value="#b86b46"></label></div><button id="resetTheme" style="margin-top:12px">Restaurar colores originales</button></div><div class="card"><h2>Logos</h2><p class="small">Puedes sustituir los logos para tu versión personal.</p><label>Logo de la orquesta <input type="file" accept="image/*" id="replaceLogo" style="width:100%;margin:9px 0"></label><button id="resetLogo">Restaurar logo original</button></div>
@@ -3444,37 +3444,125 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 #generalplayer .cg-listhead{display:flex;justify-content:space-between;align-items:center;margin:28px 0 12px}#generalplayer #cgSearch{width:100%;margin-bottom:12px}
 #generalplayer .cg-track{display:flex;gap:12px;align-items:center;width:100%;text-align:left;margin:5px 0;padding:12px!important;min-height:54px}#generalplayer .cg-track[aria-current=true]{background:#183c30!important;color:#65e99e!important}#generalplayer .cg-track span:nth-child(2){flex:1;overflow-wrap:anywhere}#generalplayer .cg-track small{display:block;font-weight:400}#generalplayer .cg-help{font-size:12px;margin-top:18px}
 @media(max-width:600px){#generalplayer .cg-art{width:58px;height:58px;font-size:28px}#generalplayer .cg-controls{gap:6px}#generalplayer .cg-options{justify-content:flex-start}.bottomnav button{font-size:10px!important;min-width:0}}
+
+#generalplayer .cg-add{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 14px}
+#generalplayer .cg-add button{padding:9px 12px!important}
+#generalplayer .cg-trackrow{display:flex;gap:8px;align-items:center}
+#generalplayer .cg-trackrow .cg-track{min-width:0;flex:1}
+#generalplayer .cg-remove{flex-shrink:0;min-width:42px;min-height:42px}
+#generalplayer #cgPicker{width:min(92vw,550px);max-height:85dvh;background:#1b2126;color:#f5f7f9;border:1px solid #59646b;border-radius:16px;padding:20px}
+#generalplayer #cgPicker::backdrop{background:#0009}
+#generalplayer #cgPickerSearch{width:100%;margin:12px 0}
+#generalplayer #cgPickerList{max-height:45vh;overflow:auto;display:grid;gap:7px}
+#generalplayer .cg-choice{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid #ffffff20;border-radius:8px;overflow-wrap:anywhere}
+#generalplayer .cg-choice input{width:18px;height:18px;flex-shrink:0;accent-color:#2bd576}
+#generalplayer .cg-choice small{display:block}
 </style>
 <script id="consort-general-player">
 (function(){
  const el=id=>document.getElementById(id),audio=el('consortGeneralAudio');
- let currentId=null,url=null,loading=0,shuffle=false,repeat=false,list=[];
+ let currentId=null,url=null,loading=0,shuffle=false,repeat=false,list=[],pickerSelected=new Set(),isLoading=false;
+ let fallbackIds=[];
+ const key=()=>{try{const session=JSON.parse(localStorage.getItem('consorte_cloud_session_v1')||'null');return 'consort_manual_playlist_v1:'+ (session?.user?.id||'local')}catch{return 'consort_manual_playlist_v1:local'}};
+ let activeKey=key();
+ function readIds(){try{const raw=localStorage.getItem(activeKey);if(raw===null)return fallbackIds.slice();const ids=JSON.parse(raw);return Array.isArray(ids)?[...new Set(ids.filter(x=>typeof x==='string'))]:[]}catch{return fallbackIds.slice()}}
+ function saveIds(ids){fallbackIds=[...new Set(ids)];try{localStorage.setItem(activeKey,JSON.stringify(fallbackIds))}catch{el('cgStatus').textContent='No se pudo guardar la lista en este navegador.'}}
  const time=v=>Number.isFinite(v)?Math.floor(v/60)+':'+String(Math.floor(v%60)).padStart(2,'0'):'0:00';
  function title(r){return r.song||r.name.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ').replace(/\b(audio|general)\b/gi,'').replace(/\s+/g,' ').trim()||r.name}
- function isGeneral(r){return r.type==='file'&&r.kind==='audio'&&consortRecordVoice(r)==='general'&&(r.blob instanceof Blob||r.cloudObjectPath)}
+ function isAudio(r){return !!r&&r.type==='file'&&r.kind==='audio'&&(r.blob instanceof Blob||!!r.cloudObjectPath)}
+ function resetPlayer(){
+  ++loading;isLoading=false;currentId=null;
+  audio.pause();audio.removeAttribute('src');audio.load();
+  if(url)URL.revokeObjectURL(url);url=null;
+  el('cgTitle').textContent='Selecciona una canción';el('cgStudy').disabled=true;progress();
+ }
  function draw(){
-  list=state.records.filter(isGeneral).sort((a,b)=>title(a).localeCompare(title(b),'es'));
+  const nextKey=key();if(nextKey!==activeKey){activeKey=nextKey;fallbackIds=[];resetPlayer()}
+  const ids=readIds();list=ids.map(id=>state.records.find(r=>r.id===id)).filter(isAudio);
   const q=consortStudyNormalize(el('cgSearch').value),shown=list.filter(r=>consortStudyNormalize(title(r)+' '+r.name).includes(q));
   el('cgCount').textContent=shown.length+' de '+list.length;
   const root=el('cgList');root.replaceChildren();
-  if(!shown.length){const p=document.createElement('p');p.textContent=q?'No hay coincidencias.':'No hay audios generales. Clasifica tus mezclas como General en la biblioteca.';root.append(p)}
-  for(const r of shown){const b=document.createElement('button');b.type='button';b.className='cg-track';b.setAttribute('aria-current',String(r.id===currentId));
+  if(!shown.length){const p=document.createElement('p');p.textContent=q?'No hay coincidencias.':ids.length?'Los audios seleccionados aún no están disponibles en este dispositivo. Sincroniza tu biblioteca.':'Tu lista está vacía. Pulsa Elegir de biblioteca o Subir audios.';root.append(p)}
+  for(const r of shown){
+   const row=document.createElement('div');row.className='cg-trackrow';
+   const b=document.createElement('button');b.type='button';b.className='cg-track';b.setAttribute('aria-current',String(r.id===currentId));
    const icon=document.createElement('span');icon.textContent=r.id===currentId&&!audio.paused?'♫':'▶';
-   const label=document.createElement('span');label.textContent=title(r);const sub=document.createElement('small');sub.textContent='General';label.append(sub);
-   b.append(icon,label);b.onclick=()=>play(r.id);root.append(b)}
+   const label=document.createElement('span');label.textContent=title(r);const sub=document.createElement('small');sub.textContent=consortRecordVoice(r)==='general'?'General':r.name;label.append(sub);
+   b.append(icon,label);b.onclick=()=>play(r.id);
+   const remove=document.createElement('button');remove.type='button';remove.className='cg-remove';remove.textContent='×';remove.title='Quitar de la lista';remove.setAttribute('aria-label','Quitar '+title(r));remove.onclick=()=>{saveIds(readIds().filter(id=>id!==r.id));if(currentId===r.id)resetPlayer();draw()};
+   row.append(b,remove);root.append(row);
+  }
+ }
+ function prepareBlob(blob,name){
+  if(!(blob instanceof Blob)||!blob.size)throw Error('El archivo de audio está vacío o no está disponible');
+  if(/^(text\/|application\/(?:json|pdf))/.test(blob.type))throw Error('El archivo recibido no es audio');
+  const ext=String(name||'').split('.').pop().toLowerCase();
+  const mime={mp3:'audio/mpeg',wav:'audio/wav',m4a:'audio/mp4',aac:'audio/aac',ogg:'audio/ogg',opus:'audio/ogg',flac:'audio/flac',webm:'audio/webm'}[ext];
+  return mime&&blob.type!==mime?blob.slice(0,blob.size,mime):blob;
+ }
+ function playbackError(e){
+  if(e?.name==='NotAllowedError'){el('cgStatus').textContent='Audio listo. Pulsa ▶ en el reproductor para escucharlo.';return}
+  if(e?.name==='AbortError')return;
+  el('cgStatus').textContent='No se pudo reproducir: '+(e?.message||'formato no compatible')+'. Prueba con un MP3 válido.';
+ }
+ function startPlayback(token){
+  try{const promise=audio.play();if(promise?.catch)promise.catch(e=>{if(token===loading)playbackError(e)})}catch(e){if(token===loading)playbackError(e)}
+ }
+ function setSource(r,token){
+  if(token!==loading)return;
+  const blob=prepareBlob(r.blob,r.name);
+  if(url)URL.revokeObjectURL(url);
+  url=URL.createObjectURL(blob);audio.src=url;
+  audio.playbackRate=Number(el('cgSpeed').value);audio.preservesPitch=true;
+  el('cgStatus').textContent='Audio listo';isLoading=false;
+  startPlayback(token);
  }
  async function play(id){
-  const r=state.records.find(x=>x.id===id&&isGeneral(x));if(!r)return;
-  if(currentId===id&&audio.src){try{await audio.play()}catch(e){el('cgStatus').textContent='Pulsa reproducir para iniciar el audio.'}return}
+  const r=state.records.find(x=>x.id===id&&isAudio(x));if(!r||!readIds().includes(id))return;
+  if(currentId===id&&isLoading)return;
+  if(currentId===id&&url&&audio.getAttribute('src')&&!audio.error){startPlayback(loading);return}
   const token=++loading;audio.pause();audio.removeAttribute('src');audio.load();if(url)URL.revokeObjectURL(url);url=null;
-  currentId=id;el('cgTitle').textContent=title(r);el('cgStatus').textContent='Cargando audio…';el('cgStudy').disabled=false;draw();
-  try{const ready=await window.consorteEnsureCloudFile?.(r)||r;if(token!==loading)return;
-   if(!(ready.blob instanceof Blob))throw Error('Archivo no disponible');
-   url=URL.createObjectURL(ready.blob);audio.src=url;audio.playbackRate=Number(el('cgSpeed').value);
-   el('cgStatus').textContent='Mezcla general';await audio.play();
-  }catch(e){if(token===loading)el('cgStatus').textContent='No se pudo iniciar: '+e.message+' · pulsa reproducir para reintentar.'}
+  currentId=id;isLoading=true;el('cgTitle').textContent=title(r);el('cgStatus').textContent='Cargando audio…';el('cgStudy').disabled=false;draw();
+  try{
+   // Local audio must start synchronously inside the user's click, especially on iOS.
+   if(r.blob instanceof Blob&&r.blob.size&&!r.cloudNeedsDownload){setSource(r,token);return}
+   const ready=await (window.consorteEnsureCloudFile?.(r)||r);
+   if(token!==loading)return;setSource(ready,token);
+  }catch(e){if(token===loading){isLoading=false;el('cgStatus').textContent='No se pudo cargar el archivo: '+e.message+'. Comprueba la conexión o vuelve a agregarlo.'}}
  }
  function step(dir){if(!list.length)return;let i=list.findIndex(r=>r.id===currentId);if(shuffle&&dir>0&&list.length>1){const choices=list.filter(r=>r.id!==currentId);play(choices[Math.floor(Math.random()*choices.length)].id);return}play(list[(i<0?0:(i+dir+list.length)%list.length)].id)}
+ function drawPicker(){
+  const root=el('cgPickerList');root.replaceChildren();
+  const q=consortStudyNormalize(el('cgPickerSearch').value),added=new Set(readIds());
+  const candidates=state.records.filter(isAudio).filter(r=>!added.has(r.id)&&consortStudyNormalize(title(r)+' '+r.name).includes(q)).sort((a,b)=>Number(consortRecordVoice(b)==='general')-Number(consortRecordVoice(a)==='general')||title(a).localeCompare(title(b),'es'));
+  if(!candidates.length){const p=document.createElement('p');p.textContent='No hay más audios disponibles.';root.append(p)}
+  for(const r of candidates){const label=document.createElement('label');label.className='cg-choice';const box=document.createElement('input');box.type='checkbox';box.checked=pickerSelected.has(r.id);box.onchange=()=>{if(box.checked)pickerSelected.add(r.id);else pickerSelected.delete(r.id)};const desc=document.createElement('span');desc.textContent=r.name;const info=document.createElement('small');info.textContent=consortRecordVoice(r)||'Sin clasificar';desc.append(info);label.append(box,desc);root.append(label)}
+ }
+ el('cgAddLibrary').onclick=()=>{pickerSelected=new Set();el('cgPickerSearch').value='';drawPicker();el('cgPicker').showModal()};
+ el('cgPickerSearch').oninput=drawPicker;
+ el('cgPickerCancel').onclick=()=>el('cgPicker').close();
+ el('cgPickerApply').onclick=()=>{saveIds([...readIds(),...pickerSelected]);el('cgPicker').close();draw()};
+ el('cgUpload').onclick=()=>el('cgFiles').click();
+ el('cgFiles').onchange=async()=>{
+  const files=Array.from(el('cgFiles').files||[]);el('cgFiles').value='';if(!files.length)return;
+  el('cgUpload').disabled=true;let added=[],errors=[];
+  try{
+   if(!db)throw Error('La biblioteca aún no está disponible');
+   let folder=state.records.find(r=>r.type==='folder'&&r.parent==null&&r.name==='Audios del reproductor');
+   for(const file of files){
+    try{
+     if(!file.type.startsWith('audio/')&&!/\.(mp3|wav|m4a|aac|ogg|flac|opus|webm)$/i.test(file.name))throw Error('Formato no admitido');
+     prepareBlob(file,file.name);
+     if(!folder){const newFolder={id:uid(),parent:null,type:'folder',name:'Audios del reproductor',created:Date.now()};await putRecord(newFolder);folder=newFolder}
+     const r={id:uid(),parent:folder.id,type:'file',kind:'audio',name:safeName(file.name),instrument:inferInstrument(file.name)||'General',blob:file,created:Date.now()};
+     await putRecord(r);added.push(r.id);
+    }catch(e){errors.push(file.name+': '+e.message)}
+   }
+   saveIds([...readIds(),...added]);await refresh();draw();
+   el('cgStatus').textContent=added.length+' audios agregados'+(errors.length?' · '+errors.join('; '):'');
+  }catch(e){el('cgStatus').textContent='No se pudo agregar: '+e.message}finally{el('cgUpload').disabled=false}
+ };
+ el('cgClear').onclick=()=>{if(!readIds().length)return;if(confirm('¿Vaciar la lista? Los archivos originales no se eliminarán.')){saveIds([]);resetPlayer();draw();el('cgStatus').textContent='Lista vacía.'}};
  el('cgSearch').oninput=draw;
  el('cgPlay').onclick=()=>{if(!audio.paused){audio.pause();return}if(currentId)play(currentId);else if(list.length)play(list[0].id)};
  el('cgPrev').onclick=()=>{if(audio.currentTime>3){audio.currentTime=0;return}step(-1)};
@@ -3485,11 +3573,11 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
  el('cgVolume').oninput=()=>{audio.volume=Number(el('cgVolume').value)};
  el('cgSeek').oninput=()=>{if(Number.isFinite(audio.duration))audio.currentTime=Number(el('cgSeek').value)*audio.duration/1000};
  function progress(){el('cgElapsed').textContent=time(audio.currentTime);el('cgDuration').textContent=time(audio.duration);el('cgSeek').value=audio.duration>0?Math.round(audio.currentTime/audio.duration*1000):0}
- audio.addEventListener('timeupdate',progress);audio.addEventListener('loadedmetadata',progress);
- audio.addEventListener('play',()=>{el('player').pause();el('cgPlay').textContent='Ⅱ';el('cgPlay').setAttribute('aria-label','Pausar');draw()});
+ audio.addEventListener('timeupdate',progress);audio.addEventListener('loadedmetadata',progress);audio.addEventListener('emptied',progress);
+ audio.addEventListener('play',()=>{el('player').pause();el('cgStatus').textContent='Reproduciendo';el('cgPlay').textContent='Ⅱ';el('cgPlay').setAttribute('aria-label','Pausar');draw()});
  audio.addEventListener('pause',()=>{el('cgPlay').textContent='▶';el('cgPlay').setAttribute('aria-label','Reproducir');draw()});
  audio.addEventListener('ended',()=>{if(!repeat){const i=list.findIndex(r=>r.id===currentId);if(shuffle||i<list.length-1)step(1)}});
- audio.addEventListener('error',()=>{if(audio.getAttribute('src'))el('cgStatus').textContent='No se pudo reproducir este archivo.'});
+ audio.addEventListener('error',()=>{if(audio.getAttribute('src'))el('cgStatus').textContent='El navegador no puede leer este audio. Comprueba el formato o vuelve a descargarlo.'});
  el('player').addEventListener('play',()=>audio.pause());
  el('cgStudy').onclick=()=>{const r=state.records.find(x=>x.id===currentId);if(r)openLinkedPiece(r).catch(e=>{el('cgStatus').textContent=e.message})};
  window.consortRefreshGeneralPlayer=draw;draw();
