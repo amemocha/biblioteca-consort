@@ -4,7 +4,10 @@
 "use strict";
 const DB="consorte_library_v2", STORE="files";
 let dbPromise;
+function canEdit(){const session=readJSON("consorte_cloud_session_v1",null);return Boolean(session?.access_token&&session.user?.id==="610f8db5-8615-4980-9ba0-09022eb073c9")}
+function requireAdmin(){if(!canEdit())throw Error("Consort Studio: acceso reservado a la cuenta administradora.");}
 function database(){
+ requireAdmin();
  if(dbPromise)return dbPromise;
  dbPromise=new Promise((resolve,reject)=>{
   const request=indexedDB.open(DB,1);
@@ -21,11 +24,16 @@ function database(){
  return dbPromise;
 }
 async function operate(method,value,mode="readonly"){
+ requireAdmin();
  const db=await database();
+ requireAdmin();
  return new Promise((resolve,reject)=>{
   const tx=db.transaction(STORE,mode),store=tx.objectStore(STORE);
   const req=method==="getAll"?store.getAll():method==="get"?store.get(value):store.put(value);
-  req.onsuccess=()=>resolve(req.result);
+  let result;
+ req.onsuccess=()=>{result=req.result};
+ tx.oncomplete=()=>resolve(result);
+ tx.onabort=()=>reject(tx.error||Error("Operación cancelada"));
   req.onerror=()=>reject(req.error||Error("Falló la operación con Biblioteca Consort"));
   tx.onerror=()=>reject(tx.error||Error("La Biblioteca Consort no pudo guardar el archivo"));
  });
@@ -61,7 +69,7 @@ function registerSync(record){
  }catch(e){console.warn("No se pudo registrar la sincronización pendiente",e)}
  try{window.parent?.postMessage({type:"consorte-studio-library-updated"},window.location.origin)}catch(_){}
 }
-async function save(record){await put(record);registerSync(record);return record}
+async function save(record){requireAdmin();await put(record);requireAdmin();registerSync(record);return record}
 async function saveCopy(blob,name,original=null,parentOverride){
  const record={
   id:uuid(),parent:parentOverride===undefined?(original?.parent??null):parentOverride,
