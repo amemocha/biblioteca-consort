@@ -184,9 +184,9 @@ document.documentElement.dataset.consortRole=consortAccessRole();
 </div><div class="items" id="items" data-view="grid"></div><p id="emptyLibrary" class="sub" style="display:none">Esta carpeta todavía está vacía. Crea una carpeta o sube un archivo.</p></section>
 <section class="page" id="calendar">
 <div class="flex" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-<div><h1 style="margin:0 0 3px">Calendario Consorte</h1><p class="sub" style="margin:0">Calendario mensual con fondo blanco, feriados y recordatorios.</p></div>
+<div><h1 style="margin:0 0 3px">Calendario</h1><p class="sub" style="margin:0">Calendario mensual con fondo blanco, feriados y recordatorios.</p></div>
 <a href="https://calendario-consorte.onrender.com/?theme=white" target="_blank" rel="noopener noreferrer" class="primary" style="display:inline-block;text-decoration:none;border-radius:9px;padding:9px 14px">Pantalla completa ↗</a></div>
-<iframe id="consorte-calendar-frame" title="Calendario Consorte con feriados y recordatorios" src="https://calendario-consorte.onrender.com/?theme=white" loading="eager" style="display:block;width:100%;height:calc(100dvh - 195px);min-height:670px;border:1px solid #dedede;border-radius:12px;background:#ffffff"></iframe>
+<iframe id="consorte-calendar-frame" title="Calendario con feriados y recordatorios" src="https://calendario-consorte.onrender.com/?theme=white" loading="eager" style="display:block;width:100%;height:calc(100dvh - 195px);min-height:670px;border:1px solid #dedede;border-radius:12px;background:#ffffff"></iframe>
 </section>
 <section class="page" id="consortstudio">
 <div id="consortStudioMount" class="consort-studio-native-content" aria-label="Consort Studio integrado"><div class="studio-header"><div class="header-inner"><div class="brand-kicker">CONSORT STUDIO</div><div class="build-version">Versión 2026.11.23-14 · Studio integrado y tablaturas corregidas</div><h1>Tu música, a tu manera.</h1><p>Importa tu partitura, ajusta cada instrumento y crea el audio que necesitas.</p></div></div><div class="studio-native-main">
@@ -372,7 +372,7 @@ document.documentElement.dataset.consortRole=consortAccessRole();
 <div class="flex"><button id="removeDecorations">Eliminar imágenes añadidas</button><button class="primary" id="closeVisualEditor">Guardar y cerrar editor</button></div>
 </div></div></div></section>
 <section class="page" id="backup"><h1>Configuración</h1>
-<div class="card" id="orchestraAccountSettings"><h2>Cuenta de Biblioteca Consort</h2><p id="orchestraAccountRole" aria-live="polite">Inicia sesión para consultar el repertorio compartido.</p><div id="orchestraAccountMount"></div><p class="small">Privacidad: al entrar y abrir una canción se registra tu cuenta, fecha y obra consultada. Solo la cuenta administradora puede consultar este registro. No se graban conversaciones ni audio del micrófono.</p></div>
+<div class="card" id="orchestraAccountSettings"><div id="consortLoginIdentity"><img src="./consorte-icon.svg?v=20261127blue" alt="" width="76" height="76"><h1>Biblioteca Consort</h1><p>Inicia sesión para acceder a la biblioteca.</p></div><h2>Cuenta de Biblioteca Consort</h2><p id="orchestraAccountRole" aria-live="polite">Inicia sesión para consultar el repertorio compartido.</p><div id="orchestraAccountMount"></div><p class="small">Privacidad: al entrar y abrir una canción se registra tu cuenta, fecha y obra consultada. Solo la cuenta administradora puede consultar este registro. No se graban conversaciones ni audio del micrófono.</p></div>
 <div class="card consort-admin-only" id="orchestraActivityPanel"><h2>Actividad de usuarios</h2><p class="small">Últimos 90 días de accesos y consultas desde esta versión. No equivale a tiempo de práctica.</p><div class="flex"><button id="orchestraActivityRefresh" type="button">Actualizar actividad</button><input id="orchestraActivitySearch" placeholder="Buscar correo o canción" aria-label="Buscar actividad"></div><p id="orchestraActivityStatus" role="status"></p><div style="overflow:auto;max-height:480px"><table id="orchestraActivityTable"><thead><tr><th>Fecha</th><th>Cuenta</th><th>Acción</th><th>Canción</th></tr></thead><tbody id="orchestraActivityRows"></tbody></table></div></div>
 <details class="card consort-admin-only" id="orchestraBackupDetails"><summary style="font-weight:750;cursor:pointer">Respaldo y datos</summary><h2>Protege tu repertorio</h2><p>Los archivos se guardan en este dispositivo y se sincronizan con tu cuenta de Biblioteca Consort al iniciar sesión. Exporta un ZIP para conservar una copia independiente. No borres los datos del navegador si quedan cambios pendientes de subir.</p><button class="primary" id="export" type="button">↓ Exportar biblioteca (ZIP)</button><p id="consorte-export-status" class="small" role="status" aria-live="polite">El ZIP incluye los archivos y carpetas del repertorio; las copias de la nube se descargarán si es necesario.</p><progress id="consorte-export-progress" max="100" value="0" hidden style="width:100%;height:13px;margin:5px 0"></progress><button id="importFolder">Subir carpeta del computador</button><button id="restoreBackup">↥ Restaurar respaldo ZIP</button><button class="primary" id="importConsorteZip" type="button">Importar ZIP de partituras y audios (organizar por canción)</button><input type="file" id="consorteZipFile" class="hidden" accept=".zip,application/zip"><p id="consorteZipStatus" class="small" role="status"></p><input id="backupFile" class="hidden" type="file" accept=".zip,application/zip"><input type="file" id="folderInput" class="hidden" webkitdirectory directory multiple></details></section>
 </div></main></div><nav class="bottomnav"><button data-page="library" class="active">▦<br>Biblioteca</button><button data-page="study">♫<br>Estudio</button><button data-page="consortstudio">♫<br>Studio</button><button data-page="calendar">▣<br>Calendario</button><button data-page="backup">⚙<br>Configuración</button></nav>
@@ -871,7 +871,7 @@ function renderLibrary(){
    e.preventDefault();item.click();
   };
  }
- if(r.virtual){list.append(item);continue}
+ if(r.virtual||(r.type==='folder'&&!consortCanEdit())){list.append(item);continue}
  let actions=document.createElement('div');actions.className='itemactions';
  if(r.type==='file')actions.append(createButton('♫ Estudiar',async()=>{try{await openLinkedPiece(r)}catch(error){console.error('No se pudo abrir Estudio',error);nav('study');alert('No se pudo cargar el archivo: '+(error?.message||error))}},'primary'));
  if(consortCanEdit()&&r.type==='file'&&r.kind==='audio')actions.append(createButton('Editar en Studio',async()=>{
@@ -2469,7 +2469,7 @@ async function validateSession(force=false){
   if(saved.refresh_token!==session.refresh_token&&saved.expires_at>Math.floor(Date.now()/1000)+90){session=saved;return true}
   if(!session.refresh_token){status('La sesión necesita renovarse. Cierra sesión y vuelve a entrar.');return false}
   try{const v=await authFetch('token?grant_type=refresh_token',{refresh_token:session.refresh_token});if(loadSession()?.user?.id!==v.user?.id)return false;saveSession(v);return true}
-  catch(e){status('No se pudo renovar la sesión. '+((e.status===400||e.status===401)?'Si el problema continúa, cierra sesión y vuelve a entrar.':'Se reintentará al recuperar conexión.'));return false}
+  catch(e){if(e.code==='user_not_found'||e.code==='session_not_found'||e.code==='user_banned'){saveSession(null);location.reload();return false}status('No se pudo renovar la sesión. '+((e.status===400||e.status===401)?'Si el problema continúa, cierra sesión y vuelve a entrar.':'Se reintentará al recuperar conexión.'));return false}
  };
  refreshPromise=(navigator.locks?.request?navigator.locks.request('consorte-session-refresh',work):work()).finally(()=>{refreshPromise=null});
  return refreshPromise;
@@ -2932,8 +2932,9 @@ async function pushExisting(){
  finally{busy=false}
 }
 async function login(signup){const email=$c('cloud-email').value.trim(),password=$c('cloud-password').value;if(!email||!password){status('Escribe tu correo y contraseña.');return}
-try{status('Conectando…');const v=await authFetch(signup?'signup':'token?grant_type=password',{email,password});if(!v.access_token){status('Revisa tu correo para confirmar la cuenta, luego pulsa Entrar.');return}saveSession(v);$c('cloud-password').value='';location.reload()}catch(e){status('No se pudo iniciar sesión: '+e.message)}}
+try{status('Conectando…');const v=await authFetch(signup?'signup':'token?grant_type=password',{email,password});if(!v.access_token){status('Revisa tu correo para confirmar la cuenta, luego pulsa Entrar.');return}saveSession(v);if(!consortSavedAccount()){status('El navegador no permite guardar la sesión. Habilita el almacenamiento local.');return}$c('cloud-password').value='';location.reload()}catch(e){status('No se pudo iniciar sesión: '+e.message)}}
 $c('cloud-login').onclick=()=>login(false);
+for(const id of ['cloud-email','cloud-password'])$c(id).addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();login(false)}});
 $c('cloud-signup').onclick=()=>login(true);
 
 $c('cloud-sync-now').onclick=async()=>{
@@ -3820,7 +3821,7 @@ const controls=document.getElementById('undoLastLibraryAction')?.parentElement;
 for(const id of ['newFolder','pickFiles','organizeSongs','undoLastLibraryAction','consort-check-duplicate-folders','selectLibraryFolders','selectAllLibraryFolders','clearSelectedLibraryFolders','folderSizeControls','moveSelectedFolders','deleteSelectedFolders','cancelFolderSelection'])move(id,true);
 if(controls)controls.style.display='none';
 const toolbar=document.querySelector('#library .library-view-toolbar');if(toolbar){content.append(toolbar);toolbar.querySelector('.view-label')?.remove()}
-const admin=consortCanEdit();if(admin){const sync=createButton('Actualizar repertorio',()=>window.consorteOrchestraSync?.());content.append(sync)}
+const sync=createButton('Actualizar repertorio',()=>window.consorteOrchestraSync?.());content.append(sync);
 document.getElementById('consortNavBack').onclick=()=>{if(consortAccessRole()==='guest')return;if(history.state?.consorteNavigation&&history.state.consorteDepth>0){history.back();return}if(state.folder){state.folder=rec(state.folder)?.parent||null;renderLibrary();nav('library')}else if(consorteCurrentPage()!=='library')nav('library')};
 document.getElementById('consortNavForward').onclick=()=>{if(consortAccessRole()!=='guest')history.forward()};
 document.addEventListener('click',event=>{if(menu.open&&!menu.contains(event.target))menu.open=false});
@@ -3875,4 +3876,19 @@ const re=/[\p{Extended_Pictographic}\p{Regional_Indicator}\uFE0F\u200D\u20E3]/gu
 function clean(root){if(!root)return;const visit=n=>{if(n.nodeType!==3||!n.parentElement||n.parentElement.closest('script,style,textarea,pre,code,[contenteditable=true],.itemname'))return;const old=n.nodeValue,v=old.replace(re,'');if(v!==old){if(!v.trim()&&n.parentElement.tagName==='BUTTON')n.nodeValue=n.parentElement.getAttribute('aria-label')||n.parentElement.title||'Opciones';else n.nodeValue=v}};if(root.nodeType===3)visit(root);else if(root.nodeType===1){if(root.closest('script,style,textarea,pre,code'))return;const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while(n=w.nextNode())visit(n)}}
 clean(document.body);new MutationObserver(records=>{for(const r of records){if(r.type==='characterData')clean(r.target);else for(const n of r.addedNodes)clean(n)}}).observe(document.body,{subtree:true,childList:true,characterData:true});
 })();
-</script></body></html>
+</script><style id="consort-session-screen">
+#consortLoginIdentity{display:none}
+html[data-consort-role="guest"] .top,html[data-consort-role="guest"] #backup>h1,html[data-consort-role="guest"] #orchestraAccountSettings>h2,html[data-consort-role="guest"] #orchestraAccountRole,html[data-consort-role="guest"] #launchEditorAnywhere{display:none!important}
+html[data-consort-role="guest"] .content{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px!important}
+html[data-consort-role="guest"] #backup{width:min(100%,430px)}
+html[data-consort-role="guest"] #consortLoginIdentity{display:block;text-align:center;margin-bottom:22px}
+html[data-consort-role="guest"] #consortLoginIdentity h1{margin:10px 0 5px;font-size:28px}
+html[data-consort-role="guest"] #consortLoginIdentity p{font-size:14px;color:#496078}
+html[data-consort-role="guest"] #orchestraAccountSettings{padding:24px!important}
+html[data-consort-role="guest"] #consorte-cloud-panel{background:transparent!important;border:0!important;padding:0!important;box-shadow:none!important}
+html[data-consort-role="guest"] #consorte-cloud-panel .cloud-line{display:grid;grid-template-columns:1fr;gap:8px}
+html[data-consort-role="guest"] #consorte-cloud-panel .cloud-line input,html[data-consort-role="guest"] #consorte-cloud-panel .cloud-line button{width:100%!important;min-height:44px}
+html[data-consort-role="guest"] #cloud-login{background:#2563eb!important;color:white!important}
+html[data-consort-role="guest"] #orchestraAccountSettings>.small,html[data-consort-role="guest"] .cloud-note{font-size:11px}
+#consortRestoreControls{display:none!important}
+</style></body></html>
