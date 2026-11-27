@@ -148,7 +148,30 @@ body:has(#consorteEditDock.active) #resizeHandle{z-index:11999!important;bottom:
 </style><link rel="stylesheet" href="./consorte-studio-native.css?v=20261123native5">
 <link rel="stylesheet" href="./consorte-studio-xml-composer.css?v=20261123xml3">
 <link rel="stylesheet" href="./consorte-audio-editor.css?v=2">
-</head><body><div class="app"><aside class="sidebar"><div class="logos"><img id="logA"><img id="logB"></div><button class="nav active" data-page="library">▦ Biblioteca</button><button class="nav" data-page="study">♫ Partitura + audio</button><button class="nav" data-page="generalplayer">♪ Reproductor</button><button class="nav" data-page="consortstudio">♫ Consort Studio</button><button class="nav" data-page="calendar">▣ Calendario</button><button class="nav" data-page="backup">⇩ Respaldo</button><div class="sidefoot">Fundación Consorte · Orquesta Juvenil de Guitarras<br>Almacenamiento local en este navegador</div></aside><main class="main"><header class="top"><strong>Biblioteca Consorte · Orquesta Juvenil de Guitarras</strong><img id="headerLogo" alt="Logo Orquesta"></header><div class="content">
+<style id="consort-orchestra-access">
+html:not([data-consort-role="admin"]) .consort-admin-only,
+html:not([data-consort-role="admin"]) :is(#newFolder,#organizeSongs,#pickFiles,#drop,#undoLastLibraryAction,#consort-check-duplicate-folders,#selectLibraryFolders,#selectAllLibraryFolders,#clearSelectedLibraryFolders,#folderSizeControls,#moveSelectedFolders,#deleteSelectedFolders,#cancelFolderSelection,#consort-cloud-folder-info,#cgUpload,#consorteEditDock,#editor,#consort-recover-cloud-folders,#importFolder,#restoreBackup,#importConsorteZip,#export,#saveMixLibrary),
+html:not([data-consort-role="admin"]) :is([data-page="consortstudio"],[data-dock-page="consortstudio"]){display:none!important}
+html[data-consort-role="guest"] :is(.sidebar,.bottomnav,#consorteEditDock){display:none!important}
+html[data-consort-role="guest"] .app{display:block!important}
+html[data-consort-role="guest"] .main{margin:0!important;width:100%!important}
+html[data-consort-role="guest"] .page:not(#backup){display:none!important}
+html[data-consort-role="guest"] #backup{display:block!important}
+html[data-consort-role="guest"] #cloud-sync-now{display:none!important}
+#orchestraActivityTable{width:100%;border-collapse:collapse;font-size:13px}
+#orchestraActivityTable th,#orchestraActivityTable td{padding:8px;text-align:left;border-bottom:1px solid #9994;overflow-wrap:anywhere}
+#orchestraActivityTable td:first-child{white-space:nowrap}
+#orchestraActivityPanel{overflow:hidden}
+#orchestraAccountRole{font-weight:750}
+#orchestraAccountSettings #consorte-cloud-panel{margin:0;max-width:100%;box-shadow:none}
+</style>
+<script>
+const CONSORT_ADMIN_ID='610f8db5-8615-4980-9ba0-09022eb073c9';
+function consortSavedAccount(){try{const x=JSON.parse(localStorage.getItem('consorte_cloud_session_v1')||'null');return x?.access_token&&x.user?.id?x:null}catch{return null}}
+function consortAccessRole(){const a=consortSavedAccount();return !a?'guest':a.user.id===CONSORT_ADMIN_ID?'admin':'member'}
+function consortCanEdit(){return consortAccessRole()==='admin'}
+document.documentElement.dataset.consortRole=consortAccessRole();
+</script></head><body><div class="app"><aside class="sidebar"><div class="logos"><img id="logA"><img id="logB"></div><button class="nav active" data-page="library">▦ Biblioteca</button><button class="nav" data-page="study">♫ Partitura + audio</button><button class="nav" data-page="generalplayer">♪ Reproductor</button><button class="nav" data-page="consortstudio">♫ Consort Studio</button><button class="nav" data-page="calendar">▣ Calendario</button><button class="nav" data-page="backup">⚙ Configuración</button><div class="sidefoot">Fundación Consorte · Orquesta Juvenil de Guitarras<br>Almacenamiento local en este navegador</div></aside><main class="main"><header class="top"><strong>Biblioteca Consorte · Orquesta Juvenil de Guitarras</strong><img id="headerLogo" alt="Logo Orquesta"></header><div class="content">
 <section class="page active" id="library"><h1>Tu biblioteca musical</h1><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 16px"><button id="printLibraryScore" type="button" style="background:#fff;color:#202020;border:2px solid #333;font-size:16px;font-weight:800;padding:13px 20px;box-shadow:0 2px 8px #0002">🖨 IMPRIMIR PARTITURA</button><span class="small">Selecciona cualquier partitura PDF o imagen para imprimirla completa.</span></div><p class="sub">Organiza canciones, carpetas, partituras y audios. Toca un archivo para abrirlo.</p><div class="card"><div class="flex"><input class="fill" id="search" placeholder="Buscar canción o archivo…" aria-label="Buscar"><select id="instrumentFilter" aria-label="Filtrar guitarra"><option value="">Todas las guitarras</option><option>Soprano</option><option>Alto</option><option>Tenor</option><option>Bajo</option><option>Contrabajo</option><option>General</option></select><select id="typeFilter"><option value="">Todos los archivos</option><option value="audio">Audios</option><option value="score">Partituras</option></select><select id="songFilter" aria-label="Filtrar por canción"><option value="">Todas las canciones</option></select><select id="categoryFilter" aria-label="Filtrar por categoría"><option value="">Todas las categorías</option></select><label class="small" style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="groupBySong"> Agrupar por canción</label></div><div id="folderLocation" role="status" style="font-weight:700;margin:8px 0"></div><div id="consort-folder-duplicate-report" hidden style="margin:8px 0;padding:12px;background:#f7f1ff;border:1px solid #bca4d9;border-radius:12px"></div><div id="consort-cloud-folder-info" style="margin:10px 0;padding:12px 14px;border:1px solid #b9a2db;background:#f7f3ff;color:#3b2862;border-radius:12px;font-size:14px"><strong>Carpetas de la nube</strong> · Se recuperan al iniciar sesión. <button type="button" id="consort-cloud-recovery-shortcut" style="margin-left:8px;background:#6745a1;color:white">Verificar y recuperar carpetas</button><span id="consort-cloud-folder-info-status" style="display:block;font-size:12px;margin-top:5px"></span></div><div class="flex" id="folderNavigation" hidden style="gap:10px;margin:12px 0;flex-wrap:wrap"><button class="primary" id="backToLibraryHome" type="button" style="background:#8b522e;color:white;font-weight:750;font-size:15px;padding:12px 18px">← Volver al inicio</button><button id="backToParentFolder" type="button" style="font-size:14px;padding:11px 16px">↑ Carpeta anterior</button></div><div class="tree" id="breadcrumbs"></div><div class="flex"><button id="undoLastLibraryAction" disabled type="button">↶ Deshacer última acción</button><button id="consort-check-duplicate-folders" type="button">Revisar carpetas duplicadas</button><button id="selectLibraryFolders" type="button">☑ Seleccionar archivos y carpetas</button><button id="selectAllLibraryFolders" type="button" hidden>☑ Seleccionar todos los visibles</button><button id="clearSelectedLibraryFolders" type="button" hidden>Deseleccionar todas</button><label id="folderSizeControls" hidden style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-weight:700">Tamaño de carpetas <select id="folderSizeChoice" aria-label="Tamaño de carpetas"><option value="small">Pequeño</option><option value="normal" selected>Normal</option><option value="large">Grande</option><option value="extra">Muy grande</option></select><button id="sizeSelectedFolders" type="button">Aplicar a seleccionadas</button><button id="sizeAllFolders" type="button">Aplicar a todas</button></label><button id="moveSelectedFolders" type="button" class="primary" hidden>Mover seleccionados (0)</button><button id="deleteSelectedFolders" type="button" class="danger" hidden>Eliminar seleccionados (0)</button><button id="cancelFolderSelection" type="button" hidden>Cancelar selección</button><button class="primary" id="newFolder">＋ Nueva carpeta</button><button class="primary" id="organizeSongs" type="button" style="background:#8b522e;color:#fff;font-weight:750">↪ Organizar canciones en carpetas</button><button id="pickFiles">↑ Elegir archivos</button><span class="small">PDF, imágenes, MP3, WAV, MusicXML</span></div><div class="drop" id="drop"> Arrastra archivos aquí o toca para seleccionarlos</div><input class="hidden" type="file" multiple id="fileInput" accept=".pdf,.mp3,.wav,.ogg,.m4a,.aac,.musicxml,.xml,.png,.jpg,.jpeg,.webp,audio/*,image/*,application/pdf"><p id="uploadStatus" class="status" role="status"></p></div><div class="library-view-toolbar" aria-label="Forma de mostrar los archivos">
  <span class="view-label">Ver archivos como:</span>
  <div class="view-switch" role="group" aria-label="Vista de biblioteca">
@@ -346,14 +369,17 @@ body:has(#consorteEditDock.active) #resizeHandle{z-index:11999!important;bottom:
 <p class="small">Arrastra la imagen para moverla por la pantalla (también puedes hacerlo con el dedo). Toca dos veces para eliminarla.</p>
 <div class="flex"><button id="removeDecorations">Eliminar imágenes añadidas</button><button class="primary" id="closeVisualEditor">Guardar y cerrar editor</button></div>
 </div></div></div></section>
-<section class="page" id="backup"><h1>Respaldo y datos</h1><div class="card"><h2>Protege tu repertorio</h2><p>Los archivos se guardan en este dispositivo y se sincronizan con tu cuenta de Biblioteca Consort al iniciar sesión. Exporta un ZIP para conservar una copia independiente. No borres los datos del navegador si quedan cambios pendientes de subir.</p><button class="primary" id="export" type="button">↓ Exportar biblioteca (ZIP)</button><p id="consorte-export-status" class="small" role="status" aria-live="polite">El ZIP incluye los archivos y carpetas del repertorio; las copias de la nube se descargarán si es necesario.</p><progress id="consorte-export-progress" max="100" value="0" hidden style="width:100%;height:13px;margin:5px 0"></progress><button id="importFolder">Subir carpeta del computador</button><button id="restoreBackup">↥ Restaurar respaldo ZIP</button><button class="primary" id="importConsorteZip" type="button">Importar ZIP de partituras y audios (organizar por canción)</button><input type="file" id="consorteZipFile" class="hidden" accept=".zip,application/zip"><p id="consorteZipStatus" class="small" role="status"></p><input id="backupFile" class="hidden" type="file" accept=".zip,application/zip"><input type="file" id="folderInput" class="hidden" webkitdirectory directory multiple></div></section>
-</div></main></div><nav class="bottomnav"><button data-page="library" class="active">▦<br>Biblioteca</button><button data-page="study">♫<br>Estudio</button><button data-page="generalplayer">♪<br>Audio</button><button data-page="consortstudio">♫<br>Studio</button><button data-page="calendar">▣<br>Calendario</button><button data-page="backup">⇩<br>Respaldo</button></nav>
+<section class="page" id="backup"><h1>Configuración</h1>
+<div class="card" id="orchestraAccountSettings"><h2>Cuenta de Biblioteca Consort</h2><p id="orchestraAccountRole" aria-live="polite">Inicia sesión para consultar el repertorio de la orquesta.</p><div id="orchestraAccountMount"></div><p class="small">Privacidad: al entrar y abrir una canción se registra tu cuenta, fecha y obra consultada. Solo la cuenta administradora puede consultar este registro. No se graban conversaciones ni audio del micrófono.</p></div>
+<div class="card consort-admin-only" id="orchestraActivityPanel"><h2>Actividad de la orquesta</h2><p class="small">Últimos 90 días de accesos y consultas desde esta versión. No equivale a tiempo de práctica.</p><div class="flex"><button id="orchestraActivityRefresh" type="button">Actualizar actividad</button><input id="orchestraActivitySearch" placeholder="Buscar correo o canción" aria-label="Buscar actividad"></div><p id="orchestraActivityStatus" role="status"></p><div style="overflow:auto;max-height:480px"><table id="orchestraActivityTable"><thead><tr><th>Fecha</th><th>Cuenta</th><th>Acción</th><th>Canción</th></tr></thead><tbody id="orchestraActivityRows"></tbody></table></div></div>
+<details class="card consort-admin-only" id="orchestraBackupDetails"><summary style="font-weight:750;cursor:pointer">Respaldo y datos</summary><h2>Protege tu repertorio</h2><p>Los archivos se guardan en este dispositivo y se sincronizan con tu cuenta de Biblioteca Consort al iniciar sesión. Exporta un ZIP para conservar una copia independiente. No borres los datos del navegador si quedan cambios pendientes de subir.</p><button class="primary" id="export" type="button">↓ Exportar biblioteca (ZIP)</button><p id="consorte-export-status" class="small" role="status" aria-live="polite">El ZIP incluye los archivos y carpetas del repertorio; las copias de la nube se descargarán si es necesario.</p><progress id="consorte-export-progress" max="100" value="0" hidden style="width:100%;height:13px;margin:5px 0"></progress><button id="importFolder">Subir carpeta del computador</button><button id="restoreBackup">↥ Restaurar respaldo ZIP</button><button class="primary" id="importConsorteZip" type="button">Importar ZIP de partituras y audios (organizar por canción)</button><input type="file" id="consorteZipFile" class="hidden" accept=".zip,application/zip"><p id="consorteZipStatus" class="small" role="status"></p><input id="backupFile" class="hidden" type="file" accept=".zip,application/zip"><input type="file" id="folderInput" class="hidden" webkitdirectory directory multiple></details></section>
+</div></main></div><nav class="bottomnav"><button data-page="library" class="active">▦<br>Biblioteca</button><button data-page="study">♫<br>Estudio</button><button data-page="generalplayer">♪<br>Audio</button><button data-page="consortstudio">♫<br>Studio</button><button data-page="calendar">▣<br>Calendario</button><button data-page="backup">⚙<br>Configuración</button></nav>
 <div id="consorteEditDock" aria-label="Editor de diseño global">
 <div class="dockNav" role="navigation" aria-label="Cambiar sección mientras editas">
 <button type="button" data-dock-page="library">▦ Biblioteca</button>
 <button type="button" data-dock-page="study">♫ Partitura + audio</button><button type="button" data-dock-page="generalplayer">♪ Reproductor</button>
 <button type="button" data-dock-page="consortstudio">♫ Consort Studio</button>
-<button type="button" data-dock-page="calendar">▣ Calendario</button><button type="button" data-dock-page="backup">⇩ Respaldo</button>
+<button type="button" data-dock-page="calendar">▣ Calendario</button><button type="button" data-dock-page="backup">⚙ Configuración</button>
 <label style="display:flex;align-items:center;gap:9px;padding:8px 12px;color:#fff;font-size:13px;white-space:nowrap">Color de carpetas <input id="dockFolderColor" type="color" value="#7e3fb5" style="width:42px;height:34px;border:1px solid #fff8;border-radius:8px;padding:2px;background:#fff"></label><button type="button" id="dockExit">✓ Guardar y cerrar</button>
 </div></div>
 <dialog id="editor"><h2 id="editorTitle">Editar archivo</h2><label>Nombre<br><input id="editName" style="width:100%"></label><label style="display:block;margin-top:12px">Guitarra<br><select id="editInstrument"><option value="">Sin clasificar</option><option>Soprano</option><option>Alto</option><option>Tenor</option><option>Bajo</option><option>Contrabajo</option><option>General</option></select></label><div id="songCategoryPanel" style="margin-top:12px;display:grid;gap:10px"><label>Canción<br><input id="editSong" list="songSuggestions" placeholder="Ej.: Feliz Navidad" style="width:100%"><datalist id="songSuggestions"></datalist></label><label>Categoría<br><select id="editCategory" style="width:100%"><option value="">Sin categoría</option></select></label><button id="addNewCategory" type="button">＋ Agregar nueva categoría</button></div><label style="display:block;margin-top:12px">Portada personalizada<br><input id="editCover" accept="image/*" type="file"></label><div id="linksEditor" style="margin-top:14px"><p class="small">Vincula los tres documentos para abrirlos directamente desde Estudio.</p><label>Partitura <select id="editScore" style="width:100%"></select></label><label>Tablatura <select id="editTab" style="width:100%"></select></label><label>Audio <select id="editAudio" style="width:100%"></select></label></div><menu><button id="editCancel">Cancelar</button><button class="primary" id="editSave">Guardar</button></menu></dialog>
@@ -392,12 +418,14 @@ window.addEventListener('message',event=>{
  window.consorteStudioSyncPending?.();
 });
 function nav(page){
+ if(consortAccessRole()==='guest')page='backup';
  if(page==='custom'||page==='planner'||page==='tablaturas')page='consortstudio';
+ if(page==='consortstudio'&&!consortCanEdit())page='library';
  const before=consorteCurrentPage();
  if(before!==page)consortePushNavigation(page);
  document.querySelectorAll('.page').forEach(e=>e.classList.toggle('active',e.id===page));document.querySelectorAll('[data-page]').forEach(e=>e.classList.toggle('active',e.dataset.page===page));if(page==='tablaturas'){try{$('consorte-tablature-frame')?.contentWindow?.refreshTabLibraryFiles?.()}catch(error){console.warn(error)}}if(page==='generalplayer')window.consortRefreshGeneralPlayer?.();window.scrollTo({top:0,behavior:'instant'});}
 document.querySelectorAll('[data-page]').forEach(b=>b.addEventListener('click',()=>nav(b.dataset.page)));
-function openDB(){return new Promise((resolve,reject)=>{let r=indexedDB.open('consorte_library_v2',1);r.onupgradeneeded=()=>{const db=r.result;const st=db.createObjectStore('files',{keyPath:'id'});st.createIndex('parent','parent')};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
+function openDB(){return new Promise((resolve,reject)=>{let r=indexedDB.open(consortCanEdit()?'consorte_library_v2':'consorte_library_readonly_v1_'+(consortSavedAccount()?.user.id||'guest'),1);r.onupgradeneeded=()=>{const db=r.result;const st=db.createObjectStore('files',{keyPath:'id'});st.createIndex('parent','parent')};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
 let db;
 function tx(mode='readonly'){return db.transaction('files',mode).objectStore('files')}
 function allRecords(){return new Promise((resolve,reject)=>{let r=tx().getAll();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
@@ -842,7 +870,7 @@ function renderLibrary(){
  if(r.virtual){list.append(item);continue}
  let actions=document.createElement('div');actions.className='itemactions';
  if(r.type==='file')actions.append(createButton('♫ Estudiar',async()=>{try{await openLinkedPiece(r)}catch(error){console.error('No se pudo abrir Estudio',error);nav('study');alert('No se pudo cargar el archivo: '+(error?.message||error))}},'primary'));
- if(r.type==='file'&&r.kind==='audio')actions.append(createButton('Editar en Studio',async()=>{
+ if(consortCanEdit()&&r.type==='file'&&r.kind==='audio')actions.append(createButton('Editar en Studio',async()=>{
   try{
    const selected=await window.consorteEnsureCloudFile?.(r)||r;
    if(!(selected.blob instanceof Blob))throw Error('El audio todavía no está disponible en este dispositivo.');
@@ -851,7 +879,7 @@ function renderLibrary(){
    await window.consorteStudioLibrary.openFromLibrary(selected.id);
   }catch(error){alert('No se pudo abrir el audio en Studio: '+(error.message||error))}
  },'primary'));
- if(r.type==='file'&&/\.(xml|musicxml|mxl)$/i.test(r.name||''))actions.append(createButton('Generar audio en Studio',async()=>{
+ if(consortCanEdit()&&r.type==='file'&&/\.(xml|musicxml|mxl)$/i.test(r.name||''))actions.append(createButton('Generar audio en Studio',async()=>{
   try{
    const selected=await window.consorteEnsureCloudFile?.(r)||r;
    if(!(selected.blob instanceof Blob))throw Error('La partitura aún no está descargada en este dispositivo.');
@@ -868,13 +896,15 @@ function renderLibrary(){
    const button=createButton(label,()=>{menu.open=false;action()},isDanger?'danger':'');
    button.type='button';options.append(button);
  }
+ if(consortCanEdit()){
  option(r.pinned?'Desfijar':'Fijar al principio',async()=>{try{await putRecord({...r,pinned:!r.pinned});await refresh()}catch(error){alert('No se pudo cambiar la fijación: '+error.message)}});
  option('✎ Editar',()=>editRecord(r));
  option('↪ Mover a carpeta',()=>moveRecordToFolder(r));
  if(r.type==='file'&&r.parent!=null)option('↑ Sacar de carpeta',()=>takeFileOutOfFolder(r));
+ }
  if(r.type==='file'&&(['pdf','image'].includes(r.kind)||r.scoreId))option('🖨 Imprimir partitura',()=>printScoreRecord(r));
  if(r.type==='file')option('↓ Descargar',()=>downloadRecord(r));
- option('Eliminar',()=>removeRecord(r),true);
+ if(consortCanEdit())option('Eliminar',()=>removeRecord(r),true);
  menu.append(options);
  let closeFloating=()=>{};
  menu.addEventListener('toggle',()=>{
@@ -1057,6 +1087,7 @@ async function openLinkedPiece(r){
  if(!r||r.type!=='file')return;
  const selection=++studySelection;
  r=rec(r.id)||r;
+ window.consorteLogSong?.(r);
  clearStudySelection();
  $('consortGeneralAudio')?.pause();
  nav('study');
@@ -1455,7 +1486,7 @@ $('removeDecorations').onclick=()=>{if(confirm('¿Eliminar todas las imágenes d
 applyVisual();
 $('importFolder').onclick=()=>$('folderInput').click();$('folderInput').onchange=async e=>{let files=[...e.target.files];for(const f of files){let parts=(f.webkitRelativePath||f.name).split('/');let parent=null;for(const segment of parts.slice(0,-1)){let existing=state.records.find(r=>r.type==='folder'&&r.parent===parent&&r.name===segment);if(!existing){existing={id:uid(),type:'folder',parent,name:segment,created:Date.now()};await putRecord(existing);state.records.push(existing)}parent=existing.id}await upload([f],parent)}await refresh();e.target.value=''};
 // El exportador ZIP completo se registra después de cargar JSZip (consorte-patches).
-(async()=>{try{db=await openDB();applyDesign();await refresh();await importSharedFiles();notify('Listo para subir archivos.')}catch(e){notify('Error al iniciar el almacenamiento: '+e.message);alert('No se pudo iniciar la biblioteca en este navegador. Intenta abrirla desde un servidor HTTPS o Chrome actualizado.')}})();
+(async()=>{try{db=await openDB();applyDesign();await refresh();if(consortCanEdit())await importSharedFiles();notify(consortCanEdit()?'Listo para subir archivos.':'Biblioteca de consulta')}catch(e){notify('Error al iniciar el almacenamiento: '+e.message);alert('No se pudo iniciar la biblioteca en este navegador. Intenta abrirla desde un servidor HTTPS o Chrome actualizado.')}})();
 </script><script>/*!
 
 JSZip v3.10.1 - A JavaScript class for generating and reading zip files
@@ -2251,16 +2282,16 @@ body:has(#consorteEditDock.active) #launchEditorAnywhere{display:none}
 #consorte-cloud-panel button{font-size:13px;padding:8px}
 #consorte-cloud-panel .cloud-note{font-size:12px;margin:6px 0 0;color:#76513f}
 </style>
-<section id="consorte-cloud-panel" aria-label="Sincronización de documentos">
- <div class="cloud-line"><strong>Documentos sincronizados</strong><span id="cloud-status">Sin iniciar sesión. Los archivos se guardan solo en este dispositivo.</span></div>
+<section id="consorte-cloud-panel" aria-label="Acceso al repertorio compartido">
+ <div class="cloud-line"><strong>Biblioteca compartida</strong><span id="cloud-status">Inicia sesión con tu propia cuenta para acceder.</span></div>
  <div class="cloud-line" style="margin-top:8px">
  <input type="email" id="cloud-email" placeholder="Correo electrónico" autocomplete="email" aria-label="Correo">
  <input type="password" id="cloud-password" placeholder="Contraseña" autocomplete="current-password" aria-label="Contraseña">
  <button id="cloud-login" type="button">Entrar</button><button id="cloud-signup" type="button">Crear cuenta</button>
  
- <button id="consort-recover-cloud-folders" type="button">☁ Recuperar carpetas</button><button id="cloud-sync-now" type="button" style="display:none">↻ Sincronizar ahora</button><button id="cloud-logout" type="button" style="display:none">Salir</button>
+ <button id="consort-recover-cloud-folders" type="button">☁ Recuperar carpetas</button><button id="cloud-sync-now" type="button" style="display:none">↻ Sincronizar ahora</button><button id="cloud-logout" type="button" style="display:none">Cerrar sesión</button>
  </div>
- <p class="cloud-note">Usa el mismo correo y contraseña en cada dispositivo. Los archivos locales se subirán automáticamente al iniciar sesión y al recuperar conexión.</p>
+ <p class="cloud-note">Cada integrante utiliza su propia cuenta. El repertorio es compartido y solo la cuenta administradora puede modificarlo.</p>
 </section>
 <script id="consorte-cloud-sync">
 (()=>{
@@ -2271,6 +2302,7 @@ const BUCKET='consorte-private';
 const STORAGE_KEY='consorte_cloud_session_v1';
 const $c=id=>document.getElementById(id);
 const panel=$c('consorte-cloud-panel');
+$c('orchestraAccountMount').append(panel);
 const status=t=>{$c('cloud-status').textContent=t;};
 let session=null, busy=false, syncing=false, manualSync=false;
 const syncButton=$c('cloud-sync-now');
@@ -2402,12 +2434,64 @@ function loadSession(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||
 function saveSession(value){
  if(value?.access_token){value={...value};if(!value.expires_at&&value.expires_in)value.expires_at=Math.floor(Date.now()/1000)+Number(value.expires_in);
  if(!value.expires_at){try{value.expires_at=JSON.parse(atob(value.access_token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).exp||0}catch{}}}
- session=value;try{if(value)localStorage.setItem(STORAGE_KEY,JSON.stringify(value));else localStorage.removeItem(STORAGE_KEY)}catch{};if(value?.access_token)adoptUnboundOperations();showSession()
+ session=value;try{if(value)localStorage.setItem(STORAGE_KEY,JSON.stringify(value));else localStorage.removeItem(STORAGE_KEY)}catch{};if(value?.access_token&&value.user?.id===CONSORT_ADMIN_ID)adoptUnboundOperations();showSession()
 }
-function showSession(){const on=!!session?.access_token;$c('cloud-login').style.display=on?'none':'';$c('cloud-signup').style.display=on?'none':'';$c('cloud-email').style.display=on?'none':'';$c('cloud-password').style.display=on?'none':'';$c('cloud-logout').style.display=on?'':'none';$c('cloud-sync-now').style.display=on?'':'none';if(on)status('Conectado: '+(session.user?.email||'cuenta activa'))}
-async function authFetch(path,payload){const res=await fetch(SUPABASE_URL+'/auth/v1/'+path,{method:'POST',headers:{'apikey':PUB_KEY,'Content-Type':'application/json'},body:JSON.stringify(payload)});const data=await res.json().catch(()=>({}));if(!res.ok)throw Error(data.msg||data.error_description||data.message||data.error||('Error '+res.status));return data;}
-async function validateSession(){if(!session)return false;if((session.expires_at||0)>Math.floor(Date.now()/1000)+90)return true;if(!session.refresh_token){saveSession(null);return false;}try{const v=await authFetch('token?grant_type=refresh_token',{refresh_token:session.refresh_token});saveSession(v);return true}catch(e){saveSession(null);status('La sesión expiró: entra nuevamente.');return false}}
-async function api(path,options={}){if(!await validateSession())throw Error('Inicia sesión para sincronizar');const hdr={'apikey':PUB_KEY,'Authorization':'Bearer '+session.access_token,...(options.headers||{})};const res=await fetch(SUPABASE_URL+path,{...options,headers:hdr});if(!res.ok){const body=await res.text();throw Error('Nube '+res.status+': '+body.slice(0,200))}return res}
+function showSession(){const on=!!session?.access_token,admin=on&&session.user?.id===CONSORT_ADMIN_ID;
+ document.documentElement.dataset.consortRole=on?(admin?'admin':'member'):'guest';
+ $c('cloud-login').style.display=on?'none':'';$c('cloud-signup').style.display=on?'none':'';$c('cloud-email').style.display=on?'none':'';$c('cloud-password').style.display=on?'none':'';$c('cloud-logout').style.display=on?'':'none';$c('cloud-sync-now').style.display=on?'':'none';
+ $c('orchestraAccountRole').textContent=on?(admin?'Cuenta administradora · Desarrollador':'Integrante · Solo consulta'):'Inicia sesión para consultar el repertorio';
+ if(on)status('Conectado: '+(session.user?.email||'cuenta activa'));
+ else nav('backup');
+}
+async function authFetch(path,payload){const res=await fetch(SUPABASE_URL+'/auth/v1/'+path,{method:'POST',headers:{'apikey':PUB_KEY,'Content-Type':'application/json'},body:JSON.stringify(payload)});const data=await res.json().catch(()=>({}));if(!res.ok){const e=Error(data.msg||data.error_description||data.message||data.error||('Error '+res.status));e.status=res.status;e.code=data.error_code||data.code||data.error;throw e}return data;}
+let refreshPromise=null;
+async function validateSession(force=false){
+ if(!session)return false;
+ if(!force&&(session.expires_at||0)>Math.floor(Date.now()/1000)+90)return true;
+ if(refreshPromise)return refreshPromise;
+ const work=async()=>{
+  const saved=loadSession();if(!saved||saved.user?.id!==session?.user?.id)return false;
+  if(saved.refresh_token!==session.refresh_token&&saved.expires_at>Math.floor(Date.now()/1000)+90){session=saved;return true}
+  if(!session.refresh_token){status('La sesión necesita renovarse. Cierra sesión y vuelve a entrar.');return false}
+  try{const v=await authFetch('token?grant_type=refresh_token',{refresh_token:session.refresh_token});if(loadSession()?.user?.id!==v.user?.id)return false;saveSession(v);return true}
+  catch(e){status('No se pudo renovar la sesión. '+((e.status===400||e.status===401)?'Si el problema continúa, cierra sesión y vuelve a entrar.':'Se reintentará al recuperar conexión.'));return false}
+ };
+ refreshPromise=(navigator.locks?.request?navigator.locks.request('consorte-session-refresh',work):work()).finally(()=>{refreshPromise=null});
+ return refreshPromise;
+}
+async function api(path,options={}){
+ if(!await validateSession())throw Error('No se pudo renovar la conexión de la cuenta');
+ const request=()=>fetch(SUPABASE_URL+path,{...options,headers:{'apikey':PUB_KEY,'Authorization':'Bearer '+session.access_token,...(options.headers||{})}});
+ let res=await request();if(res.status===401&&await validateSession(true))res=await request();
+ if(!res.ok){const body=await res.text();throw Error('Nube '+res.status+': '+body.slice(0,200))}return res;
+}
+let visitLogged=false,activityRows=[],activityNames=new Map(),lastViewed=new Map();
+async function logActivity(event,record_id=null){
+ if(!session||session.user?.id===CONSORT_ADMIN_ID||!navigator.onLine)return false;
+ try{await api('/rest/v1/consorte_orchestra_activity',{method:'POST',headers:{'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({event,record_id})});return true}catch(e){console.warn('No se registró la actividad',e.message);return false}
+}
+window.consorteLogSong=r=>{
+ if(!r||r.type!=='file'||!session||session.user?.id===CONSORT_ADMIN_ID)return;
+ const key=r.song||r.id,now=Date.now();if(now-(lastViewed.get(key)||0)<30000)return;lastViewed.set(key,now);
+ logActivity('song',r.id).then(ok=>{if(!ok)lastViewed.delete(key)});
+};
+function drawActivity(){
+ const q=$c('orchestraActivitySearch').value.toLocaleLowerCase('es'),body=$c('orchestraActivityRows');body.replaceChildren();
+ const rows=activityRows.filter(r=>(r.email+' '+(activityNames.get(r.record_id)||'')+' '+r.event).toLocaleLowerCase('es').includes(q));
+ for(const r of rows){const tr=document.createElement('tr');for(const value of [new Date(r.created_at).toLocaleString('es-CL'),r.email,r.event==='visit'?'Acceso':'Consulta',r.record_id?(activityNames.get(r.record_id)||'Archivo retirado'):'—']){const td=document.createElement('td');td.textContent=value;tr.append(td)}body.append(tr)}
+ $c('orchestraActivityStatus').textContent=rows.length+' registros mostrados · '+new Set(rows.map(r=>r.user_id)).size+' cuentas';
+}
+async function loadActivity(){
+ if(session?.user?.id!==CONSORT_ADMIN_ID)return;
+ $c('orchestraActivityStatus').textContent='Cargando actividad…';
+ try{const since=new Date(Date.now()-90*86400000).toISOString();
+ const [rows,items]=await Promise.all([api('/rest/v1/consorte_orchestra_activity?select=user_id,email,event,record_id,created_at&created_at=gte.'+encodeURIComponent(since)+'&order=created_at.desc&limit=1000').then(r=>r.json()),remoteList()]);
+ activityRows=rows;activityNames=new Map(items.map(r=>[r.id,r.metadata?.song||r.metadata?.name||r.id]));drawActivity();
+ }catch(e){$c('orchestraActivityStatus').textContent='No se pudo consultar: '+e.message}
+}
+$c('orchestraActivityRefresh').onclick=loadActivity;
+$c('orchestraActivitySearch').oninput=drawActivity;
+document.querySelectorAll('[data-page="backup"]').forEach(b=>b.addEventListener('click',()=>{if(consortCanEdit())loadActivity()}));
 function pathFor(rec){
  const id=String(rec.id).replace(/[^A-Za-z0-9_-]/g,'_');
  const extension=String(rec.name||'').match(/\.([A-Za-z0-9]{1,12})$/);
@@ -2416,7 +2500,7 @@ function pathFor(rec){
 }
 function mimeFor(r){return r.blob?.type||({'pdf':'application/pdf','audio':'audio/mpeg','image':'image/png'})[r.kind]||'application/octet-stream'}
 async function cloudSave(r,operation=pendingOperations()[r.id]){
- if(!session||suppress||!r)return;
+ if(!session||session.user?.id!==CONSORT_ADMIN_ID||suppress||!r)return;
  const token=operation?.token||null;
  const res=await api('/rest/v1/consorte_sync_items?select=id,updated_at,object_path,metadata&id=eq.'+encodeURIComponent(r.id)+'&limit=1',
   {headers:{Accept:'application/json'}});
@@ -2476,12 +2560,14 @@ async function cloudSave(r,operation=pendingOperations()[r.id]){
  completedOperation(r.id,token,saved[0].updated_at||updated_at,saved[0].metadata?.sync_rev||newRev);
 }
 putRecord=async function(r){
+ if(!consortCanEdit())throw Error('Solo la cuenta administradora puede modificar la biblioteca');
  await localPut(r);
  queueOperation(r.id,'put');
  status(session?'Cambio guardado · sincronización pendiente: '+(r.name||'documento'):
   'Guardado local. Inicia sesión para compartir: '+(r.name||'documento'));
 };
 delRecord=async function(id){
+ if(!consortCanEdit())throw Error('Solo la cuenta administradora puede eliminar archivos');
  const previous=(await allRecords()).find(r=>r.id===id);
  await localDelete(id);
  queueOperation(id,'delete',previous);
@@ -2516,7 +2602,7 @@ async function remoteList(){
  // No dejar fuera archivos si la biblioteca supera 1000 registros.
  const items=[];
  for(let offset=0;offset<100000;offset+=1000){
-   const res=await api('/rest/v1/consorte_sync_items?select=id,metadata,object_path,updated_at&order=id.asc&limit=1000&offset='+offset,{headers:{Accept:'application/json'}});
+   const res=await api('/rest/v1/consorte_sync_items?owner_id=eq.'+CONSORT_ADMIN_ID+'&select=id,metadata,object_path,updated_at&order=id.asc&limit=1000&offset='+offset,{headers:{Accept:'application/json'}});
    const page=await res.json();
    if(!Array.isArray(page))throw Error('Respuesta inesperada de la nube');
    items.push(...page);
@@ -2648,7 +2734,7 @@ function notifySharedSettingsApplied(changed){
   'Se recibieron '+changed+' ajustes de tu cuenta. Pulsa «Aplicar ajustes» para actualizar diseño, agenda y preferencias.';
 }
 async function syncAccountPreferences(){
- if(!session||preferenceSyncInProgress)return {skipped:true};
+ if(!session||session.user?.id!==CONSORT_ADMIN_ID||preferenceSyncInProgress)return {skipped:true};
  preferenceSyncInProgress=true;
  try{
   const response=await api('/rest/v1/consorte_sync_preferences?select=pref_key,pref_value,updated_at&order=pref_key.asc&limit=1000');
@@ -2715,7 +2801,7 @@ async function pull(){
   let added=0,updated=0,removed=0,skippedPending=0,failed=0,firstError='';
   for(const row of ordered){
    const original=byLocal.get(row.id);
-   if(pendingOperations()[row.id]){skippedPending++;continue}
+   if(session.user.id===CONSORT_ADMIN_ID&&pendingOperations()[row.id]){skippedPending++;continue}
    const remoteStamp=row.updated_at;
    if(row.metadata?.deleted){
     if(original){try{await localDelete(row.id);byLocal.delete(row.id);removed++}
@@ -2753,6 +2839,7 @@ async function pull(){
     failed++;if(!firstError)firstError=(copy.name||row.id)+': '+error.message;
    }
   }
+  if(session.user.id!==CONSORT_ADMIN_ID){const active=new Set(remote.filter(r=>!r.metadata?.deleted).map(r=>r.id));for(const item of current){if(!active.has(item.id)){await localDelete(item.id);byLocal.delete(item.id);removed++}}}
   if(added||updated||removed)await refresh();
   const files=remote.filter(row=>row.metadata?.type==='file'&&!row.metadata?.deleted);
   const cloudOnly=files.filter(row=>!(byLocal.get(row.id)?.blob instanceof Blob)).length;
@@ -2784,6 +2871,7 @@ async function preserveConflictingFile(item,operation){
  return true;
 }
 async function pushExisting(){
+ if(session?.user?.id!==CONSORT_ADMIN_ID)return {skipped:true,saved:0};
  if(!session||!db||!navigator.onLine)return {error:'No hay sesión, conexión o biblioteca local'};
  if(busy)return {error:'Ya existe una subida activa'};
  busy=true;
@@ -2824,7 +2912,7 @@ async function pushExisting(){
  finally{busy=false}
 }
 async function login(signup){const email=$c('cloud-email').value.trim(),password=$c('cloud-password').value;if(!email||!password){status('Escribe tu correo y contraseña.');return}
-try{status('Conectando…');const v=await authFetch(signup?'signup':'token?grant_type=password',{email,password});if(!v.access_token){status('Revisa tu correo para confirmar la cuenta, luego pulsa Entrar.');return}saveSession(v);await synchronizeAll()}catch(e){status('No se pudo iniciar sesión: '+e.message)}}
+try{status('Conectando…');const v=await authFetch(signup?'signup':'token?grant_type=password',{email,password});if(!v.access_token){status('Revisa tu correo para confirmar la cuenta, luego pulsa Entrar.');return}saveSession(v);$c('cloud-password').value='';location.reload()}catch(e){status('No se pudo iniciar sesión: '+e.message)}}
 $c('cloud-login').onclick=()=>login(false);
 $c('cloud-signup').onclick=()=>login(true);
 
@@ -2863,7 +2951,12 @@ $c('cloud-sync-now').onclick=async()=>{
   manualSync=false;button.disabled=false;button.textContent=previous;
  }
 };
-$c('cloud-logout').onclick=()=>{saveSession(null);status('Sesión cerrada. Archivos locales conservados.')};
+$c('cloud-logout').onclick=async()=>{
+ const button=$c('cloud-logout');button.disabled=true;
+ try{if(session&&navigator.onLine)await api('/auth/v1/logout?scope=local',{method:'POST'})}catch(e){console.warn('Cierre remoto no disponible',e.message)}
+ finally{saveSession(null);location.reload()}
+};
+window.addEventListener('storage',e=>{if(e.key!==STORAGE_KEY)return;const next=loadSession();if(next?.user?.id!==session?.user?.id){location.reload();return}session=next;showSession()});
 saveSession(loadSession());
 // Una sola sincronización a la vez, para no mezclar escrituras de dispositivos.
 let syncSequence=null;
@@ -2875,6 +2968,7 @@ async function synchronizeAll(){
    const uploaded=await pushExisting();
    const received=await pull();
    const settings=await syncAccountPreferences();
+   if(!visitLogged&&session?.user?.id!==CONSORT_ADMIN_ID&&!received?.error){visitLogged=await logActivity('visit');}
    const result={pull:received||{},push:uploaded||{},settings:settings||{}};
    const incomplete=result.pull.error||result.push.error||result.settings.error||result.pull.failed||result.push.failed||result.push.pending;
    if(incomplete){
@@ -3507,7 +3601,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
   for(const p of collection.playlists){const b=action('♫ '+p.name+' · '+p.ids.length,()=>selectView(p.id));b.setAttribute('aria-pressed',String(view===p.id));root.append(b)}
   const p=playlist();el('cgViewTitle').textContent=view==='home'?'Mis canciones':view==='favorites'?'Favoritas':view==='queue'?'Cola de reproducción':p?.name||'Playlist';
   el('cgRenamePlaylist').hidden=!p;el('cgDeletePlaylist').hidden=!p;
-  el('cgAddLibrary').hidden=view==='queue';el('cgUpload').hidden=view==='queue';
+  el('cgAddLibrary').hidden=view==='queue';el('cgUpload').hidden=view==='queue'||!consortCanEdit();
   el('cgClear').textContent=view==='queue'?'Vaciar cola':'Vaciar lista';
  }
  function openPlaylist(editId=null,addId=null){playlistEdit=editId;playlistAddSong=addId;el('cgPlaylistDialogTitle').textContent=editId?'Renombrar playlist':'Crear playlist';el('cgPlaylistName').value=playlist(editId)?.name||'';el('cgPlaylistDialog').showModal();el('cgPlaylistName').focus()}
@@ -3589,6 +3683,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
  }
  async function play(id){
   const r=state.records.find(x=>x.id===id&&isAudio(x));if(!r)return;
+  window.consorteLogSong?.(r);
   if(currentId===id&&isLoading)return;
   if(currentId===id&&url&&audio.getAttribute('src')&&!audio.error){startPlayback(loading);return}
   if(currentId&&currentId!==id)history.push(currentId);
