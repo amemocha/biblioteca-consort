@@ -1,15 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="Carpeta musical">
-<defs>
-<linearGradient id="back" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#3B82F6"/><stop offset=".58" stop-color="#2563EB"/><stop offset="1" stop-color="#173B76"/></linearGradient>
-<linearGradient id="front" x1=".1" x2=".9" y1="0" y2="1"><stop stop-color="#2B568B"/><stop offset=".52" stop-color="#172B46"/><stop offset="1" stop-color="#10243E"/></linearGradient>
-<linearGradient id="note" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#FFFFFF"/><stop offset="1" stop-color="#B8D6FF"/></linearGradient>
-<filter id="shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="7" stdDeviation="8" flood-color="#102947" flood-opacity=".24"/></filter>
-</defs>
-<g filter="url(#shadow)">
-<path d="M24 67q0-18 18-18h63l18 19h91q18 0 18 18v102H24Z" fill="url(#back)" stroke="#1D4ED8" stroke-width="3"/>
-<path d="M55 93h150q8 0 8 8v75H47v-75q0-8 8-8Z" fill="#EAF2FF"/>
-<path d="M47 108h165q7 0 7 7v69H40v-69q0-7 7-7Z" fill="#C8DBF7"/>
-<path d="M30 120h196q15 0 15 15v67q0 20-20 20H35q-20 0-20-20v-67q0-15 15-15Z" fill="url(#front)" stroke="#315C92" stroke-width="3"/>
-<path d="M18 137q5-14 19-14h184q12 0 17 12" fill="none" stroke="#5B8DCF" stroke-opacity=".55" stroke-width="4"/>
-<path d="M143 154v45q-3 8-12 12-10 5-18-1-7-6-3-15 5-11 20-12 4 0 7 2v-47l54-15v59q-3 8-12 12-10 5-18-1-7-6-3-15 5-11 20-12 4 0 7 2v-34Z" fill="url(#note)" stroke="#C7DEFF" stroke-width="1.5"/>
-</g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Canción"><rect x="12" y="12" width="232" height="232" rx="48" fill="#e7f0ff"/><circle cx="128" cy="128" r="86" fill="#2455a6"/><circle cx="128" cy="128" r="67" fill="none" stroke="#79a3e4" stroke-width="2"/><circle cx="128" cy="128" r="54" fill="none" stroke="#79a3e4" stroke-width="2"/><path d="M115 161v-59l55-15v56c0 18-31 24-37 10-5-13 13-24 24-20v-28l-29 8v46c0 18-31 24-37 10-5-13 13-24 24-20" fill="#fff"/></svg>
