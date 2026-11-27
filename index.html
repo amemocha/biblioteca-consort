@@ -1218,6 +1218,7 @@ async function showLinkedTab(r){
  state.currentTab=r;
  $('tabView').hidden=false;
  $('scoreview').hidden=true;
+ loadCurrentMarks();
  await showTabPage(1);
 }
 $('showTab').onclick=async()=>{
@@ -1227,7 +1228,7 @@ $('showTab').onclick=async()=>{
   if(!choices.length){alert('Sube primero tu archivo de tablatura a la biblioteca.');return}
   r=await selectRecordDialog(choices,'Seleccionar tablatura');
   if(!r)return;
-  if(state.piece?.type==='file'){state.piece.tabId=r.id;await putRecord(state.piece);await refresh()}
+  if(state.piece?.type==='file'&&consortCanEdit()){state.piece.tabId=r.id;await putRecord(state.piece);await refresh()}
  }
  await showLinkedTab(r);
  updateTabButton();
@@ -1236,6 +1237,7 @@ $('tabPrev').onclick=()=>showTabPage(tabPage-1);
 $('tabNext').onclick=()=>showTabPage(tabPage+1);
 $('tabBack').onclick=()=>{
  $('tabView').hidden=true;$('scoreview').hidden=false;
+ loadCurrentMarks();
  if(document.fullscreenElement===$('tabView'))document.exitFullscreen().catch(()=>{});
  if($('tabView').classList.contains('consort-fullscreen-fallback'))toggleConsortFullscreen($('tabView'));
 };
@@ -1312,7 +1314,7 @@ async function chooseScore(r,selection=studySelection){
  $('tabView').hidden=true;$('scoreview').hidden=false;
  resetScore();state.score=r;state.scoreUrl=URL.createObjectURL(r.blob);
  $('scoreName').textContent=r.name;
- state.marks=JSON.parse(localStorage.getItem('consorte_marks_'+r.id)||'[]');
+ loadCurrentMarks();
  renderMarks();await showPage(1);
 }
 function scorePageAtScroll(){
@@ -1468,11 +1470,15 @@ window.consorteAudioEditorBridge={
 $('chooseScore').onclick=()=>pickExisting('score');$('chooseAudio').onclick=()=>pickExisting('audio');
 function pickExisting(kind){let rs=state.records.filter(r=>r.type==='file'&&(kind==='audio'?r.kind==='audio':['pdf','image'].includes(r.kind)));if(!rs.length){alert('No hay archivos de este tipo en la biblioteca. Usa el selector de abajo para elegir uno del dispositivo.');return}let names=rs.map((r,i)=>`${i+1}. ${r.name}`).join('\n');let v=prompt('Escribe el número del archivo:\n'+names);let n=Number(v);if(!Number.isInteger(n)||n<1||n>rs.length)return;kind==='audio'?chooseAudio(rs[n-1]):chooseScore(rs[n-1])}
 $('directScore').onchange=e=>{let f=e.target.files[0];if(f)chooseScore({id:'direct_'+f.name,name:f.name,blob:f,kind:getKind(f)});e.target.value=''};$('directAudio').onchange=e=>{let f=e.target.files[0];if(f)chooseAudio({id:'direct_'+f.name,name:f.name,blob:f,kind:'audio'});e.target.value=''};
-function renderMarks(){const el=$('marks');el.replaceChildren();state.marks.sort((a,b)=>a.time-b.time);state.marks.forEach((m,i)=>{const line=document.createElement('div');line.className='flex';line.style.marginTop='6px';line.append(createButton(`${formatTime(m.time)} → página ${m.page}`,()=>{$('player').currentTime=m.time;showPage(m.page)}),createButton('×',()=>{state.marks.splice(i,1);storeMarks()},'mini danger'));el.append(line)})}
+function currentMarkDocument(){return !$('tabView').hidden&&state.currentTab?state.currentTab:state.score}
+function loadCurrentMarks(){const doc=currentMarkDocument();try{const data=JSON.parse(doc?localStorage.getItem((consortCanEdit()?'':'consort_shared_')+'consorte_marks_'+doc.id)||'[]':'[]');state.marks=Array.isArray(data)?data.filter(m=>Number.isFinite(m.time)&&Number.isInteger(m.page)&&m.page>0):[]}catch{state.marks=[]}scoreLastTimedMark=null;renderMarks()}
+function markedPage(page){return !$('tabView').hidden&&state.currentTab?showTabPage(page):showPage(page)}
+function renderMarks(){const el=$('marks');el.replaceChildren();state.marks.sort((a,b)=>a.time-b.time);state.marks.forEach((m,i)=>{const line=document.createElement('div');line.className='flex';line.style.marginTop='6px';line.append(createButton(formatTime(m.time)+' → página '+m.page,()=>{$('player').currentTime=m.time;markedPage(m.page)}));if(consortCanEdit())line.append(createButton('×',()=>{state.marks.splice(i,1);storeMarks()},'mini danger'));el.append(line)})}
 const formatTime=n=>Math.floor(n/60)+':'+String(Math.floor(n%60)).padStart(2,'0');
-function storeMarks(){if(!state.score)return;localStorage.setItem('consorte_marks_'+state.score.id,JSON.stringify(state.marks));renderMarks()}
-$('addMark').onclick=()=>{if(!state.score||!state.audio)return alert('Selecciona una partitura y un audio.');state.marks=state.marks.filter(m=>m.page!==state.page);state.marks.push({time:$('player').currentTime,page:state.page});storeMarks()};$('clearMarks').onclick=()=>{if(confirm('¿Borrar todas las marcas de esta partitura?')){state.marks=[];storeMarks()}};
-$('player').ontimeupdate=()=>{if(!state.marks.length||!state.score)return;const t=$('player').currentTime;let mark=state.marks.filter(m=>m.time<=t+.15).at(-1);if(!mark){scoreLastTimedMark=null;return}if(mark.time!==scoreLastTimedMark){scoreLastTimedMark=mark.time;if(mark.page!==state.page)showPage(mark.page)}};
+function storeMarks(){const doc=currentMarkDocument();if(!doc||!consortCanEdit())return;localStorage.setItem('consorte_marks_'+doc.id,JSON.stringify(state.marks));renderMarks();window.consorteStudioSyncPending?.()}
+$('addMark').onclick=()=>{if(!consortCanEdit())return;if(!currentMarkDocument()||!state.audio)return alert('Selecciona un documento y un audio.');const page=!$('tabView').hidden?tabPage:state.page;state.marks=state.marks.filter(m=>m.page!==page);state.marks.push({time:$('player').currentTime,page});storeMarks()};
+$('clearMarks').onclick=()=>{if(consortCanEdit()&&confirm('¿Borrar todas las marcas de este documento?')){state.marks=[];storeMarks()}};
+$('player').ontimeupdate=()=>{if(!state.marks.length||!currentMarkDocument())return;const t=$('player').currentTime,mark=state.marks.filter(m=>m.time<=t+.15).at(-1);if(!mark){scoreLastTimedMark=null;return}if(mark.time!==scoreLastTimedMark){scoreLastTimedMark=mark.time;if(mark.page!==(!$('tabView').hidden?tabPage:state.page))markedPage(mark.page)}};
 $('speed').oninput=()=>{$('speedText').textContent=$('speed').value+'%';$('player').playbackRate=Number($('speed').value)/100;try{$('player').preservesPitch=true}catch{}};
 let audioContext=null,meterTimer=null,meterCount=0;
 function tick(){if(!audioContext)return;let beats=Math.max(2,Number($('beats').value)),first=meterCount%beats===0;meterCount++;let osc=audioContext.createOscillator(),gain=audioContext.createGain();osc.type='sine';osc.frequency.value=first?1100:760;gain.gain.setValueAtTime(.14,audioContext.currentTime);gain.gain.exponentialRampToValueAtTime(.001,audioContext.currentTime+.065);osc.connect(gain).connect(audioContext.destination);osc.start();osc.stop(audioContext.currentTime+.07);$('meterLamp').classList.toggle('on',first)}
@@ -2746,12 +2752,14 @@ function notifySharedSettingsApplied(changed){
   'Se recibieron '+changed+' ajustes de tu cuenta. Pulsa «Aplicar ajustes» para actualizar diseño, agenda y preferencias.';
 }
 async function syncAccountPreferences(){
- if(!session||session.user?.id!==CONSORT_ADMIN_ID||preferenceSyncInProgress)return {skipped:true};
+ if(!session||preferenceSyncInProgress)return {skipped:true};
  preferenceSyncInProgress=true;
  try{
-  const response=await api('/rest/v1/consorte_sync_preferences?select=pref_key,pref_value,updated_at&order=pref_key.asc&limit=1000');
+  const admin=session.user.id===CONSORT_ADMIN_ID;
+  const response=await api('/rest/v1/consorte_sync_preferences?owner_id=eq.'+CONSORT_ADMIN_ID+'&select=pref_key,pref_value,updated_at&order=pref_key.asc&limit=1000');
   const remoteRows=await response.json();
   if(!Array.isArray(remoteRows))throw Error('Respuesta de ajustes no válida');
+  if(!admin){let received=0;const keep=new Set();for(const row of remoteRows){if(!row.pref_key?.startsWith('consorte_marks_'))continue;const key='consort_shared_'+row.pref_key;keep.add(key);const raw=typeof row.pref_value==='string'?row.pref_value:JSON.stringify(row.pref_value||[]);if(localStorage.getItem(key)!==raw){localStorage.setItem(key,raw);received++}}if(remoteRows.length<1000){for(let i=localStorage.length-1;i>=0;i--){const key=localStorage.key(i);if(key?.startsWith('consort_shared_consorte_marks_')&&!keep.has(key)){localStorage.removeItem(key);received++}}}if(received)loadCurrentMarks();return {received,uploaded:0};}
   const remoteMap=new Map(remoteRows.map(r=>[r.pref_key,r]));
   const base=sharedPrefBase(),keys=sharedPrefKeys(remoteRows);
   let received=0,uploaded=0,conflicts=0;
@@ -2787,7 +2795,7 @@ async function syncAccountPreferences(){
    base[key]=remoteHash;received++;
   }
   rememberSharedPrefBase(base);
-  if(received)notifySharedSettingsApplied(received);
+  if(received){loadCurrentMarks();notifySharedSettingsApplied(received);}
   return {received,uploaded,conflicts};
  }catch(error){
   console.warn('Sincronización de ajustes pendiente',error);
@@ -3336,16 +3344,6 @@ canvas.onpointermove=e=>{if(!penDown)return;const p=pos(e);ctx.beginPath();ctx.s
 canvas.onpointerup=canvas.onpointercancel=()=>{penDown=false};
 $('note-drawing-insert').onclick=()=>{addImage(canvas.toDataURL('image/jpeg',.75));$('note-drawing-dialog').close();resetDrawing()};
 })();
-</script><script id="consort-ui-recovery">
-(function(){
-const keys=['consorte_freestyle_editor_v1','consorte_visual_design_v2','consorte_theme'];
-const saved=localStorage.getItem('consort_ui_recovery_backup_2026');
-if(!saved){const backup={};keys.forEach(k=>backup[k]=localStorage.getItem(k));try{localStorage.setItem('consort_ui_recovery_backup_2026',JSON.stringify(backup))}catch(e){}}
-const b=document.createElement('button');b.type='button';b.id='consortRestoreControls';b.textContent='Restaurar botones';b.title='Recuperar los controles sin borrar partituras, audios ni notas';
-b.style.cssText='position:fixed;right:12px;top:12px;z-index:2147483640;background:#fff;color:#673caa;border:2px solid #8750c4;border-radius:13px;padding:8px 12px;font-size:12px;box-shadow:0 3px 12px #0002';
-b.onclick=function(){if(!confirm('¿Restaurar la distribución de botones y el diseño del editor? No se borrarán partituras, audios, notas ni carpetas.'))return;keys.forEach(k=>localStorage.removeItem(k));location.reload()};
-document.body.appendChild(b);
-})();
 </script><style id="editableFolderIconColor">
 html body .app .folder-circle::before{background-image:none!important;background-color:var(--user-folder-color,#7e3fb5)!important;filter:none!important;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='24' viewBox='0 0 28 24'%3E%3Cpath d='M3 6V4.5Q3 3 4.5 3H11l3 3h9.5Q25 6 25 7.5v12Q25 21 23.5 21h-19Q3 21 3 19.5Z' fill='black'/%3E%3C/svg%3E") center/contain no-repeat!important;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='24' viewBox='0 0 28 24'%3E%3Cpath d='M3 6V4.5Q3 3 4.5 3H11l3 3h9.5Q25 6 25 7.5v12Q25 21 23.5 21h-19Q3 21 3 19.5Z' fill='black'/%3E%3C/svg%3E") center/contain no-repeat!important}
 </style><script>
@@ -3823,7 +3821,7 @@ for(const id of ['newFolder','pickFiles','organizeSongs','undoLastLibraryAction'
 if(controls)controls.style.display='none';
 const toolbar=document.querySelector('#library .library-view-toolbar');if(toolbar){content.append(toolbar);toolbar.querySelector('.view-label')?.remove()}
 const admin=consortCanEdit();if(admin){const sync=createButton('Actualizar repertorio',()=>window.consorteOrchestraSync?.());content.append(sync)}
-document.getElementById('consortNavBack').onclick=()=>{if(consortAccessRole()==='guest')return;if(history.state?.consorteNavigation&&history.state.consortDepth>0){history.back();return}if(state.folder){state.folder=rec(state.folder)?.parent||null;renderLibrary();nav('library')}else if(consorteCurrentPage()!=='library')nav('library')};
+document.getElementById('consortNavBack').onclick=()=>{if(consortAccessRole()==='guest')return;if(history.state?.consorteNavigation&&history.state.consorteDepth>0){history.back();return}if(state.folder){state.folder=rec(state.folder)?.parent||null;renderLibrary();nav('library')}else if(consorteCurrentPage()!=='library')nav('library')};
 document.getElementById('consortNavForward').onclick=()=>{if(consortAccessRole()!=='guest')history.forward()};
 document.addEventListener('click',event=>{if(menu.open&&!menu.contains(event.target))menu.open=false});
 document.addEventListener('keydown',event=>{if(event.key==='Escape')menu.open=false});
